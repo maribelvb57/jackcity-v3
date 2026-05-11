@@ -7,6 +7,8 @@ import { ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown, ChevronDown,
 import { ResultCard, type ResultCardData } from "@/components/result-card"
 import { SearchFilters } from "@/components/search-filters"
 import { SearchBenefitsBanner } from "@/components/search-benefits-banner"
+import { useSearchStore } from "@/providers/search-store-provider"
+import { searchHotels, type Hotel } from "@/lib/api/hotels"
 
 const ORDENAR_OPTIONS = [
   "Recomendados de Jack",
@@ -15,104 +17,21 @@ const ORDENAR_OPTIONS = [
   "Mejor puntuación Usuarios",
 ]
 
-const MOCK_RESULTS: ResultCardData[] = [
-  {
-    name: "Hotel Boutique Patitas Inn",
-    score: 9.0,
-    scoreLabel: "Fantástico",
-    reviewCount: 181,
-    address: "Valenzuela Palma, La Reina",
-    features: ["Libre de Jaulas", "Amplio espacio al aire libre", "Veterinario on site"],
-    freeCancellation: true,
-    petCount: 2,
-    nights: 5,
-    price: 178000,
-    imageUrl: "/images/hotel-patitas-inn.jpg",
-    recommended: true,
-  },
-  {
-    name: "Hostal Huellitas",
-    score: 8.5,
-    scoreLabel: "Muy bueno",
-    reviewCount: 94,
-    address: "Av. Apoquindo, Las Condes",
-    features: ["Jardín privado", "Paseos diarios incluidos", "Cámaras 24/7"],
-    freeCancellation: false,
-    petCount: 1,
-    nights: 3,
-    price: 89000,
-    imageUrl: "/images/hotel-huellitas.jpg",
-  },
-  {
-    name: "Pet Lodge Santiago Centro",
-    score: 7.8,
-    scoreLabel: "Bueno",
-    reviewCount: 42,
-    address: "Santo Domingo, Santiago",
-    features: ["Jaula opcional", "Zona de juegos interior"],
-    freeCancellation: true,
-    petCount: 1,
-    nights: 2,
-    price: 54000,
-    imageUrl: "/images/hotel-pet-lodge.jpg",
-  },
-  {
-    name: "Casa Canina Providencia",
-    score: 9.3,
-    scoreLabel: "Excepcional",
-    reviewCount: 230,
-    address: "Manuel Montt, Providencia",
-    features: ["Libre de Jaulas", "Piscina para perros", "Chef especializado en nutrición"],
-    freeCancellation: true,
-    petCount: 2,
-    nights: 4,
-    price: 220000,
-    imageUrl: "/images/hotel-casa-canina.jpg",
-  },
-  {
-    name: "Paws & Rest Ñuñoa",
-    score: 8.1,
-    scoreLabel: "Muy bueno",
-    reviewCount: 67,
-    address: "Irarrázaval, Ñuñoa",
-    features: ["Amplio patio", "Cuidador nocturno", "Baño y secado incluido"],
-    freeCancellation: false,
-    petCount: 1,
-    nights: 5,
-    price: 112000,
-    imageUrl: "/images/hotel-paws-rest.jpg",
-  },
-  {
-    name: "Retiro Peludo Vitacura",
-    score: 9.1,
-    scoreLabel: "Fantástico",
-    reviewCount: 158,
-    address: "Av. Vitacura, Vitacura",
-    features: ["Libre de Jaulas", "Veterinario on site", "Servicio de transporte"],
-    freeCancellation: true,
-    petCount: 3,
-    nights: 7,
-    price: 345000,
-    imageUrl: "/images/hotel-patitas-inn.jpg",
-  },
-  {
-    name: "El Refugio de Firulais",
-    score: 8.7,
-    scoreLabel: "Fantástico",
-    reviewCount: 113,
-    address: "Los Dominicos, Las Condes",
-    features: ["Zona rural", "Libre de Jaulas", "Supervisión permanente"],
-    freeCancellation: true,
-    petCount: 2,
-    nights: 3,
-    price: 134000,
-    imageUrl: "/images/hotel-patitas-inn.jpg",
-  },
-]
+const CARD_DEFAULTS: Omit<ResultCardData, "name"> = {
+  score: 8.5,
+  scoreLabel: "Muy bueno",
+  reviewCount: 0,
+  address: "—",
+  features: [],
+  freeCancellation: false,
+  petCount: 1,
+  nights: 1,
+  price: 0,
+  imageUrl: "/placeholder.jpg",
+}
 
-async function getSearchResults(): Promise<ResultCardData[]> {
-  await new Promise((resolve) => setTimeout(resolve, 250))
-  return MOCK_RESULTS
+function hotelToCardData(hotel: Hotel): ResultCardData {
+  return { ...CARD_DEFAULTS, name: hotel.name }
 }
 
 export default function SearchPage() {
@@ -120,13 +39,29 @@ export default function SearchPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [mobileOrdenar, setMobileOrdenar] = useState("Recomendados de Jack")
   const [mobileOrdenarOpen, setMobileOrdenarOpen] = useState(false)
+
+  const city = useSearchStore((s) => s.city)
+  const dateRange = useSearchStore((s) => s.dateRange)
+  const mascotas = useSearchStore((s) => s.mascotas)
+  const needsTransport = useSearchStore((s) => s.needsTransport)
+
   const {
     data: searchResults = [],
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["search-results"],
-    queryFn: getSearchResults,
+    queryKey: ["search-results", city, dateRange?.from, dateRange?.to, mascotas, needsTransport],
+    queryFn: async (): Promise<ResultCardData[]> => {
+      if (!dateRange?.from || !dateRange?.to) return []
+      const hotels = await searchHotels({
+        city,
+        mascotas,
+        startDate: dateRange.from,
+        endDate: dateRange.to,
+        needTransport: needsTransport,
+      })
+      return hotels.map(hotelToCardData)
+    },
   })
 
   return (
