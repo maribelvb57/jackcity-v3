@@ -73,6 +73,11 @@ export function SearchBar() {
   const mascotas = useSearchStore((state) => state.mascotas)
   const setMascotas = useSearchStore((state) => state.setMascotas)
 
+  const allPetsValid = mascotas.every(
+    (m) => m.raza !== "Sin especificar" && (m.raza !== "Otra Raza o mestizo" || !!m.tamano)
+  )
+  const isSearchEnabled = !!(dateRange?.from && dateRange?.to) && allPetsValid
+
   const cityRef = useRef<HTMLDivElement>(null)
   const calendarRef = useRef<HTMLDivElement>(null)
   const petsRef = useRef<HTMLDivElement>(null)
@@ -228,7 +233,16 @@ export function SearchBar() {
                         onSelect={setDateRange}
                         locale={es}
                         numberOfMonths={1}
-                        fromDate={new Date()}
+                        disabled={(date) => {
+                          const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+                          const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0,0,0,0)
+                          if (d < tomorrow) return true
+                          if (dateRange?.from && !dateRange?.to) {
+                            const from = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate())
+                            if (d.getTime() === from.getTime()) return true
+                          }
+                          return false
+                        }}
                         styles={{
                           root: { fontFamily: '"Proxima Nova", "Avenir Next", Avenir, "Segoe UI", sans-serif', fontSize: "0.875rem", color: "#0A1830" },
                           month_caption: { color: "#0A1830" },
@@ -410,11 +424,16 @@ export function SearchBar() {
                 </label>
                 <button
                   type="button"
-                  onClick={() => router.push("/search")}
-                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all hover:shadow-lg active:scale-95"
-                  style={{ backgroundColor: accentColor, color: "#fff", boxShadow: "0 10px 24px rgba(217, 114, 48, 0.35)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = accentHover)}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = accentColor)}
+                  disabled={!isSearchEnabled}
+                  onClick={() => isSearchEnabled && router.push("/search")}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${isSearchEnabled ? "shadow-md hover:shadow-lg active:scale-95" : "cursor-not-allowed opacity-50"}`}
+                  style={{
+                    backgroundColor: isSearchEnabled ? accentColor : "#6B7280",
+                    color: "#fff",
+                    boxShadow: isSearchEnabled ? "0 10px 24px rgba(217, 114, 48, 0.35)" : "none",
+                  }}
+                  onMouseEnter={(e) => { if (isSearchEnabled) (e.currentTarget.style.backgroundColor = accentHover) }}
+                  onMouseLeave={(e) => { if (isSearchEnabled) (e.currentTarget.style.backgroundColor = accentColor) }}
                 >
                   <Search size={16} />
                   Buscar hotel !!

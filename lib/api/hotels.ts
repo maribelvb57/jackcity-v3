@@ -19,6 +19,7 @@ export type HotelTransport = {
 export type Hotel = {
   id: string
   name: string
+  mainPhotoUrl: string | null
   description: string | null
   addressStreet: string | null
   commune: string | null

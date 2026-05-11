@@ -35,7 +35,11 @@ const CARD_DEFAULTS: Omit<ResultCardData, "name"> = {
 }
 
 function hotelToCardData(hotel: Hotel): ResultCardData {
-  return { ...CARD_DEFAULTS, name: hotel.name }
+  return {
+    ...CARD_DEFAULTS,
+    name: hotel.name,
+    imageUrl: hotel.mainPhotoUrl ?? CARD_DEFAULTS.imageUrl,
+  }
 }
 
 export default function SearchPage() {
