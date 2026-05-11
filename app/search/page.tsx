@@ -34,11 +34,28 @@ const CARD_DEFAULTS: Omit<ResultCardData, "name"> = {
   imageUrl: "/placeholder.jpg",
 }
 
-function hotelToCardData(hotel: Hotel): ResultCardData {
+function getScoreLabel(score: number): string {
+  if (score >= 9.5) return "Excepcional"
+  if (score >= 9.0) return "Fantástico"
+  if (score >= 8.5) return "Fabuloso"
+  if (score >= 8.0) return "Muy bien"
+  if (score >= 7.0) return "Bien"
+  if (score >= 6.0) return "Agradable"
+  return "Aceptable"
+}
+
+function hotelToCardData(hotel: Hotel, petCount: number, nights: number): ResultCardData {
   return {
     ...CARD_DEFAULTS,
     name: hotel.name,
     imageUrl: hotel.mainPhotoUrl ?? CARD_DEFAULTS.imageUrl,
+    score: hotel.avgRating ?? CARD_DEFAULTS.score,
+    scoreLabel: hotel.avgRating != null ? getScoreLabel(hotel.avgRating) : CARD_DEFAULTS.scoreLabel,
+    reviewCount: hotel.reviewsCount ?? CARD_DEFAULTS.reviewCount,
+    address: [hotel.addressStreet, hotel.commune].filter(Boolean).join(", ") || CARD_DEFAULTS.address,
+    petCount,
+    nights,
+    price: hotel.pricing?.totalPrice ?? CARD_DEFAULTS.price,
   }
 }
 
@@ -77,6 +94,8 @@ export default function SearchPage() {
     queryKey: ["search-results", city, dateRange?.from, dateRange?.to, mascotas, needsTransport],
     queryFn: async (): Promise<ResultCardData[]> => {
       if (!dateRange?.from || !dateRange?.to) return []
+      const petCount = mascotas.length
+      const nights = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)
       const hotels = await searchHotels({
         city,
         mascotas,
@@ -84,7 +103,7 @@ export default function SearchPage() {
         endDate: dateRange.to,
         needTransport: needsTransport,
       })
-      return hotels.map(hotelToCardData)
+      return hotels.map((hotel) => hotelToCardData(hotel, petCount, nights))
     },
   })
 
