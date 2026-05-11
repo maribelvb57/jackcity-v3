@@ -39,10 +39,10 @@ const RAZAS = ["Sin especificar", ...Object.keys(RAZAS_TAMANOS)]
 const TAMANOS = ["Pequeño", "Mediano", "Grande", "Extra Grande"]
 
 const CITIES = [
-  "Santiago de Chile",
-  "Concepción",
-  "Valparaíso",
-  "Viña del Mar",
+  { code: "SAN", label: "Santiago de Chile" },
+  { code: "CON", label: "Concepción (próximamente)" },
+  { code: "VAL", label: "Valparaíso (próximamente)" },
+  { code: "VDM", label: "Viña del Mar (próximamente)" },
 ]
 
 export function SearchBar() {
@@ -164,30 +164,36 @@ export function SearchBar() {
                     }}
                   >
                     <MapPin size={16} style={{ color: fieldIconColor, flexShrink: 0 }} />
-                    <span className="flex-1 text-left truncate">{city || "¿En que ciudad?"}</span>
+                    <span className="flex-1 text-left truncate">{CITIES.find((c) => c.code === city)?.label || "¿En que ciudad?"}</span>
                     <ChevronDown size={16} style={{ color: fieldIconColor, transform: cityOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                   </button>
 
                   {cityOpen && (
                     <div className="absolute top-full mt-1 left-0 right-0 z-50 rounded-xl shadow-xl border overflow-hidden" style={{ backgroundColor: inputColor, borderColor: inputBorder }}>
-                      {CITIES.map((c) => (
-                        <button
-                          key={c}
-                          type="button"
-                          onClick={() => { setCity(c); setCityOpen(false) }}
-                          className="w-full px-4 py-2.5 text-sm text-left flex items-center gap-2 transition-colors"
-                          style={{
-                            backgroundColor: city === c ? accentSoft : "transparent",
-                            color: city === c ? accentColor : "#0A1830",
-                            fontWeight: city === c ? 600 : 400,
-                          }}
-                          onMouseEnter={(e) => { if (city !== c) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#FAFAF5" }}
-                          onMouseLeave={(e) => { if (city !== c) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent" }}
-                        >
-                          <MapPin size={14} style={{ color: fieldIconColor }} />
-                          {c}
-                        </button>
-                      ))}
+                      {CITIES.map((c) => {
+                        const isDisabled = c.code !== "SAN"
+                        const isSelected = city === c.code
+                        return (
+                          <button
+                            key={c.code}
+                            type="button"
+                            disabled={isDisabled}
+                            onClick={() => { setCity(c.code); setCityOpen(false) }}
+                            className="w-full px-4 py-2.5 text-sm text-left flex items-center gap-2 transition-colors"
+                            style={{
+                              backgroundColor: isSelected ? accentSoft : "transparent",
+                              color: isDisabled ? "#AAAAAA" : isSelected ? accentColor : "#0A1830",
+                              fontWeight: isSelected ? 600 : 400,
+                              cursor: isDisabled ? "not-allowed" : "pointer",
+                            }}
+                            onMouseEnter={(e) => { if (!isDisabled && !isSelected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#FAFAF5" }}
+                            onMouseLeave={(e) => { if (!isDisabled && !isSelected) (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent" }}
+                          >
+                            <MapPin size={14} style={{ color: isDisabled ? "#CCCCCC" : fieldIconColor }} />
+                            {c.label}
+                          </button>
+                        )
+                      })}
                     </div>
                   )}
                 </div>

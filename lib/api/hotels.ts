@@ -35,10 +35,6 @@ export type Hotel = {
   transport: HotelTransport | null
 }
 
-const CITY_CODES: Record<string, string> = {
-  "Santiago de Chile": "SAN",
-}
-
 const PET_SIZE_MAP: Record<string, PetSize> = {
   "Pequeño": "SMALL",
   "Mediano": "MEDIUM",
@@ -60,7 +56,7 @@ export async function searchHotels(params: {
   needTransport: boolean
 }): Promise<Hotel[]> {
   const body = {
-    city: CITY_CODES[params.city] ?? params.city,
+    city: params.city,
     pets: params.mascotas.map((m) => ({ size: PET_SIZE_MAP[m.tamano] ?? "SMALL" })),
     startDate: formatDate(params.startDate),
     endDate: formatDate(params.endDate),

@@ -2,7 +2,11 @@
 
 import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { useRouter } from "next/navigation"
+import { format } from "date-fns"
+import { es } from "date-fns/locale"
 import { SiteNavbar } from "@/components/site-navbar"
+import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown, ChevronDown, X } from "lucide-react"
 import { ResultCard, type ResultCardData } from "@/components/result-card"
 import { SearchFilters } from "@/components/search-filters"
@@ -35,6 +39,7 @@ function hotelToCardData(hotel: Hotel): ResultCardData {
 }
 
 export default function SearchPage() {
+  const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [mobileOrdenar, setMobileOrdenar] = useState("Recomendados de Jack")
@@ -44,6 +49,21 @@ export default function SearchPage() {
   const dateRange = useSearchStore((s) => s.dateRange)
   const mascotas = useSearchStore((s) => s.mascotas)
   const needsTransport = useSearchStore((s) => s.needsTransport)
+
+  const CITY_LABELS: Record<string, string> = {
+    SAN: "Santiago de Chile",
+    CON: "Concepción",
+    VAL: "Valparaíso",
+    VDM: "Viña del Mar",
+  }
+
+  const summaryData = {
+    city: CITY_LABELS[city] ?? city ?? "—",
+    dateFrom: dateRange?.from ? format(dateRange.from, "d MMM", { locale: es }) : "—",
+    dateTo: dateRange?.to ? format(dateRange.to, "d MMM", { locale: es }) : "—",
+    petCount: mascotas.length,
+    withTransport: needsTransport,
+  }
 
   const {
     data: searchResults = [],
@@ -70,8 +90,16 @@ export default function SearchPage() {
         {/* Top navigation */}
         <SiteNavbar />
 
+        {/* Search summary bar */}
+        <SearchSummaryBar
+          data={summaryData}
+          onChangeClick={() => router.push("/")}
+        />
+
         {/* Benefits banner - Full width */}
-        <SearchBenefitsBanner />
+        <div className="mt-1">
+          <SearchBenefitsBanner />
+        </div>
 
         {/* Main content area */}
         <div className="relative w-full flex flex-col md:flex-row flex-1" style={{ backgroundColor: "#F3F4F6" }}>

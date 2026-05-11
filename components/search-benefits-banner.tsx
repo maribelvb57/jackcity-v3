@@ -39,7 +39,7 @@ export function SearchBenefitsBanner() {
 
       <div
         className="relative hidden rounded-2xl items-center justify-between gap-6 px-6 py-2.5 overflow-visible md:flex"
-        style={{ backgroundColor: BG_CREAM, marginBottom: "7px" }}
+        style={{ backgroundColor: BG_CREAM, marginBottom: "4px" }}
       >
         {/* Decorative shine element */}
         <div
