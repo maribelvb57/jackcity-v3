@@ -16,7 +16,9 @@ import {
   ChevronDown,
   Minus,
   Plus,
-  Check
+  Check,
+  Car,
+  X
 } from "lucide-react"
 
 // Mock hotel data
@@ -29,6 +31,10 @@ const HOTEL_DATA = {
     "No recibe perros en celo",
     "Requiere certificado de desparasitación",
   ],
+  transportOptions: {
+    departure: ["9am - 12m", "12m - 3pm", "3pm - 6pm"],
+    return: ["9am - 12m", "12m - 3pm", "3pm - 6pm"],
+  },
   cancellationPolicy: "Cancelación gratuita hasta 48 horas antes del check-in. Después de ese plazo se cobra el 50% de la reserva.",
 }
 
@@ -98,6 +104,9 @@ export default function BookingConfirmationPage() {
     { name: "", breed: "", size: "Pequeño", color: "", age: 1 },
     { name: "", breed: "", size: "Pequeño", color: "", age: 1 },
   ])
+  const [includeTransport, setIncludeTransport] = useState(RESERVATION_DATA.withTransport)
+  const [selectedDeparture, setSelectedDeparture] = useState<string | null>(null)
+  const [selectedReturn, setSelectedReturn] = useState<string | null>(null)
 
   // Conditions checkboxes
   const [vaccinesUpToDate, setVaccinesUpToDate] = useState(false)
@@ -108,7 +117,7 @@ export default function BookingConfirmationPage() {
   const reservation = RESERVATION_DATA
 
   const basePrice = reservation.pricePerNight * reservation.nights
-  const transportPrice = reservation.withTransport ? reservation.transportPrice : 0
+  const transportPrice = includeTransport ? reservation.transportPrice : 0
   const totalPrice = basePrice + transportPrice
 
   const updatePet = (index: number, field: keyof PetData, value: string | number) => {
@@ -483,6 +492,105 @@ export default function BookingConfirmationPage() {
                 </div>
               </div>
 
+              {/* Selected transport */}
+              <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                  <h2 className="text-lg font-bold" style={{ color: "#0A1830" }}>
+                    Transporte Seleccionado
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIncludeTransport(!includeTransport)
+                      if (includeTransport) {
+                        setSelectedDeparture(null)
+                        setSelectedReturn(null)
+                      }
+                    }}
+                    className="flex w-full items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors sm:w-auto"
+                    style={{
+                      backgroundColor: includeTransport ? "#FEF3C7" : "#fff",
+                      borderColor: includeTransport ? "#FFC43D" : "#E5E7EB",
+                      color: "#0A1830",
+                    }}
+                  >
+                    {includeTransport ? (
+                      <>
+                        <X size={14} />
+                        No deseo transporte
+                      </>
+                    ) : (
+                      <>
+                        <Car size={14} />
+                        Agregar Transporte
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {includeTransport && (
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Ida</p>
+                      <div className="flex flex-col gap-2">
+                        {hotel.transportOptions.departure.map((time) => (
+                          <button
+                            key={`dep-${time}`}
+                            type="button"
+                            onClick={() => setSelectedDeparture(time)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors"
+                            style={{
+                              backgroundColor: selectedDeparture === time ? "#FEF3C7" : "#fff",
+                              borderColor: selectedDeparture === time ? "#FFC43D" : "#E5E7EB",
+                              color: "#0A1830",
+                            }}
+                          >
+                            <div
+                              className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                              style={{ borderColor: selectedDeparture === time ? "#FFC43D" : "#D1D5DB" }}
+                            >
+                              {selectedDeparture === time && (
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#FFC43D" }} />
+                              )}
+                            </div>
+                            {time}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Regreso</p>
+                      <div className="flex flex-col gap-2">
+                        {hotel.transportOptions.return.map((time) => (
+                          <button
+                            key={`ret-${time}`}
+                            type="button"
+                            onClick={() => setSelectedReturn(time)}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors"
+                            style={{
+                              backgroundColor: selectedReturn === time ? "#FEF3C7" : "#fff",
+                              borderColor: selectedReturn === time ? "#FFC43D" : "#E5E7EB",
+                              color: "#0A1830",
+                            }}
+                          >
+                            <div
+                              className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                              style={{ borderColor: selectedReturn === time ? "#FFC43D" : "#D1D5DB" }}
+                            >
+                              {selectedReturn === time && (
+                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#FFC43D" }} />
+                              )}
+                            </div>
+                            {time}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Confirm conditions */}
               <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                 <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>
@@ -552,7 +660,7 @@ export default function BookingConfirmationPage() {
                 <ul className="flex flex-col gap-1.5 text-sm mb-4" style={{ color: "#555" }}>
                   <li>{reservation.petCount} mascotas {reservation.petSize.toLowerCase()}</li>
                   <li>{reservation.nights} noches ({reservation.dateFrom} - {reservation.dateTo})</li>
-                  {reservation.withTransport && (
+                  {includeTransport && (
                     <li>Transporte incluido desde {reservation.transportFrom}</li>
                   )}
                 </ul>

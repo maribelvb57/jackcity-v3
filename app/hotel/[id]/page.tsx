@@ -12,9 +12,7 @@ import {
   ChevronRight,
   Check,
   AlertCircle,
-  Clock,
-  Car,
-  X
+  Clock
 } from "lucide-react"
 
 // Mock data for hotel detail
@@ -62,10 +60,6 @@ Ofrecemos habitaciones individuales y compartidas, todas con climatización y ca
       rating: 8,
     },
   ],
-  transportOptions: {
-    departure: ["9am - 12m", "12m - 3pm", "3pm - 6pm"],
-    return: ["9am - 12m", "12m - 3pm", "3pm - 6pm"],
-  },
   pricePerNight: 32000,
 }
 
@@ -88,14 +82,12 @@ const SEARCH_DATA = {
 export default function HotelDetailPage() {
   const router = useRouter()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [includeTransport, setIncludeTransport] = useState(true)
-  const [selectedDeparture, setSelectedDeparture] = useState<string | null>(null)
-  const [selectedReturn, setSelectedReturn] = useState<string | null>(null)
 
   const hotel = HOTEL_DATA
   const reservation = RESERVATION_DATA
 
   const basePrice = hotel.pricePerNight * reservation.nights * reservation.petCount
+  const includeTransport = SEARCH_DATA.withTransport
   const transportPrice = includeTransport ? 15000 : 0
   const totalPrice = basePrice + transportPrice
 
@@ -123,7 +115,7 @@ export default function HotelDetailPage() {
         />
 
         {/* Main content */}
-        <div className="w-full p-4 md:p-6">
+        <div className="w-full px-4 pt-4 pb-[300px] md:px-6 md:pt-6 md:pb-[300px]">
           {/* Hotel name and location */}
           <div className="mb-4">
             <h1 className="text-2xl md:text-3xl font-bold mb-1" style={{ color: "#0A1830" }}>
@@ -257,106 +249,8 @@ export default function HotelDetailPage() {
                 </div>
               </div>
 
-              {/* 5. Transport — order 5 on mobile, 4 on desktop */}
+              {/* 5. Reservation Summary — order 5 on mobile, 4 on desktop */}
               <div className="order-5 lg:order-4 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-bold" style={{ color: "#0A1830" }}>
-                    Transporte Seleccionado
-                  </h2>
-                  <button
-                    onClick={() => {
-                      setIncludeTransport(!includeTransport)
-                      if (includeTransport) {
-                        setSelectedDeparture(null)
-                        setSelectedReturn(null)
-                      }
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors"
-                    style={{
-                      backgroundColor: includeTransport ? "#FEF3C7" : "#fff",
-                      borderColor: includeTransport ? "#FFC43D" : "#E5E7EB",
-                      color: "#0A1830",
-                    }}
-                  >
-                    {includeTransport ? (
-                      <>
-                        <X size={14} />
-                        No deseo transporte
-                      </>
-                    ) : (
-                      <>
-                        <Car size={14} />
-                        Agregar Transporte
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {includeTransport && (
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    {/* Departure times */}
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Ida</p>
-                      <div className="flex flex-col gap-2">
-                        {hotel.transportOptions.departure.map((time) => (
-                          <button
-                            key={`dep-${time}`}
-                            onClick={() => setSelectedDeparture(time)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors"
-                            style={{
-                              backgroundColor: selectedDeparture === time ? "#FEF3C7" : "#fff",
-                              borderColor: selectedDeparture === time ? "#FFC43D" : "#E5E7EB",
-                              color: "#0A1830",
-                            }}
-                          >
-                            <div
-                              className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                              style={{ borderColor: selectedDeparture === time ? "#FFC43D" : "#D1D5DB" }}
-                            >
-                              {selectedDeparture === time && (
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#FFC43D" }} />
-                              )}
-                            </div>
-                            {time}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Return times */}
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Regreso</p>
-                      <div className="flex flex-col gap-2">
-                        {hotel.transportOptions.return.map((time) => (
-                          <button
-                            key={`ret-${time}`}
-                            onClick={() => setSelectedReturn(time)}
-                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors"
-                            style={{
-                              backgroundColor: selectedReturn === time ? "#FEF3C7" : "#fff",
-                              borderColor: selectedReturn === time ? "#FFC43D" : "#E5E7EB",
-                              color: "#0A1830",
-                            }}
-                          >
-                            <div
-                              className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
-                              style={{ borderColor: selectedReturn === time ? "#FFC43D" : "#D1D5DB" }}
-                            >
-                              {selectedReturn === time && (
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#FFC43D" }} />
-                              )}
-                            </div>
-                            {time}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 6. Reservation Summary — order 6 on mobile, 5 on desktop */}
-              <div className="order-6 lg:order-5 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                   <div>
                     <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>
