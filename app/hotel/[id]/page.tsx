@@ -116,6 +116,18 @@ export default function HotelDetailPage() {
 
         {/* Main content */}
         <div className="w-full px-4 pt-4 pb-[300px] md:px-6 md:pt-6 md:pb-[300px]">
+          {/* Back button */}
+          <div className="mb-4">
+            <button
+              onClick={() => router.back()}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border text-sm font-medium transition-colors hover:bg-gray-50"
+              style={{ borderColor: "#0A1830", color: "#0A1830" }}
+            >
+              <ChevronLeft size={16} />
+              Volver a la lista de hoteles
+            </button>
+          </div>
+
           {/* Hotel name and location */}
           <div className="mb-4">
             <h1 className="text-2xl md:text-3xl font-bold mb-1" style={{ color: "#0A1830" }}>
