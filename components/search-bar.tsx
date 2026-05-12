@@ -223,7 +223,8 @@ export function SearchBar() {
                     }}
                   >
                     <CalendarDays size={16} style={{ color: fieldIconColor, flexShrink: 0 }} />
-                    <span className="flex-1 text-left">{dateLabel()}</span>
+                    <span className="flex-1 text-left truncate">{dateLabel()}</span>
+                    <ChevronDown size={16} style={{ color: fieldIconColor, transform: calendarOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                   </button>
 
                   {calendarOpen && (

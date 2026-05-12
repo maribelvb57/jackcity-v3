@@ -36,11 +36,12 @@ interface SearchFiltersProps {
   onBenefitsChange: (codes: string[]) => void
   puntuacionMin: number
   onPuntuacionChange: (value: number) => void
+  ordenarPor: string
+  onOrdenarChange: (value: string) => void
 }
 
-export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupuesto, onPresupuestoChange, selectedBenefits, onBenefitsChange, puntuacionMin, onPuntuacionChange }: SearchFiltersProps) {
+export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupuesto, onPresupuestoChange, selectedBenefits, onBenefitsChange, puntuacionMin, onPuntuacionChange, ordenarPor, onOrdenarChange }: SearchFiltersProps) {
   const [zonaOpen, setZonaOpen] = useState(false)
-  const [ordenarPor, setOrdenarPor] = useState("Recomendados de Jack")
 
   const toggleBenefit = (code: string) => {
     onBenefitsChange(
@@ -249,7 +250,7 @@ export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupue
           {ORDENAR_OPTIONS.map((option) => {
             const selected = ordenarPor === option
             return (
-              <label key={option} className="flex items-center gap-2.5 cursor-pointer select-none" onClick={() => setOrdenarPor(option)}>
+              <label key={option} className="flex items-center gap-2.5 cursor-pointer select-none" onClick={() => onOrdenarChange(option)}>
                 <div
                   className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors"
                   style={{
