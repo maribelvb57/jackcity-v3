@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { MapPin, Check, Heart, Star } from "lucide-react"
+import { MapPin, Check, Heart } from "lucide-react"
 import { useState } from "react"
 import { formatClp } from "@/lib/format"
 
@@ -47,13 +47,14 @@ export function ResultCard({ data }: ResultCardProps) {
 
         {/* Jack recommended badge */}
         {data.recommended && (
-          <div
-            className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold leading-tight"
-            style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
-          >
-            <Star size={12} fill="#0A1830" strokeWidth={0} />
-            <span>Recomendado<br />por Jack</span>
-          </div>
+          <Image
+            src="/images/recommended-by-jack.png"
+            alt="Recomendado por Jack"
+            width={578}
+            height={222}
+            className="absolute bottom-2 left-1 z-10 h-auto w-[82%] max-w-[262px] drop-shadow-[0_10px_14px_rgba(10,24,48,0.28)]"
+            sizes="(max-width: 640px) 82vw, 262px"
+          />
         )}
 
         {/* Wishlist heart */}
