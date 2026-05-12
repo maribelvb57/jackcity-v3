@@ -35,6 +35,7 @@ export type Hotel = {
   phone: string | null
   email: string | null
   avgRating: number | null
+  recommendedByJack: boolean
   reviewsCount: number | null
   petSizes: string[]
   mainBenefits: HotelMainBenefit[]
@@ -73,10 +74,10 @@ export async function searchHotels(params: {
   const body = {
     city: params.city,
     pets: params.mascotas.map((m) => ({ size: PET_SIZE_MAP[m.tamano] ?? "SMALL" })),
-    startDate: formatDate(params.startDate),
-    endDate: formatDate(params.endDate),
-    needTransport: params.needTransport,
-    ...(params.needTransport && { communeCode: "SMI" }),
+    checkinDate: formatDate(params.startDate),
+    checkoutDate: formatDate(params.endDate),
+    needsTransport: params.needTransport,
+    ...(params.needTransport && { userCommuneCode: "SMI" }),
   }
 
   const res = await fetch(`${API_BASE}/api/hotels/search`, {

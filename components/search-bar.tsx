@@ -40,7 +40,7 @@ const RAZAS = ["Sin especificar", ...Object.keys(RAZAS_TAMANOS)]
 const TAMANOS = ["Pequeño", "Mediano", "Grande", "Extra Grande"]
 
 const CITIES = [
-  { code: "SAN", label: "Santiago de Chile" },
+  { code: "SANTIAGO", label: "Santiago de Chile" },
   { code: "CON", label: "Concepción (próximamente)" },
   { code: "VAL", label: "Valparaíso (próximamente)" },
   { code: "VDM", label: "Viña del Mar (próximamente)" },
@@ -177,7 +177,7 @@ export function SearchBar() {
                   {cityOpen && (
                     <div className="absolute top-full mt-1 left-0 right-0 z-50 rounded-xl shadow-xl border overflow-hidden" style={{ backgroundColor: inputColor, borderColor: inputBorder }}>
                       {CITIES.map((c) => {
-                        const isDisabled = c.code !== "SAN"
+                        const isDisabled = c.code !== "SANTIAGO"
                         const isSelected = city === c.code
                         return (
                           <button
@@ -430,8 +430,8 @@ export function SearchBar() {
                     if (!isSearchEnabled || !dateRange?.from || !dateRange?.to) return
                     const params = new URLSearchParams({
                       city,
-                      from: format(dateRange.from, "yyyy-MM-dd"),
-                      to: format(dateRange.to, "yyyy-MM-dd"),
+                      checkin: format(dateRange.from, "yyyy-MM-dd"),
+                      checkout: format(dateRange.to, "yyyy-MM-dd"),
                       pets: mascotas.map((m) => PET_SIZE_MAP[m.tamano] ?? "SMALL").join(","),
                       transport: String(needsTransport),
                     })

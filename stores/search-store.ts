@@ -26,7 +26,7 @@ export type SearchStore = SearchState & SearchActions
 export const defaultMascota = (): Mascota => ({ raza: "Sin especificar", tamano: "" })
 
 export const defaultSearchState: SearchState = {
-  city: "SAN",
+  city: "SANTIAGO",
   dateRange: undefined,
   needsTransport: false,
   mascotas: [defaultMascota()],

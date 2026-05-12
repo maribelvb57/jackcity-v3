@@ -59,11 +59,12 @@ function hotelToCardData(hotel: Hotel, petCount: number, nights: number): Result
     nights,
     price: hotel.pricing?.totalPrice ?? CARD_DEFAULTS.price,
     includesTransport: (hotel.pricing?.transportPrice ?? 0) > 0,
+    recommended: hotel.recommendedByJack,
   }
 }
 
 const CITY_LABELS: Record<string, string> = {
-  SAN: "Santiago de Chile",
+  SANTIAGO: "Santiago de Chile",
   CON: "Concepción",
   VAL: "Valparaíso",
   VDM: "Viña del Mar",
@@ -79,14 +80,16 @@ function SearchPageContent() {
   const [zona, setZona] = useState("Todas las zonas")
   const [presupuesto, setPresupuesto] = useState(0)
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([])
+  const [puntuacionMin, setPuntuacionMin] = useState(6)
 
-  const cityParam = searchParams.get("city") ?? "SAN"
-  const fromParam = searchParams.get("from")
-  const toParam = searchParams.get("to")
+  const cityParam = searchParams.get("city") ?? "SANTIAGO"
+  const fromParam = searchParams.get("checkin")
+  const toParam = searchParams.get("checkout")
   const petsParam = searchParams.get("pets") ?? "SMALL"
   const transportParam = searchParams.get("transport") === "true"
   const startDate = fromParam ? new Date(`${fromParam}T12:00:00`) : null
   const endDate = toParam ? new Date(`${toParam}T12:00:00`) : null
+
   const petSizes = petsParam.split(",") as PetSize[]
 
   const setCity = useSearchStore((s) => s.setCity)
@@ -148,6 +151,7 @@ function SearchPageContent() {
     .filter((h) => !allowedCommunes || allowedCommunes.includes(h.communeCode ?? ""))
     .filter((h) => presupuesto === 0 || (h.pricing?.totalPrice ?? 0) <= presupuesto)
     .filter((h) => selectedBenefits.length === 0 || selectedBenefits.every((code) => h.benefits.some((b) => b.code === code)))
+    .filter((h) => (h.avgRating ?? 0) >= puntuacionMin)
     .map((h) => hotelToCardData(h, petCount, nights))
 
   return (
@@ -250,7 +254,7 @@ function SearchPageContent() {
                 </button>
               </div>
               <div className="px-4 pb-4">
-                <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} />
+                <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} puntuacionMin={puntuacionMin} onPuntuacionChange={setPuntuacionMin} />
               </div>
             </div>
           )}
@@ -269,7 +273,7 @@ function SearchPageContent() {
               <h2 className="text-lg font-bold mb-5" style={{ color: "#0A1830" }}>
                 Filtros
               </h2>
-              <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} />
+              <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} puntuacionMin={puntuacionMin} onPuntuacionChange={setPuntuacionMin} />
             </div>
 
             {/* Collapse/Expand toggle button */}

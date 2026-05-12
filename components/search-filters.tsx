@@ -34,11 +34,12 @@ interface SearchFiltersProps {
   onPresupuestoChange: (value: number) => void
   selectedBenefits: string[]
   onBenefitsChange: (codes: string[]) => void
+  puntuacionMin: number
+  onPuntuacionChange: (value: number) => void
 }
 
-export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupuesto, onPresupuestoChange, selectedBenefits, onBenefitsChange }: SearchFiltersProps) {
+export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupuesto, onPresupuestoChange, selectedBenefits, onBenefitsChange, puntuacionMin, onPuntuacionChange }: SearchFiltersProps) {
   const [zonaOpen, setZonaOpen] = useState(false)
-  const [puntuacionMin, setPuntuacionMin] = useState(6)
   const [ordenarPor, setOrdenarPor] = useState("Recomendados de Jack")
 
   const toggleBenefit = (code: string) => {
@@ -221,7 +222,7 @@ export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupue
               max={9}
               step={1}
               value={puntuacionMin}
-              onChange={(e) => setPuntuacionMin(Number(e.target.value))}
+              onChange={(e) => onPuntuacionChange(Number(e.target.value))}
               className="absolute top-0 left-0 w-full h-full cursor-pointer opacity-0"
             />
             <div
