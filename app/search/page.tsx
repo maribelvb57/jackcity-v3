@@ -13,6 +13,7 @@ import { SearchFilters } from "@/components/search-filters"
 import { SearchBenefitsBanner } from "@/components/search-benefits-banner"
 import { useSearchStore } from "@/providers/search-store-provider"
 import { searchHotels, type Hotel } from "@/lib/api/hotels"
+import { ZONE_COMMUNES } from "@/config/zones"
 
 const ORDENAR_OPTIONS = [
   "Recomendados de Jack",
@@ -53,9 +54,11 @@ function hotelToCardData(hotel: Hotel, petCount: number, nights: number): Result
     scoreLabel: hotel.avgRating != null ? getScoreLabel(hotel.avgRating) : CARD_DEFAULTS.scoreLabel,
     reviewCount: hotel.reviewsCount ?? CARD_DEFAULTS.reviewCount,
     address: [hotel.addressStreet, hotel.commune].filter(Boolean).join(", ") || CARD_DEFAULTS.address,
+    features: hotel.mainBenefits.map((b) => b.name),
     petCount,
     nights,
     price: hotel.pricing?.totalPrice ?? CARD_DEFAULTS.price,
+    includesTransport: (hotel.pricing?.transportPrice ?? 0) > 0,
   }
 }
 
@@ -65,6 +68,7 @@ export default function SearchPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [mobileOrdenar, setMobileOrdenar] = useState("Recomendados de Jack")
   const [mobileOrdenarOpen, setMobileOrdenarOpen] = useState(false)
+  const [zona, setZona] = useState("Todas las zonas")
 
   const city = useSearchStore((s) => s.city)
   const dateRange = useSearchStore((s) => s.dateRange)
@@ -87,25 +91,32 @@ export default function SearchPage() {
   }
 
   const {
-    data: searchResults = [],
+    data: hotels = [],
     isLoading,
     isError,
   } = useQuery({
     queryKey: ["search-results", city, dateRange?.from, dateRange?.to, mascotas, needsTransport],
-    queryFn: async (): Promise<ResultCardData[]> => {
+    queryFn: async (): Promise<Hotel[]> => {
       if (!dateRange?.from || !dateRange?.to) return []
-      const petCount = mascotas.length
-      const nights = Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)
-      const hotels = await searchHotels({
+      return searchHotels({
         city,
         mascotas,
         startDate: dateRange.from,
         endDate: dateRange.to,
         needTransport: needsTransport,
       })
-      return hotels.map((hotel) => hotelToCardData(hotel, petCount, nights))
     },
   })
+
+  const petCount = mascotas.length
+  const nights = (dateRange?.from && dateRange?.to)
+    ? Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)
+    : 1
+
+  const allowedCommunes = ZONE_COMMUNES[zona]
+  const searchResults = hotels
+    .filter((h) => !allowedCommunes || allowedCommunes.includes(h.communeCode ?? ""))
+    .map((h) => hotelToCardData(h, petCount, nights))
 
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
@@ -207,7 +218,7 @@ export default function SearchPage() {
                 </button>
               </div>
               <div className="px-4 pb-4">
-                <SearchFilters />
+                <SearchFilters zona={zona} onZonaChange={setZona} />
               </div>
             </div>
           )}
@@ -226,7 +237,7 @@ export default function SearchPage() {
               <h2 className="text-lg font-bold mb-5" style={{ color: "#0A1830" }}>
                 Filtros
               </h2>
-              <SearchFilters />
+              <SearchFilters zona={zona} onZonaChange={setZona} />
             </div>
 
             {/* Collapse/Expand toggle button */}
@@ -268,9 +279,6 @@ export default function SearchPage() {
 
           {/* Right section - Search results */}
           <section className="flex-1 p-4 md:p-6 overflow-auto">
-            <h1 className="text-lg md:text-xl font-bold mb-4 md:mb-6" style={{ color: "#0A1830" }}>
-              Hoteles encontrados...
-            </h1>
 
             {isLoading && (
               <div className="rounded-2xl border px-5 py-6 text-sm font-medium" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9E0EA", color: "#0A1830" }}>
@@ -284,8 +292,27 @@ export default function SearchPage() {
               </div>
             )}
 
+            {/* Empty state */}
+            {!isLoading && !isError && searchResults.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-16 gap-5 text-center">
+                <img
+                  src="/images/dog-sad.png"
+                  alt="Sin resultados"
+                  className="w-44 h-44 object-contain"
+                />
+                <div className="flex flex-col gap-2">
+                  <p className="text-lg font-bold" style={{ color: "#0A1830" }}>
+                    No encontramos hoteles disponibles
+                  </p>
+                  <p className="text-sm" style={{ color: "#6B7280", maxWidth: 320 }}>
+                    Intenta ajustando los filtros o realiza una nueva búsqueda con otras fechas.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Results list */}
-            {!isLoading && !isError && (
+            {!isLoading && !isError && searchResults.length > 0 && (
               <div className="flex flex-col gap-4 md:gap-5">
                 {searchResults.map((result, index) => (
                   <ResultCard key={index} data={result} />

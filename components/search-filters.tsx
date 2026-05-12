@@ -36,8 +36,12 @@ const ORDENAR_OPTIONS = [
   "Mejor puntuación Usuarios",
 ]
 
-export function SearchFilters() {
-  const [zona, setZona] = useState("Todas las zonas")
+interface SearchFiltersProps {
+  zona: string
+  onZonaChange: (zona: string) => void
+}
+
+export function SearchFilters({ zona, onZonaChange }: SearchFiltersProps) {
   const [zonaOpen, setZonaOpen] = useState(false)
   const [presupuesto, setPresupuesto] = useState(120000)
   const [tiposSeleccionados, setTiposSeleccionados] = useState<string[]>([])
@@ -89,7 +93,7 @@ export function SearchFilters() {
                 <button
                   key={z}
                   type="button"
-                  onClick={() => { setZona(z); setZonaOpen(false) }}
+                  onClick={() => { onZonaChange(z); setZonaOpen(false) }}
                   className="w-full px-3 py-2 text-left text-sm transition-colors hover:bg-amber-50"
                   style={{
                     color: NAVY,

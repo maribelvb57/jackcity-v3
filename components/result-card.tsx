@@ -18,6 +18,7 @@ export type ResultCardData = {
   nights: number
   price: number
   imageUrl: string
+  includesTransport?: boolean
   recommended?: boolean
 }
 
@@ -131,6 +132,9 @@ export function ResultCard({ data }: ResultCardProps) {
             <p className="text-2xl md:text-3xl font-bold leading-tight mt-1" style={{ color: "#0A1830" }}>
               {formatClp(data.price)}
             </p>
+            {data.includesTransport && (
+              <p className="text-xs" style={{ color: "#888" }}>Transporte incluido</p>
+            )}
             <p className="text-xs" style={{ color: "#888" }}>IVA incluido</p>
           </div>
 

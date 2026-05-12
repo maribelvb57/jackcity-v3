@@ -23,6 +23,7 @@ export type Hotel = {
   description: string | null
   addressStreet: string | null
   commune: string | null
+  communeCode: string | null
   region: string | null
   lat: number | null
   lng: number | null
