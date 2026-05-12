@@ -39,11 +39,14 @@ const ORDENAR_OPTIONS = [
 interface SearchFiltersProps {
   zona: string
   onZonaChange: (zona: string) => void
+  priceMin: number
+  priceMax: number
+  presupuesto: number
+  onPresupuestoChange: (value: number) => void
 }
 
-export function SearchFilters({ zona, onZonaChange }: SearchFiltersProps) {
+export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupuesto, onPresupuestoChange }: SearchFiltersProps) {
   const [zonaOpen, setZonaOpen] = useState(false)
-  const [presupuesto, setPresupuesto] = useState(120000)
   const [tiposSeleccionados, setTiposSeleccionados] = useState<string[]>([])
   const [puntuacionMin, setPuntuacionMin] = useState(6)
   const [ordenarPor, setOrdenarPor] = useState("Recomendados de Jack")
@@ -54,7 +57,8 @@ export function SearchFilters({ zona, onZonaChange }: SearchFiltersProps) {
     )
   }
 
-  const sliderPct = ((presupuesto - 30000) / (120000 - 30000)) * 100
+  const range = priceMax - priceMin || 1
+  const sliderPct = priceMax > priceMin ? ((presupuesto - priceMin) / range) * 100 : 100
   const puntuacionPct = ((puntuacionMin - 6) / (9 - 6)) * 100
 
   return (
@@ -131,11 +135,11 @@ export function SearchFilters({ zona, onZonaChange }: SearchFiltersProps) {
             {/* Native slider (invisible, on top for interaction) */}
             <input
               type="range"
-              min={30000}
-              max={120000}
-              step={5000}
+              min={priceMin}
+              max={priceMax}
+              step={1000}
               value={presupuesto}
-              onChange={(e) => setPresupuesto(Number(e.target.value))}
+              onChange={(e) => onPresupuestoChange(Number(e.target.value))}
               className="absolute top-0 left-0 w-full h-full cursor-pointer opacity-0"
             />
             {/* Custom thumb */}
@@ -149,9 +153,9 @@ export function SearchFilters({ zona, onZonaChange }: SearchFiltersProps) {
             />
           </div>
           <div className="flex justify-between text-xs mt-1" style={{ color: GRAY }}>
-            <span>$30.000</span>
+            <span>{formatClp(priceMin)}</span>
             <span className="font-bold" style={{ color: AMBER }}>{formatClp(presupuesto)}</span>
-            <span>$120.000</span>
+            <span>{formatClp(priceMax)}</span>
           </div>
         </div>
       </div>

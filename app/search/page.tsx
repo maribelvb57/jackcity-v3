@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo, Suspense } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { SiteNavbar } from "@/components/site-navbar"
@@ -12,7 +12,7 @@ import { ResultCard, type ResultCardData } from "@/components/result-card"
 import { SearchFilters } from "@/components/search-filters"
 import { SearchBenefitsBanner } from "@/components/search-benefits-banner"
 import { useSearchStore } from "@/providers/search-store-provider"
-import { searchHotels, type Hotel } from "@/lib/api/hotels"
+import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL } from "@/lib/api/hotels"
 import { ZONE_COMMUNES } from "@/config/zones"
 
 const ORDENAR_OPTIONS = [
@@ -62,32 +62,50 @@ function hotelToCardData(hotel: Hotel, petCount: number, nights: number): Result
   }
 }
 
-export default function SearchPage() {
+const CITY_LABELS: Record<string, string> = {
+  SAN: "Santiago de Chile",
+  CON: "Concepción",
+  VAL: "Valparaíso",
+  VDM: "Viña del Mar",
+}
+
+function SearchPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [mobileOrdenar, setMobileOrdenar] = useState("Recomendados de Jack")
   const [mobileOrdenarOpen, setMobileOrdenarOpen] = useState(false)
   const [zona, setZona] = useState("Todas las zonas")
+  const [presupuesto, setPresupuesto] = useState(0)
 
-  const city = useSearchStore((s) => s.city)
-  const dateRange = useSearchStore((s) => s.dateRange)
-  const mascotas = useSearchStore((s) => s.mascotas)
-  const needsTransport = useSearchStore((s) => s.needsTransport)
+  const cityParam = searchParams.get("city") ?? "SAN"
+  const fromParam = searchParams.get("from")
+  const toParam = searchParams.get("to")
+  const petsParam = searchParams.get("pets") ?? "SMALL"
+  const transportParam = searchParams.get("transport") === "true"
+  const startDate = fromParam ? new Date(`${fromParam}T12:00:00`) : null
+  const endDate = toParam ? new Date(`${toParam}T12:00:00`) : null
+  const petSizes = petsParam.split(",") as PetSize[]
 
-  const CITY_LABELS: Record<string, string> = {
-    SAN: "Santiago de Chile",
-    CON: "Concepción",
-    VAL: "Valparaíso",
-    VDM: "Viña del Mar",
-  }
+  const setCity = useSearchStore((s) => s.setCity)
+  const setDateRange = useSearchStore((s) => s.setDateRange)
+  const setMascotas = useSearchStore((s) => s.setMascotas)
+  const setNeedsTransport = useSearchStore((s) => s.setNeedsTransport)
+
+  useEffect(() => {
+    setCity(cityParam)
+    if (startDate && endDate) setDateRange({ from: startDate, to: endDate })
+    setMascotas(petSizes.map((s) => ({ raza: "Sin especificar", tamano: PET_SIZE_LABEL[s] ?? "" })))
+    setNeedsTransport(transportParam)
+  }, [])
 
   const summaryData = {
-    city: CITY_LABELS[city] ?? city ?? "—",
-    dateFrom: dateRange?.from ? format(dateRange.from, "d MMM", { locale: es }) : "—",
-    dateTo: dateRange?.to ? format(dateRange.to, "d MMM", { locale: es }) : "—",
-    petCount: mascotas.length,
-    withTransport: needsTransport,
+    city: CITY_LABELS[cityParam] ?? cityParam,
+    dateFrom: startDate ? format(startDate, "d MMM", { locale: es }) : "—",
+    dateTo: endDate ? format(endDate, "d MMM", { locale: es }) : "—",
+    petCount: petSizes.length,
+    withTransport: transportParam,
   }
 
   const {
@@ -95,27 +113,39 @@ export default function SearchPage() {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["search-results", city, dateRange?.from, dateRange?.to, mascotas, needsTransport],
+    queryKey: ["search-results", cityParam, fromParam, toParam, petsParam, transportParam],
     queryFn: async (): Promise<Hotel[]> => {
-      if (!dateRange?.from || !dateRange?.to) return []
+      if (!startDate || !endDate) return []
       return searchHotels({
-        city,
-        mascotas,
-        startDate: dateRange.from,
-        endDate: dateRange.to,
-        needTransport: needsTransport,
+        city: cityParam,
+        mascotas: petSizes.map((s) => ({ tamano: PET_SIZE_LABEL[s] ?? "" })),
+        startDate,
+        endDate,
+        needTransport: transportParam,
       })
     },
   })
 
-  const petCount = mascotas.length
-  const nights = (dateRange?.from && dateRange?.to)
-    ? Math.round((dateRange.to.getTime() - dateRange.from.getTime()) / 86400000)
+  const prices = useMemo(
+    () => hotels.map((h) => h.pricing?.totalPrice ?? 0).filter((p) => p > 0),
+    [hotels]
+  )
+  const priceMin = prices.length ? Math.min(...prices) : 0
+  const priceMax = prices.length ? Math.max(...prices) : 0
+
+  useEffect(() => {
+    setPresupuesto(priceMax)
+  }, [priceMax])
+
+  const petCount = petSizes.length
+  const nights = (startDate && endDate)
+    ? Math.round((endDate.getTime() - startDate.getTime()) / 86400000)
     : 1
 
   const allowedCommunes = ZONE_COMMUNES[zona]
   const searchResults = hotels
     .filter((h) => !allowedCommunes || allowedCommunes.includes(h.communeCode ?? ""))
+    .filter((h) => presupuesto === 0 || (h.pricing?.totalPrice ?? 0) <= presupuesto)
     .map((h) => hotelToCardData(h, petCount, nights))
 
   return (
@@ -218,7 +248,7 @@ export default function SearchPage() {
                 </button>
               </div>
               <div className="px-4 pb-4">
-                <SearchFilters zona={zona} onZonaChange={setZona} />
+                <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} />
               </div>
             </div>
           )}
@@ -237,7 +267,7 @@ export default function SearchPage() {
               <h2 className="text-lg font-bold mb-5" style={{ color: "#0A1830" }}>
                 Filtros
               </h2>
-              <SearchFilters zona={zona} onZonaChange={setZona} />
+              <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} />
             </div>
 
             {/* Collapse/Expand toggle button */}
@@ -278,7 +308,7 @@ export default function SearchPage() {
           )}
 
           {/* Right section - Search results */}
-          <section className="flex-1 p-4 md:p-6 overflow-auto">
+          <section className="flex-1 px-4 pt-4 pb-96 md:px-6 md:pt-6 overflow-auto">
 
             {isLoading && (
               <div className="rounded-2xl border px-5 py-6 text-sm font-medium" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9E0EA", color: "#0A1830" }}>
@@ -326,5 +356,13 @@ export default function SearchPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense>
+      <SearchPageContent />
+    </Suspense>
   )
 }

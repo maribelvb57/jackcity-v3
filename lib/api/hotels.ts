@@ -37,11 +37,18 @@ export type Hotel = {
   transport: HotelTransport | null
 }
 
-const PET_SIZE_MAP: Record<string, PetSize> = {
+export const PET_SIZE_MAP: Record<string, PetSize> = {
   "Pequeño": "SMALL",
   "Mediano": "MEDIUM",
   "Grande": "LARGE",
   "Extra Grande": "EXTRA_LARGE",
+}
+
+export const PET_SIZE_LABEL: Record<PetSize, string> = {
+  SMALL: "Pequeño",
+  MEDIUM: "Mediano",
+  LARGE: "Grande",
+  EXTRA_LARGE: "Extra Grande",
 }
 
 function formatDate(date: Date): string {

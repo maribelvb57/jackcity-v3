@@ -8,6 +8,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { useSearchStore } from "@/providers/search-store-provider"
 import { defaultMascota, type Mascota } from "@/stores/search-store"
+import { PET_SIZE_MAP } from "@/lib/api/hotels"
 import "react-day-picker/style.css"
 
 const RAZAS_TAMANOS: Record<string, string> = {
@@ -425,7 +426,17 @@ export function SearchBar() {
                 <button
                   type="button"
                   disabled={!isSearchEnabled}
-                  onClick={() => isSearchEnabled && router.push("/search")}
+                  onClick={() => {
+                    if (!isSearchEnabled || !dateRange?.from || !dateRange?.to) return
+                    const params = new URLSearchParams({
+                      city,
+                      from: format(dateRange.from, "yyyy-MM-dd"),
+                      to: format(dateRange.to, "yyyy-MM-dd"),
+                      pets: mascotas.map((m) => PET_SIZE_MAP[m.tamano] ?? "SMALL").join(","),
+                      transport: String(needsTransport),
+                    })
+                    router.push(`/search?${params.toString()}`)
+                  }}
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${isSearchEnabled ? "shadow-md hover:shadow-lg active:scale-95" : "cursor-not-allowed opacity-50"}`}
                   style={{
                     backgroundColor: isSearchEnabled ? accentColor : "#6B7280",
