@@ -78,6 +78,7 @@ function SearchPageContent() {
   const [mobileOrdenarOpen, setMobileOrdenarOpen] = useState(false)
   const [zona, setZona] = useState("Todas las zonas")
   const [presupuesto, setPresupuesto] = useState(0)
+  const [selectedBenefits, setSelectedBenefits] = useState<string[]>([])
 
   const cityParam = searchParams.get("city") ?? "SAN"
   const fromParam = searchParams.get("from")
@@ -146,6 +147,7 @@ function SearchPageContent() {
   const searchResults = hotels
     .filter((h) => !allowedCommunes || allowedCommunes.includes(h.communeCode ?? ""))
     .filter((h) => presupuesto === 0 || (h.pricing?.totalPrice ?? 0) <= presupuesto)
+    .filter((h) => selectedBenefits.length === 0 || selectedBenefits.every((code) => h.benefits.some((b) => b.code === code)))
     .map((h) => hotelToCardData(h, petCount, nights))
 
   return (
@@ -248,7 +250,7 @@ function SearchPageContent() {
                 </button>
               </div>
               <div className="px-4 pb-4">
-                <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} />
+                <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} />
               </div>
             </div>
           )}
@@ -267,7 +269,7 @@ function SearchPageContent() {
               <h2 className="text-lg font-bold mb-5" style={{ color: "#0A1830" }}>
                 Filtros
               </h2>
-              <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} />
+              <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} />
             </div>
 
             {/* Collapse/Expand toggle button */}

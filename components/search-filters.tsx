@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { MapPin, DollarSign, Home, Star, ArrowUpDown, ChevronDown } from "lucide-react"
 import { formatClp } from "@/lib/format"
+import { BENEFITS } from "@/config/benefits"
 
 const NAVY = "#0A1830"
 const AMBER = "#FFC43D"
@@ -15,18 +16,6 @@ const ZONAS = [
   "Norte de Santiago",
   "Sur de Santiago",
   "Santiago Poniente",
-]
-
-const TIPOS_ALOJAMIENTO = [
-  "En sitio campestre",
-  "Canil Individual",
-  "Libre de Jaulas",
-  "Veterinario On Site",
-  "Comida Incluida",
-  "Servicio de Baño/peluquería adicional",
-  "Recibe perras en celo",
-  "Recibe perros sin castrar",
-  "Cancelación gratis",
 ]
 
 const ORDENAR_OPTIONS = [
@@ -43,17 +32,20 @@ interface SearchFiltersProps {
   priceMax: number
   presupuesto: number
   onPresupuestoChange: (value: number) => void
+  selectedBenefits: string[]
+  onBenefitsChange: (codes: string[]) => void
 }
 
-export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupuesto, onPresupuestoChange }: SearchFiltersProps) {
+export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupuesto, onPresupuestoChange, selectedBenefits, onBenefitsChange }: SearchFiltersProps) {
   const [zonaOpen, setZonaOpen] = useState(false)
-  const [tiposSeleccionados, setTiposSeleccionados] = useState<string[]>([])
   const [puntuacionMin, setPuntuacionMin] = useState(6)
   const [ordenarPor, setOrdenarPor] = useState("Recomendados de Jack")
 
-  const toggleTipo = (tipo: string) => {
-    setTiposSeleccionados((prev) =>
-      prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]
+  const toggleBenefit = (code: string) => {
+    onBenefitsChange(
+      selectedBenefits.includes(code)
+        ? selectedBenefits.filter((c) => c !== code)
+        : [...selectedBenefits, code]
     )
   }
 
@@ -162,17 +154,17 @@ export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupue
 
       <div className="border-t" style={{ borderColor: SEPARATOR }} />
 
-      {/* Tipo Alojamiento */}
+      {/* Beneficios */}
       <div className="w-full">
         <div className="flex items-center gap-2 mb-2.5">
           <Home size={15} style={{ color: AMBER }} />
           <h3 className="text-sm font-bold" style={{ color: NAVY }}>Tipo Alojamiento</h3>
         </div>
         <div className="flex flex-col gap-2">
-          {TIPOS_ALOJAMIENTO.map((tipo) => {
-            const checked = tiposSeleccionados.includes(tipo)
+          {BENEFITS.map(({ code, label }) => {
+            const checked = selectedBenefits.includes(code)
             return (
-              <label key={tipo} className="flex items-start gap-2.5 cursor-pointer select-none" onClick={() => toggleTipo(tipo)}>
+              <label key={code} className="flex items-start gap-2.5 cursor-pointer select-none" onClick={() => toggleBenefit(code)}>
                 <div
                   className="w-4 h-4 mt-0.5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors"
                   style={{
@@ -186,7 +178,7 @@ export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupue
                     </svg>
                   )}
                 </div>
-                <span className="text-sm leading-tight" style={{ color: NAVY }}>{tipo}</span>
+                <span className="text-sm leading-tight" style={{ color: NAVY }}>{label}</span>
               </label>
             )
           })}

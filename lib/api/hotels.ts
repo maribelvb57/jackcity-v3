@@ -1,6 +1,11 @@
 export type PetSize = "SMALL" | "MEDIUM" | "LARGE" | "EXTRA_LARGE"
 
+export type HotelMainBenefit = {
+  name: string
+}
+
 export type HotelBenefit = {
+  code: string
   name: string
 }
 
@@ -32,7 +37,8 @@ export type Hotel = {
   avgRating: number | null
   reviewsCount: number | null
   petSizes: string[]
-  mainBenefits: HotelBenefit[]
+  mainBenefits: HotelMainBenefit[]
+  benefits: HotelBenefit[]
   pricing: HotelPricing | null
   transport: HotelTransport | null
 }
