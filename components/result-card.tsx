@@ -18,6 +18,7 @@ export type ResultCardData = {
   nights: number
   price: number
   imageUrl: string
+  detailUrl: string
   includesTransport?: boolean
   recommended?: boolean
 }
@@ -141,7 +142,7 @@ export function ResultCard({ data }: ResultCardProps) {
 
           {/* CTA button */}
           <button
-            onClick={() => router.push("/hotel/1")}
+            onClick={() => router.push(data.detailUrl)}
             className="flex items-center gap-1 px-5 py-3 rounded-xl font-bold text-sm flex-shrink-0 transition-opacity hover:opacity-90"
             style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
           >

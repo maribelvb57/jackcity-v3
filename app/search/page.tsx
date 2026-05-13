@@ -22,7 +22,7 @@ const ORDENAR_OPTIONS = [
   "Mejor puntuación Usuarios",
 ]
 
-const CARD_DEFAULTS: Omit<ResultCardData, "name"> = {
+const CARD_DEFAULTS: Omit<ResultCardData, "name" | "detailUrl"> = {
   score: 8.5,
   scoreLabel: "Muy bueno",
   reviewCount: 0,
@@ -45,10 +45,25 @@ function getScoreLabel(score: number): string {
   return "Aceptable"
 }
 
-function hotelToCardData(hotel: Hotel, petCount: number, nights: number): ResultCardData {
+function hotelToCardData(
+  hotel: Hotel,
+  petCount: number,
+  nights: number,
+  urlParams: { city: string; checkin: string; checkout: string; pets: string; transport: boolean }
+): ResultCardData {
+  const transportBy = hotel.transport?.provider ?? ""
+  const qs = new URLSearchParams({
+    city: urlParams.city,
+    checkin: urlParams.checkin ?? "",
+    checkout: urlParams.checkout ?? "",
+    pets: urlParams.pets,
+    transport: String(urlParams.transport),
+    ...(transportBy && { transportBy }),
+  })
   return {
     ...CARD_DEFAULTS,
     name: hotel.name,
+    detailUrl: `/hotel/${hotel.id}?${qs.toString()}`,
     imageUrl: hotel.mainPhotoUrl ?? CARD_DEFAULTS.imageUrl,
     score: hotel.avgRating ?? CARD_DEFAULTS.score,
     scoreLabel: hotel.avgRating != null ? getScoreLabel(hotel.avgRating) : CARD_DEFAULTS.scoreLabel,
@@ -159,7 +174,13 @@ function SearchPageContent() {
       if (ordenarPor === "Mejor puntuación Usuarios") return (b.avgRating ?? 0) - (a.avgRating ?? 0)
       return 0
     })
-    .map((h) => hotelToCardData(h, petCount, nights))
+    .map((h) => hotelToCardData(h, petCount, nights, {
+      city: cityParam,
+      checkin: fromParam ?? "",
+      checkout: toParam ?? "",
+      pets: petsParam,
+      transport: transportParam,
+    }))
 
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
