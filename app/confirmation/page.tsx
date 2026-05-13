@@ -96,6 +96,9 @@ export default function BookingConfirmationPage() {
   const [email, setEmail] = useState("")
   const [country, setCountry] = useState("Chile")
   const [city, setCity] = useState("")
+  const [commune, setCommune] = useState("")
+  const [address, setAddress] = useState("")
+  const [rut, setRut] = useState("")
   const [countryCode, setCountryCode] = useState("+56")
   const [phone, setPhone] = useState("")
 
@@ -292,7 +295,7 @@ export default function BookingConfirmationPage() {
                     </div>
                   </div>
 
-                  {/* Country and City */}
+                  {/* Country, City and Commune */}
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
                       <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
@@ -334,34 +337,80 @@ export default function BookingConfirmationPage() {
                         <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
                       </div>
                     </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        Comuna
+                      </label>
+                      <input
+                        type="text"
+                        value={commune}
+                        onChange={(e) => setCommune(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                        placeholder="Ej: Las Condes"
+                      />
+                    </div>
                   </div>
 
-                  {/* Phone */}
+                  {/* Address */}
                   <div>
                     <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                      Teléfono
+                      Dirección
                     </label>
-                    <div className="flex gap-2">
-                      <div className="relative w-24">
-                        <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
-                        <select
-                          value={countryCode}
-                          onChange={(e) => setCountryCode(e.target.value)}
-                          className="w-full pl-9 pr-2 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
-                        >
-                          {COUNTRY_CODES.map((cc) => (
-                            <option key={cc.code} value={cc.code}>{cc.code}</option>
-                          ))}
-                        </select>
-                      </div>
+                    <div className="relative">
+                      <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
                       <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="flex-1 px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                        type="text"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
                         style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
-                        placeholder="940302010"
+                        placeholder="Calle y número"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Phone and RUT */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        Teléfono
+                      </label>
+                      <div className="flex gap-2">
+                        <div className="relative w-24 flex-shrink-0">
+                          <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
+                          <select
+                            value={countryCode}
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            className="w-full pl-9 pr-2 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
+                            style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                          >
+                            {COUNTRY_CODES.map((cc) => (
+                              <option key={cc.code} value={cc.code}>{cc.code}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <input
+                          type="tel"
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className="flex-1 px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                          placeholder="940302010"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        RUT
+                      </label>
+                      <input
+                        type="text"
+                        value={rut}
+                        onChange={(e) => setRut(e.target.value)}
+                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                        placeholder="12.345.678-9"
                       />
                     </div>
                   </div>
