@@ -84,6 +84,8 @@ interface PetData {
   name: string
   breed: string
   size: string
+  gender: string
+  weight: string
   color: string
   age: number
 }
@@ -104,8 +106,8 @@ export default function BookingConfirmationPage() {
 
   // Pets state
   const [pets, setPets] = useState<PetData[]>([
-    { name: "", breed: "", size: "Pequeño", color: "", age: 1 },
-    { name: "", breed: "", size: "Pequeño", color: "", age: 1 },
+    { name: "", breed: "", size: "Pequeño", gender: "", weight: "", color: "", age: 0 },
+    { name: "", breed: "", size: "Pequeño", gender: "", weight: "", color: "", age: 0 },
   ])
   const [includeTransport, setIncludeTransport] = useState(RESERVATION_DATA.withTransport)
   const [selectedDeparture, setSelectedDeparture] = useState<string | null>(null)
@@ -481,11 +483,63 @@ export default function BookingConfirmationPage() {
                         </div>
                       </div>
 
+                      {/* Gender, Weight row */}
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                            Género
+                          </label>
+                          <div className="flex items-center gap-4 h-10">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`gender-${index}`}
+                                value="Macho"
+                                checked={pet.gender === "Macho"}
+                                onChange={(e) => updatePet(index, "gender", e.target.value)}
+                                className="w-4 h-4 cursor-pointer accent-[#0A1830]"
+                              />
+                              <span className="text-sm" style={{ color: "#0A1830" }}>Macho</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                              <input
+                                type="radio"
+                                name={`gender-${index}`}
+                                value="Hembra"
+                                checked={pet.gender === "Hembra"}
+                                onChange={(e) => updatePet(index, "gender", e.target.value)}
+                                className="w-4 h-4 cursor-pointer accent-[#0A1830]"
+                              />
+                              <span className="text-sm" style={{ color: "#0A1830" }}>Hembra</span>
+                            </label>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                            Peso{" "}
+                            <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={pet.weight}
+                              onChange={(e) => updatePet(index, "weight", e.target.value)}
+                              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 pr-12"
+                              style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                              placeholder="0"
+                            />
+                            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "#9CA3AF" }}>kg</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Color, Age row */}
                       <div className="flex flex-col sm:flex-row gap-3">
                         <div className="flex-1">
                           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                            Color
+                            Color{" "}
+                            <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
                           </label>
                           <div className="relative">
                             <select
@@ -502,9 +556,10 @@ export default function BookingConfirmationPage() {
                             <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
                           </div>
                         </div>
-                        <div className="w-full sm:w-40">
+                        <div className="flex-1">
                           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                            Edad (años)
+                            Edad{" "}
+                            <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
                           </label>
                           <div className="flex items-center gap-1">
                             <button
@@ -519,7 +574,7 @@ export default function BookingConfirmationPage() {
                               className="flex-1 h-10 flex items-center justify-center rounded-xl border text-sm font-semibold"
                               style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
                             >
-                              {pet.age}
+                              {pet.age === 0 ? "—" : `${pet.age} año${pet.age !== 1 ? "s" : ""}`}
                             </div>
                             <button
                               type="button"
