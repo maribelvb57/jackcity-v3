@@ -804,6 +804,9 @@ export default function BookingConfirmationPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Bottom spacing */}
+              <div className="h-96" />
             </div>
           </div>
         </div>
