@@ -463,7 +463,7 @@ export default function BookingConfirmationPage() {
                             placeholder="Raza"
                           />
                         </div>
-                        <div className="w-full sm:w-32">
+                        <div className="flex-1">
                           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
                             Tamaño
                           </label>
