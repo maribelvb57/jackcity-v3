@@ -98,6 +98,7 @@ export default function BookingConfirmationPage() {
   const [email, setEmail] = useState("")
   const [country, setCountry] = useState("Chile")
   const [city, setCity] = useState("")
+  const [saveData, setSaveData] = useState(false)
   const [commune, setCommune] = useState("")
   const [address, setAddress] = useState("")
   const [rut, setRut] = useState("")
@@ -418,6 +419,22 @@ export default function BookingConfirmationPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Save data checkbox */}
+              <label
+                className="flex items-center gap-3 cursor-pointer px-4 py-3 rounded-xl border"
+                style={{ borderColor: "#F5C518", backgroundColor: "#FFFBEA" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={saveData}
+                  onChange={(e) => setSaveData(e.target.checked)}
+                  className="w-4 h-4 rounded cursor-pointer accent-[#F5C518] flex-shrink-0"
+                />
+                <span className="text-sm font-semibold" style={{ color: "#0A1830" }}>
+                  Guardar mis datos para las próximas reservas en Jack City
+                </span>
+              </label>
 
               {/* Pets form */}
               <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
