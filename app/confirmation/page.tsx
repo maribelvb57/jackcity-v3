@@ -47,6 +47,7 @@ const RESERVATION_DATA = {
   dateTo: "9 mayo",
   withTransport: true,
   transportFrom: "Comuna Macul",
+  quotedTransportCommune: "Macul",
   pricePerNight: 85000,
   transportPrice: 15000,
 }
@@ -182,6 +183,55 @@ function parseGoogleAddress(place: GooglePlaceResult) {
   }
 }
 
+function normalizeCommuneName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim()
+}
+
+function cleanRut(value: string) {
+  return value.replace(/[^0-9kK]/g, "").toUpperCase()
+}
+
+function isValidChileRut(value: string) {
+  const cleanedRut = cleanRut(value)
+  if (cleanedRut.length < 2) return false
+
+  const body = cleanedRut.slice(0, -1)
+  const verifier = cleanedRut.slice(-1)
+  if (!/^\d+$/.test(body)) return false
+
+  let sum = 0
+  let multiplier = 2
+
+  for (let index = body.length - 1; index >= 0; index -= 1) {
+    sum += Number(body[index]) * multiplier
+    multiplier = multiplier === 7 ? 2 : multiplier + 1
+  }
+
+  const remainder = 11 - (sum % 11)
+  const expectedVerifier = remainder === 11 ? "0" : remainder === 10 ? "K" : String(remainder)
+
+  return verifier === expectedVerifier
+}
+
+function formatChileRut(value: string) {
+  const cleanedRut = cleanRut(value)
+  if (cleanedRut.length < 2) return value
+
+  const body = cleanedRut.slice(0, -1)
+  const verifier = cleanedRut.slice(-1)
+  const formattedBody = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+
+  return `${formattedBody}-${verifier}`
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim())
+}
+
 export default function BookingConfirmationPage() {
   const router = useRouter()
   const addressInputRef = useRef<HTMLInputElement | null>(null)
@@ -194,6 +244,8 @@ export default function BookingConfirmationPage() {
   const [saveData, setSaveData] = useState(false)
   const [commune, setCommune] = useState("")
   const [address, setAddress] = useState("")
+  const [apartment, setApartment] = useState("")
+  const [addressReference, setAddressReference] = useState("")
   const [addressSelectedFromGoogle, setAddressSelectedFromGoogle] = useState(false)
   const [addressAutocompleteError, setAddressAutocompleteError] = useState("")
   const [rut, setRut] = useState("")
@@ -220,6 +272,14 @@ export default function BookingConfirmationPage() {
   const basePrice = reservation.pricePerNight * reservation.nights
   const transportPrice = includeTransport ? reservation.transportPrice : 0
   const totalPrice = basePrice + transportPrice
+  const selectedAddressCommuneMatchesQuote =
+    !includeTransport ||
+    !addressSelectedFromGoogle ||
+    normalizeCommuneName(commune) === normalizeCommuneName(reservation.quotedTransportCommune)
+  const rutHasValue = cleanRut(rut).length > 0
+  const rutIsValid = rutHasValue && isValidChileRut(rut)
+  const emailHasValue = email.trim().length > 0
+  const emailIsValid = emailHasValue && isValidEmail(email)
 
   const updatePet = (index: number, field: keyof PetData, value: string | number) => {
     const newPets = [...pets]
@@ -240,6 +300,7 @@ export default function BookingConfirmationPage() {
   }
 
   const allConditionsAccepted = vaccinesUpToDate && isCastrated && notInHeat
+  const canPay = allConditionsAccepted && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -395,14 +456,13 @@ export default function BookingConfirmationPage() {
                 Inicia Sesión
               </button>
 
-              {/* User data form */}
+              {/* Personal data form */}
               <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                 <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>
-                  O completa tus datos:
+                  Datos personales
                 </h2>
                 
                 <div className="flex flex-col gap-4">
-                  {/* Name row */}
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
                       <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
@@ -435,7 +495,6 @@ export default function BookingConfirmationPage() {
                     </div>
                   </div>
 
-                  {/* Email */}
                   <div>
                     <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
                       Email
@@ -447,87 +506,17 @@ export default function BookingConfirmationPage() {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                        style={{ borderColor: emailHasValue && !emailIsValid ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
                         placeholder="correo@ejemplo.com"
                       />
                     </div>
-                  </div>
-
-                  {/* Address */}
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                      Dirección
-                    </label>
-                    <div className="relative">
-                      <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
-                      <input
-                        ref={addressInputRef}
-                        type="text"
-                        value={address}
-                        onChange={(e) => {
-                          setAddress(e.target.value)
-                          setAddressSelectedFromGoogle(false)
-                          setCommune("")
-                          setCity("")
-                          setCountry("")
-                        }}
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                        style={{ borderColor: address && !addressSelectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
-                        placeholder="Calle y número"
-                        autoComplete="street-address"
-                      />
-                    </div>
-                    {addressAutocompleteError && (
+                    {emailHasValue && !emailIsValid && (
                       <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>
-                        {addressAutocompleteError}
+                        Ingresa un email válido.
                       </p>
                     )}
                   </div>
 
-                  {/* Country, City and Commune */}
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1">
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                        País
-                      </label>
-                      <input
-                        type="text"
-                        value={country}
-                        readOnly
-                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                        style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
-                        placeholder="Pendiente"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                        Ciudad
-                      </label>
-                      <input
-                        type="text"
-                        value={city}
-                        readOnly
-                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                        style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
-                        placeholder="Pendiente"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                        Comuna
-                      </label>
-                      <input
-                        type="text"
-                        value={commune}
-                        readOnly
-                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                        style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
-                        placeholder="Pendiente"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Phone and RUT */}
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
                       <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
@@ -565,11 +554,144 @@ export default function BookingConfirmationPage() {
                         type="text"
                         value={rut}
                         onChange={(e) => setRut(e.target.value)}
+                        onBlur={() => {
+                          if (rutHasValue) setRut(formatChileRut(rut))
+                        }}
+                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                        style={{ borderColor: rutHasValue && !rutIsValid ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                        placeholder="12.345.678-9"
+                        inputMode="text"
+                      />
+                      {rutHasValue && !rutIsValid && (
+                        <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>
+                          Ingresa un RUT chileno válido.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Address data form */}
+              <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>
+                  <MapPin size={20} className="inline-block mr-2" style={{ color: "#0A1830" }} />
+                  Mi dirección
+                </h2>
+
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        Dirección
+                      </label>
+                      <div className="relative">
+                        <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
+                        <input
+                          ref={addressInputRef}
+                          type="text"
+                          value={address}
+                          onChange={(e) => {
+                            setAddress(e.target.value)
+                            setAddressSelectedFromGoogle(false)
+                            setCommune("")
+                            setCity("")
+                            setCountry("")
+                          }}
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                          style={{ borderColor: address && !addressSelectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                          placeholder="Calle y número"
+                          autoComplete="street-address"
+                        />
+                      </div>
+                      {addressAutocompleteError && (
+                        <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>
+                          {addressAutocompleteError}
+                        </p>
+                      )}
+                    </div>
+                    <div className="w-full sm:w-36">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        Depto
+                      </label>
+                      <input
+                        type="text"
+                        value={apartment}
+                        onChange={(e) => setApartment(e.target.value)}
                         className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
                         style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
-                        placeholder="12.345.678-9"
+                        placeholder="Opcional"
+                        autoComplete="address-line2"
                       />
                     </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        País
+                      </label>
+                      <input
+                        type="text"
+                        value={country}
+                        readOnly
+                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                        style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
+                        placeholder="Pendiente"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        Ciudad
+                      </label>
+                      <input
+                        type="text"
+                        value={city}
+                        readOnly
+                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                        style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
+                        placeholder="Pendiente"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        Comuna
+                      </label>
+                      <input
+                        type="text"
+                        value={commune}
+                        readOnly
+                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                        style={{
+                          backgroundColor: "#F9FAFB",
+                          borderColor: selectedAddressCommuneMatchesQuote ? "#E5E7EB" : "#F59E0B",
+                          color: "#0A1830",
+                        }}
+                        placeholder="Pendiente"
+                      />
+                    </div>
+                  </div>
+
+                  {!selectedAddressCommuneMatchesQuote && (
+                    <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#F59E0B" }}>
+                      <p className="text-sm font-semibold" style={{ color: "#92400E" }}>
+                        La dirección debe estar en {reservation.quotedTransportCommune}, que es la comuna usada para cotizar el transporte.
+                      </p>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                      Referencia
+                    </label>
+                    <input
+                      type="text"
+                      value={addressReference}
+                      onChange={(e) => setAddressReference(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                      style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                      placeholder="Ej: Portón negro, casa al fondo"
+                    />
                   </div>
                 </div>
               </div>
@@ -950,7 +1072,7 @@ export default function BookingConfirmationPage() {
 
                   <button
                     onClick={() => router.push("/success")}
-                    disabled={!allConditionsAccepted}
+                    disabled={!canPay}
                     className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-base transition-opacity disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
                     style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
                   >
