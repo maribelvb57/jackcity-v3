@@ -506,7 +506,7 @@ export default function BookingConfirmationPage() {
                           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
                             Género
                           </label>
-                          <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" }}>
+                          <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: "#E5E7EB" }}>
                             <label className="flex items-center gap-2 cursor-pointer">
                               <input
                                 type="radio"
