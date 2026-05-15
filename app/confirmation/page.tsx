@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { SiteNavbar } from "@/components/site-navbar"
@@ -60,20 +60,6 @@ const COUNTRY_CODES = [
   { code: "+52", country: "MX", flag: "🇲🇽" },
 ]
 
-// Countries list
-const COUNTRIES = ["Chile", "Argentina", "Perú", "Colombia", "México", "Brasil", "Ecuador"]
-
-// Cities by country (simplified)
-const CITIES: Record<string, string[]> = {
-  Chile: ["Santiago", "Valparaíso", "Concepción", "Viña del Mar", "Antofagasta"],
-  Argentina: ["Buenos Aires", "Córdoba", "Rosario", "Mendoza"],
-  Perú: ["Lima", "Arequipa", "Cusco", "Trujillo"],
-  Colombia: ["Bogotá", "Medellín", "Cali", "Barranquilla"],
-  México: ["Ciudad de México", "Guadalajara", "Monterrey", "Puebla"],
-  Brasil: ["São Paulo", "Rio de Janeiro", "Brasília", "Salvador"],
-  Ecuador: ["Quito", "Guayaquil", "Cuenca"],
-}
-
 // Pet sizes
 const PET_SIZES = ["Pequeño", "Mediano", "Grande"]
 
@@ -90,17 +76,126 @@ interface PetData {
   age: number
 }
 
+type GoogleAddressComponent = {
+  long_name: string
+  short_name: string
+  types: string[]
+}
+
+type GooglePlaceResult = {
+  address_components?: GoogleAddressComponent[]
+  geometry?: unknown
+  name?: string
+}
+
+type GoogleMapsAutocomplete = {
+  addListener: (eventName: "place_changed", handler: () => void) => { remove: () => void }
+  getPlace: () => GooglePlaceResult
+}
+
+type GoogleMapsWindow = Window & {
+  google?: {
+    maps?: {
+      places?: {
+        Autocomplete: new (
+          input: HTMLInputElement,
+          options: {
+            componentRestrictions?: { country: string }
+            fields: string[]
+            types: string[]
+          }
+        ) => GoogleMapsAutocomplete
+      }
+      event?: {
+        clearInstanceListeners: (instance: GoogleMapsAutocomplete) => void
+      }
+    }
+  }
+}
+
+const GOOGLE_MAPS_SCRIPT_ID = "google-maps-places-script"
+let googleMapsScriptPromise: Promise<void> | null = null
+
+function loadGoogleMapsScript(apiKey: string): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve()
+
+  const googleWindow = window as GoogleMapsWindow
+  if (googleWindow.google?.maps?.places) return Promise.resolve()
+  if (googleMapsScriptPromise) return googleMapsScriptPromise
+
+  googleMapsScriptPromise = new Promise((resolve, reject) => {
+    const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID) as HTMLScriptElement | null
+
+    if (existingScript) {
+      existingScript.addEventListener("load", () => resolve(), { once: true })
+      existingScript.addEventListener("error", () => reject(new Error("No se pudo cargar Google Maps.")), { once: true })
+      return
+    }
+
+    const script = document.createElement("script")
+    const params = new URLSearchParams({
+      key: apiKey,
+      libraries: "places",
+      language: "es",
+      region: "CL",
+    })
+
+    script.id = GOOGLE_MAPS_SCRIPT_ID
+    script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`
+    script.async = true
+    script.defer = true
+    script.addEventListener("load", () => resolve(), { once: true })
+    script.addEventListener("error", () => reject(new Error("No se pudo cargar Google Maps.")), { once: true })
+    document.head.appendChild(script)
+  })
+
+  return googleMapsScriptPromise
+}
+
+function getAddressComponent(place: GooglePlaceResult, componentType: string, shortName = false): string {
+  const component = place.address_components?.find((item) => item.types.includes(componentType))
+  if (!component) return ""
+  return shortName ? component.short_name : component.long_name
+}
+
+function parseGoogleAddress(place: GooglePlaceResult) {
+  const streetNumber = getAddressComponent(place, "street_number", true)
+  const route = getAddressComponent(place, "route")
+  const streetAddress = [route, streetNumber].filter(Boolean).join(" ")
+
+  const commune =
+    getAddressComponent(place, "administrative_area_level_3") ||
+    getAddressComponent(place, "locality") ||
+    getAddressComponent(place, "sublocality_level_1") ||
+    getAddressComponent(place, "sublocality")
+
+  const city =
+    getAddressComponent(place, "administrative_area_level_2") ||
+    getAddressComponent(place, "locality") ||
+    commune
+
+  return {
+    address: streetAddress || place.name || "",
+    commune,
+    city,
+    country: getAddressComponent(place, "country"),
+  }
+}
+
 export default function BookingConfirmationPage() {
   const router = useRouter()
+  const addressInputRef = useRef<HTMLInputElement | null>(null)
   // User form state
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
-  const [country, setCountry] = useState("Chile")
+  const [country, setCountry] = useState("")
   const [city, setCity] = useState("")
   const [saveData, setSaveData] = useState(false)
   const [commune, setCommune] = useState("")
   const [address, setAddress] = useState("")
+  const [addressSelectedFromGoogle, setAddressSelectedFromGoogle] = useState(false)
+  const [addressAutocompleteError, setAddressAutocompleteError] = useState("")
   const [rut, setRut] = useState("")
   const [countryCode, setCountryCode] = useState("+56")
   const [phone, setPhone] = useState("")
@@ -145,6 +240,66 @@ export default function BookingConfirmationPage() {
   }
 
   const allConditionsAccepted = vaccinesUpToDate && isCastrated && notInHeat
+
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    const input = addressInputRef.current
+    if (!apiKey || !input) return
+
+    let autocomplete: GoogleMapsAutocomplete | null = null
+    let listener: { remove: () => void } | null = null
+    let isMounted = true
+
+    loadGoogleMapsScript(apiKey)
+      .then(() => {
+        if (!isMounted) return
+
+        const googleWindow = window as GoogleMapsWindow
+        const Autocomplete = googleWindow.google?.maps?.places?.Autocomplete
+        if (!Autocomplete) {
+          setAddressAutocompleteError("No se pudo iniciar el autocompletado de direcciones.")
+          return
+        }
+
+        autocomplete = new Autocomplete(input, {
+          componentRestrictions: { country: "cl" },
+          fields: ["address_components", "geometry", "name"],
+          types: ["address"],
+        })
+
+        listener = autocomplete.addListener("place_changed", () => {
+          if (!autocomplete) return
+
+          const place = autocomplete.getPlace()
+          if (!place.geometry) {
+            setAddressSelectedFromGoogle(false)
+            return
+          }
+
+          const parsedAddress = parseGoogleAddress(place)
+          setAddress(parsedAddress.address)
+          setCommune(parsedAddress.commune)
+          setCity(parsedAddress.city)
+          setCountry(parsedAddress.country)
+          setAddressSelectedFromGoogle(true)
+          setAddressAutocompleteError("")
+        })
+      })
+      .catch(() => {
+        if (isMounted) {
+          setAddressAutocompleteError("No se pudo cargar el autocompletado de direcciones.")
+        }
+      })
+
+    return () => {
+      isMounted = false
+      listener?.remove()
+      if (autocomplete) {
+        const googleWindow = window as GoogleMapsWindow
+        googleWindow.google?.maps?.event?.clearInstanceListeners(autocomplete)
+      }
+    }
+  }, [])
 
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
@@ -298,63 +453,6 @@ export default function BookingConfirmationPage() {
                     </div>
                   </div>
 
-                  {/* Country, City and Commune */}
-                  <div className="flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1">
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                        País
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={country}
-                          onChange={(e) => {
-                            setCountry(e.target.value)
-                            setCity("")
-                          }}
-                          className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
-                        >
-                          {COUNTRIES.map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                        Ciudad
-                      </label>
-                      <div className="relative">
-                        <select
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
-                        >
-                          <option value="">Seleccionar ciudad</option>
-                          {(CITIES[country] || []).map((c) => (
-                            <option key={c} value={c}>{c}</option>
-                          ))}
-                        </select>
-                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                        Comuna
-                      </label>
-                      <input
-                        type="text"
-                        value={commune}
-                        onChange={(e) => setCommune(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
-                        placeholder="Ej: Las Condes"
-                      />
-                    </div>
-                  </div>
-
                   {/* Address */}
                   <div>
                     <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
@@ -363,12 +461,68 @@ export default function BookingConfirmationPage() {
                     <div className="relative">
                       <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
                       <input
+                        ref={addressInputRef}
                         type="text"
                         value={address}
-                        onChange={(e) => setAddress(e.target.value)}
+                        onChange={(e) => {
+                          setAddress(e.target.value)
+                          setAddressSelectedFromGoogle(false)
+                          setCommune("")
+                          setCity("")
+                          setCountry("")
+                        }}
                         className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                        style={{ borderColor: address && !addressSelectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
                         placeholder="Calle y número"
+                        autoComplete="street-address"
+                      />
+                    </div>
+                    {addressAutocompleteError && (
+                      <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>
+                        {addressAutocompleteError}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Country, City and Commune */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        País
+                      </label>
+                      <input
+                        type="text"
+                        value={country}
+                        readOnly
+                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                        style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
+                        placeholder="Pendiente"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        Ciudad
+                      </label>
+                      <input
+                        type="text"
+                        value={city}
+                        readOnly
+                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                        style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
+                        placeholder="Pendiente"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                        Comuna
+                      </label>
+                      <input
+                        type="text"
+                        value={commune}
+                        readOnly
+                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                        style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
+                        placeholder="Pendiente"
                       />
                     </div>
                   </div>
