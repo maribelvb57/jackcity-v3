@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla"
 import type { DateRange } from "react-day-picker"
+import { DEFAULT_TRANSPORT_COMMUNE } from "@/config/transport-communes"
 
 export type Mascota = {
   raza: string
@@ -10,6 +11,8 @@ export type SearchState = {
   city: string
   dateRange: DateRange | undefined
   needsTransport: boolean
+  transportCommuneCode: string
+  transportCommune: string
   mascotas: Mascota[]
 }
 
@@ -18,6 +21,7 @@ export type SearchActions = {
   setDateRange: (dateRange: DateRange | undefined) => void
   setNeedsTransport: (needsTransport: boolean) => void
   toggleNeedsTransport: () => void
+  setTransportCommune: (commune: { communeCode: string; commune: string }) => void
   setMascotas: (updater: Mascota[] | ((prev: Mascota[]) => Mascota[])) => void
 }
 
@@ -29,6 +33,8 @@ export const defaultSearchState: SearchState = {
   city: "SANTIAGO",
   dateRange: undefined,
   needsTransport: false,
+  transportCommuneCode: DEFAULT_TRANSPORT_COMMUNE.communeCode,
+  transportCommune: DEFAULT_TRANSPORT_COMMUNE.commune,
   mascotas: [defaultMascota()],
 }
 
@@ -39,6 +45,7 @@ export const createSearchStore = (initState: SearchState = defaultSearchState) =
     setDateRange: (dateRange) => set({ dateRange }),
     setNeedsTransport: (needsTransport) => set({ needsTransport }),
     toggleNeedsTransport: () => set((state) => ({ needsTransport: !state.needsTransport })),
+    setTransportCommune: ({ communeCode, commune }) => set({ transportCommuneCode: communeCode, transportCommune: commune }),
     setMascotas: (updater) =>
       set((state) => ({
         mascotas: typeof updater === "function" ? updater(state.mascotas) : updater,

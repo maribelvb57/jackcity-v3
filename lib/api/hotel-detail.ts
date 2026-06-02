@@ -30,24 +30,35 @@ export type HotelDetail = {
   } | null
 }
 
+export type PetPayload = {
+  id: string | null
+  breed: string
+  size: string
+}
+
 export async function getHotelBookingDetail(params: {
   hotelId: string
   city: string
-  pets: string[]
+  pets: PetPayload[]
   checkinDate: string
   checkoutDate: string
   needsTransport: boolean
   transportBy?: string
+  transportCommune?: string
+  searchId: string
+  listIndex: number
 }): Promise<HotelDetail> {
   const body: Record<string, unknown> = {
     hotelId: params.hotelId,
     city: params.city,
-    pets: params.pets,
     checkinDate: params.checkinDate,
     checkoutDate: params.checkoutDate,
     needsTransport: params.needsTransport,
     ...(params.transportBy && { transportBy: params.transportBy }),
-    ...(params.needsTransport && { userCommuneCode: "SMI" }),
+    ...(params.needsTransport && params.transportCommune && { transportCommune: params.transportCommune }),
+    searchId: params.searchId,
+    listIndex: params.listIndex,
+    pets: params.pets,
   }
 
   const res = await fetch(`${API_BASE}/api/hotels/booking-detail`, {

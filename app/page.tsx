@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import { SiteNavbar } from "@/components/site-navbar"
 import { HeroHeader } from "@/components/hero-header"
 import { SearchBar } from "@/components/search-bar"
@@ -18,7 +19,9 @@ export default function Home() {
         <HeroHeader />
 
         {/* Section 2: Search bar (attached to header) */}
-        <SearchBar />
+        <Suspense>
+          <SearchBar />
+        </Suspense>
 
         {/* Section 3: Promotional */}
         <PromoSection />

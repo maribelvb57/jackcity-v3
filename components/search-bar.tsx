@@ -1,14 +1,16 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { MapPin, CalendarDays, Dog, Truck, Search, ChevronDown, Plus, X } from "lucide-react"
 import { DayPicker, DateRange } from "react-day-picker"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { useSearchStore } from "@/providers/search-store-provider"
 import { defaultMascota, type Mascota } from "@/stores/search-store"
-import { PET_SIZE_MAP } from "@/lib/api/hotels"
+import { PET_SIZE_LABEL, PET_SIZE_MAP, type PetSize } from "@/lib/api/hotels"
+import { encodePetBreeds, parsePetBreedsParam } from "@/lib/search-pets"
+import { TRANSPORT_COMMUNES, getTransportCommuneByCode } from "@/config/transport-communes"
 import "react-day-picker/style.css"
 
 const RAZAS_TAMANOS: Record<string, string> = {
@@ -48,6 +50,7 @@ const CITIES = [
 
 export function SearchBar() {
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const accentColor = "rgb(0 6 255)"
   const accentHover = "rgb(0 5 220)"
@@ -70,7 +73,10 @@ export function SearchBar() {
   const dateRange = useSearchStore((state) => state.dateRange)
   const setDateRange = useSearchStore((state) => state.setDateRange)
   const needsTransport = useSearchStore((state) => state.needsTransport)
-  const toggleNeedsTransport = useSearchStore((state) => state.toggleNeedsTransport)
+  const setNeedsTransport = useSearchStore((state) => state.setNeedsTransport)
+  const transportCommuneCode = useSearchStore((state) => state.transportCommuneCode)
+  const transportCommune = useSearchStore((state) => state.transportCommune)
+  const setTransportCommune = useSearchStore((state) => state.setTransportCommune)
   const mascotas = useSearchStore((state) => state.mascotas)
   const setMascotas = useSearchStore((state) => state.setMascotas)
 
@@ -91,6 +97,50 @@ export function SearchBar() {
     }
     document.addEventListener("mousedown", handleClick)
     return () => document.removeEventListener("mousedown", handleClick)
+  }, [])
+
+  useEffect(() => {
+    const cityParam = searchParams.get("city")
+    const checkinParam = searchParams.get("checkin")
+    const checkoutParam = searchParams.get("checkout")
+    const petsParam = searchParams.get("pets")
+    const transportParam = searchParams.get("transport")
+    const communeCodeParam = searchParams.get("communeCode")
+    const petBreeds = parsePetBreedsParam(searchParams.get("breeds"))
+
+    if (!cityParam && !checkinParam && !checkoutParam && !petsParam && !transportParam && !communeCodeParam && petBreeds.length === 0) {
+      return
+    }
+
+    if (cityParam) setCity(cityParam)
+
+    if (checkinParam && checkoutParam) {
+      setDateRange({
+        from: new Date(`${checkinParam}T12:00:00`),
+        to: new Date(`${checkoutParam}T12:00:00`),
+      })
+    }
+
+    if (transportParam != null) setNeedsTransport(transportParam === "true")
+
+    if (communeCodeParam) {
+      const selectedCommune = getTransportCommuneByCode(communeCodeParam)
+      if (selectedCommune) setTransportCommune(selectedCommune)
+    }
+
+    if (petsParam || petBreeds.length > 0) {
+      const petSizes = petsParam?.split(",").filter(Boolean) ?? []
+      const petCount = Math.max(petSizes.length, petBreeds.length, 1)
+      setMascotas(
+        Array.from({ length: petCount }, (_, index) => {
+          const raza = petBreeds[index] ?? "Sin especificar"
+          const sizeCode = petSizes[index] as PetSize | undefined
+          const tamano = sizeCode ? PET_SIZE_LABEL[sizeCode] ?? "" : RAZAS_TAMANOS[raza] ?? ""
+
+          return { raza, tamano }
+        })
+      )
+    }
   }, [])
 
   const petsLabel = () => {
@@ -434,7 +484,12 @@ export function SearchBar() {
                       checkin: format(dateRange.from, "yyyy-MM-dd"),
                       checkout: format(dateRange.to, "yyyy-MM-dd"),
                       pets: mascotas.map((m) => PET_SIZE_MAP[m.tamano] ?? "SMALL").join(","),
+                      breeds: encodePetBreeds(mascotas.map((m) => m.raza)),
                       transport: String(needsTransport),
+                      ...(needsTransport && {
+                        communeCode: transportCommuneCode,
+                        commune: transportCommune,
+                      }),
                     })
                     router.push(`/search?${params.toString()}`)
                   }}
@@ -454,28 +509,56 @@ export function SearchBar() {
             </div>
 
             {/* Transport checkbox */}
-            <div className="mt-3 pt-3 border-t flex items-center gap-2.5" style={{ borderColor: "rgba(10, 24, 48, 0.18)" }}>
-              <button
-                type="button"
-                role="checkbox"
-                aria-checked={needsTransport}
-                onClick={toggleNeedsTransport}
-                className="w-5 h-5 rounded-none border-2 flex items-center justify-center transition-all flex-shrink-0"
-                style={{
-                  borderColor: needsTransport ? accentColor : "#C8BFA0",
-                  backgroundColor: needsTransport ? accentColor : "#fff",
-                }}
-              >
-                {needsTransport && (
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                    <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                )}
-              </button>
-              <Truck size={15} style={{ color: "#0A1830", flexShrink: 0 }} />
-              <span className="text-sm" style={{ color: helperColor }}>
-                Necesito transporte para mi mascota
-              </span>
+            <div className="mt-3 pt-3 border-t flex flex-col gap-3 md:flex-row md:items-center md:gap-4" style={{ borderColor: "rgba(10, 24, 48, 0.18)" }}>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={needsTransport}
+                  onClick={() => setNeedsTransport(!needsTransport)}
+                  className="w-5 h-5 rounded-none border-2 flex items-center justify-center transition-all flex-shrink-0"
+                  style={{
+                    borderColor: needsTransport ? accentColor : "#C8BFA0",
+                    backgroundColor: needsTransport ? accentColor : "#fff",
+                  }}
+                >
+                  {needsTransport && (
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M2 6l3 3 5-5" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </button>
+                <Truck size={15} style={{ color: "#0A1830", flexShrink: 0 }} />
+                <span className="text-sm" style={{ color: helperColor }}>
+                  Necesito transporte para mi mascota
+                </span>
+              </div>
+
+              {needsTransport && (
+                <div className="w-full max-w-sm md:w-48 md:max-w-none">
+                  <label className="block text-xs font-semibold mb-1.5 tracking-wide uppercase md:sr-only" style={{ color: labelColor }}>
+                    Comuna
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={transportCommuneCode}
+                      onChange={(e) => {
+                        const selectedCommune = getTransportCommuneByCode(e.target.value)
+                        if (selectedCommune) setTransportCommune(selectedCommune)
+                      }}
+                      className="w-full appearance-none px-3 py-2 pr-9 rounded-xl border text-sm outline-none md:py-1.5"
+                      style={{ backgroundColor: inputColor, borderColor: inputBorder, color: "#0A1830" }}
+                    >
+                      {TRANSPORT_COMMUNES.map((item) => (
+                        <option key={item.communeCode} value={item.communeCode}>
+                          {item.commune}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: fieldIconColor }} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

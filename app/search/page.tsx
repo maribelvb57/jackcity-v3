@@ -12,8 +12,10 @@ import { ResultCard, type ResultCardData } from "@/components/result-card"
 import { SearchFilters } from "@/components/search-filters"
 import { SearchBenefitsBanner } from "@/components/search-benefits-banner"
 import { useSearchStore } from "@/providers/search-store-provider"
-import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL } from "@/lib/api/hotels"
+import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL, type SearchResult } from "@/lib/api/hotels"
+import { parsePetBreedsParam } from "@/lib/search-pets"
 import { ZONE_COMMUNES } from "@/config/zones"
+import { getTransportCommuneByCode } from "@/config/transport-communes"
 
 const ORDENAR_OPTIONS = [
   "Recomendados de Jack",
@@ -49,7 +51,7 @@ function hotelToCardData(
   hotel: Hotel,
   petCount: number,
   nights: number,
-  urlParams: { city: string; checkin: string; checkout: string; pets: string; transport: boolean }
+  urlParams: { city: string; checkin: string; checkout: string; pets: string; breeds?: string; transport: boolean; communeCode?: string; commune?: string; searchId: string; listIndex: number }
 ): ResultCardData {
   const transportBy = hotel.transport?.provider ?? ""
   const qs = new URLSearchParams({
@@ -57,8 +59,13 @@ function hotelToCardData(
     checkin: urlParams.checkin ?? "",
     checkout: urlParams.checkout ?? "",
     pets: urlParams.pets,
+    ...(urlParams.breeds && { breeds: urlParams.breeds }),
     transport: String(urlParams.transport),
+    ...(urlParams.transport && urlParams.communeCode && { communeCode: urlParams.communeCode }),
+    ...(urlParams.transport && urlParams.commune && { commune: urlParams.commune }),
     ...(transportBy && { transportBy }),
+    searchId: urlParams.searchId,
+    listIndex: String(urlParams.listIndex),
   })
   return {
     ...CARD_DEFAULTS,
@@ -102,7 +109,12 @@ function SearchPageContent() {
   const fromParam = searchParams.get("checkin")
   const toParam = searchParams.get("checkout")
   const petsParam = searchParams.get("pets") ?? "SMALL"
+  const breedsParam = searchParams.get("breeds") ?? ""
+  const petBreeds = parsePetBreedsParam(breedsParam)
   const transportParam = searchParams.get("transport") === "true"
+  const communeCodeParam = searchParams.get("communeCode") ?? ""
+  const selectedTransportCommune = communeCodeParam ? getTransportCommuneByCode(communeCodeParam) : undefined
+  const communeParam = searchParams.get("commune")?.trim() || selectedTransportCommune?.commune || ""
   const startDate = fromParam ? new Date(`${fromParam}T12:00:00`) : null
   const endDate = toParam ? new Date(`${toParam}T12:00:00`) : null
 
@@ -112,12 +124,14 @@ function SearchPageContent() {
   const setDateRange = useSearchStore((s) => s.setDateRange)
   const setMascotas = useSearchStore((s) => s.setMascotas)
   const setNeedsTransport = useSearchStore((s) => s.setNeedsTransport)
+  const setTransportCommune = useSearchStore((s) => s.setTransportCommune)
 
   useEffect(() => {
     setCity(cityParam)
     if (startDate && endDate) setDateRange({ from: startDate, to: endDate })
-    setMascotas(petSizes.map((s) => ({ raza: "Sin especificar", tamano: PET_SIZE_LABEL[s] ?? "" })))
+    setMascotas(petSizes.map((s, index) => ({ raza: petBreeds[index] ?? "Sin especificar", tamano: PET_SIZE_LABEL[s] ?? "" })))
     setNeedsTransport(transportParam)
+    if (transportParam && selectedTransportCommune) setTransportCommune(selectedTransportCommune)
   }, [])
 
   const summaryData = {
@@ -127,24 +141,29 @@ function SearchPageContent() {
     petCount: petSizes.length,
     withTransport: transportParam,
   }
+  const landingUrl = searchParams.toString() ? `/?${searchParams.toString()}` : "/"
 
   const {
-    data: hotels = [],
+    data: searchResult,
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["search-results", cityParam, fromParam, toParam, petsParam, transportParam],
-    queryFn: async (): Promise<Hotel[]> => {
-      if (!startDate || !endDate) return []
+    queryKey: ["search-results", cityParam, fromParam, toParam, petsParam, breedsParam, transportParam, communeCodeParam],
+    queryFn: async (): Promise<SearchResult> => {
+      if (!startDate || !endDate) return { searchId: "", hotels: [] }
       return searchHotels({
         city: cityParam,
         mascotas: petSizes.map((s) => ({ tamano: PET_SIZE_LABEL[s] ?? "" })),
         startDate,
         endDate,
         needTransport: transportParam,
+        transportCommune: transportParam ? communeCodeParam : undefined,
       })
     },
   })
+
+  const hotels = searchResult?.hotels ?? []
+  const searchId = searchResult?.searchId ?? ""
 
   const prices = useMemo(
     () => hotels.map((h) => h.pricing?.totalPrice ?? 0).filter((p) => p > 0),
@@ -164,22 +183,28 @@ function SearchPageContent() {
 
   const allowedCommunes = ZONE_COMMUNES[zona]
   const searchResults = hotels
-    .filter((h) => !allowedCommunes || allowedCommunes.includes(h.communeCode ?? ""))
-    .filter((h) => presupuesto === 0 || (h.pricing?.totalPrice ?? 0) <= presupuesto)
-    .filter((h) => selectedBenefits.length === 0 || selectedBenefits.every((code) => h.benefits.some((b) => b.code === code)))
-    .filter((h) => (h.avgRating ?? 0) >= puntuacionMin)
+    .map((h, originalIndex) => ({ hotel: h, originalIndex }))
+    .filter(({ hotel: h }) => !allowedCommunes || allowedCommunes.includes(h.communeCode ?? ""))
+    .filter(({ hotel: h }) => presupuesto === 0 || (h.pricing?.totalPrice ?? 0) <= presupuesto)
+    .filter(({ hotel: h }) => selectedBenefits.length === 0 || selectedBenefits.every((code) => h.benefits.some((b) => b.code === code)))
+    .filter(({ hotel: h }) => (h.avgRating ?? 0) >= puntuacionMin)
     .sort((a, b) => {
-      if (ordenarPor === "Precio menor a mayor") return (a.pricing?.totalPrice ?? 0) - (b.pricing?.totalPrice ?? 0)
-      if (ordenarPor === "Precio mayor a menor") return (b.pricing?.totalPrice ?? 0) - (a.pricing?.totalPrice ?? 0)
-      if (ordenarPor === "Mejor puntuación Usuarios") return (b.avgRating ?? 0) - (a.avgRating ?? 0)
+      if (ordenarPor === "Precio menor a mayor") return (a.hotel.pricing?.totalPrice ?? 0) - (b.hotel.pricing?.totalPrice ?? 0)
+      if (ordenarPor === "Precio mayor a menor") return (b.hotel.pricing?.totalPrice ?? 0) - (a.hotel.pricing?.totalPrice ?? 0)
+      if (ordenarPor === "Mejor puntuación Usuarios") return (b.hotel.avgRating ?? 0) - (a.hotel.avgRating ?? 0)
       return 0
     })
-    .map((h) => hotelToCardData(h, petCount, nights, {
+    .map(({ hotel: h, originalIndex }) => hotelToCardData(h, petCount, nights, {
       city: cityParam,
       checkin: fromParam ?? "",
       checkout: toParam ?? "",
       pets: petsParam,
+      breeds: breedsParam,
       transport: transportParam,
+      communeCode: communeCodeParam,
+      commune: communeParam,
+      searchId,
+      listIndex: originalIndex,
     }))
 
   return (
@@ -191,7 +216,7 @@ function SearchPageContent() {
         {/* Search summary bar */}
         <SearchSummaryBar
           data={summaryData}
-          onChangeClick={() => router.push("/")}
+          onChangeClick={() => router.push(landingUrl)}
         />
 
         {/* Benefits banner - Full width */}

@@ -1,11 +1,15 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { Suspense, useEffect, useMemo, useRef, useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import Image from "next/image"
+import Link from "next/link"
 import { SiteNavbar } from "@/components/site-navbar"
 import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { formatClp } from "@/lib/format"
+import { useSearchStore } from "@/providers/search-store-provider"
+import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
+import { parsePetBreedsParam } from "@/lib/search-pets"
 import { 
   User,
   Mail,
@@ -17,8 +21,6 @@ import {
   Minus,
   Plus,
   Check,
-  Car,
-  X
 } from "lucide-react"
 
 // Mock hotel data
@@ -61,9 +63,6 @@ const COUNTRY_CODES = [
   { code: "+52", country: "MX", flag: "🇲🇽" },
 ]
 
-// Pet sizes
-const PET_SIZES = ["Pequeño", "Mediano", "Grande"]
-
 // Pet colors
 const PET_COLORS = ["Negro", "Blanco", "Marrón", "Dorado", "Gris", "Manchado", "Otro"]
 
@@ -75,6 +74,11 @@ interface PetData {
   weight: string
   color: string
   age: number
+}
+
+type QuotedPet = {
+  breed: string
+  size: string
 }
 
 type GoogleAddressComponent = {
@@ -232,9 +236,52 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim())
 }
 
-export default function BookingConfirmationPage() {
+function createPetDataFromQuote(pet: QuotedPet): PetData {
+  return {
+    name: "",
+    breed: pet.breed,
+    size: pet.size,
+    gender: "",
+    weight: "",
+    color: "",
+    age: 0,
+  }
+}
+
+function BookingConfirmationContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const addressInputRef = useRef<HTMLInputElement | null>(null)
+  const quotedMascotasFromStore = useSearchStore((state) => state.mascotas)
+  const hasTransportParam = searchParams.has("transport")
+  const transportParam = searchParams.get("transport") === "true"
+  const quotedTransportCommune = searchParams.get("commune")?.trim() || RESERVATION_DATA.quotedTransportCommune
+  const transportFrom = quotedTransportCommune ? `Comuna ${quotedTransportCommune}` : RESERVATION_DATA.transportFrom
+  const landingUrl = searchParams.toString() ? `/?${searchParams.toString()}` : "/"
+  const quotedPets = useMemo<QuotedPet[]>(() => {
+    const validStorePets = quotedMascotasFromStore.filter(
+      (pet) => pet.raza !== "Sin especificar" && pet.tamano
+    )
+
+    if (validStorePets.length > 0) {
+      return validStorePets.map((pet) => ({
+        breed: pet.raza,
+        size: pet.tamano,
+      }))
+    }
+
+    const petSizes = searchParams.get("pets")?.split(",").filter(Boolean) ?? []
+    const petBreeds = parsePetBreedsParam(searchParams.get("breeds"))
+    const petCount = Math.max(petSizes.length, petBreeds.length, 1)
+
+    return Array.from({ length: petCount }, (_, index) => {
+      const sizeCode = petSizes[index] as PetSize | undefined
+      return {
+        breed: petBreeds[index] ?? "Sin especificar",
+        size: sizeCode ? PET_SIZE_LABEL[sizeCode] ?? "" : "",
+      }
+    })
+  }, [quotedMascotasFromStore, searchParams])
   // User form state
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
@@ -253,11 +300,26 @@ export default function BookingConfirmationPage() {
   const [phone, setPhone] = useState("")
 
   // Pets state
-  const [pets, setPets] = useState<PetData[]>([
-    { name: "", breed: "", size: "Pequeño", gender: "", weight: "", color: "", age: 0 },
-    { name: "", breed: "", size: "Pequeño", gender: "", weight: "", color: "", age: 0 },
-  ])
-  const [includeTransport, setIncludeTransport] = useState(RESERVATION_DATA.withTransport)
+  const [pets, setPets] = useState<PetData[]>(() => quotedPets.map(createPetDataFromQuote))
+  useEffect(() => {
+    setPets((currentPets) => {
+      const quoteAlreadyApplied =
+        currentPets.length === quotedPets.length &&
+        currentPets.every((pet, index) => pet.breed === quotedPets[index]?.breed && pet.size === quotedPets[index]?.size)
+
+      if (quoteAlreadyApplied) return currentPets
+
+      return quotedPets.map((quotedPet, index) => ({
+        ...createPetDataFromQuote(quotedPet),
+        name: currentPets[index]?.name ?? "",
+        gender: currentPets[index]?.gender ?? "",
+        weight: currentPets[index]?.weight ?? "",
+        color: currentPets[index]?.color ?? "",
+        age: currentPets[index]?.age ?? 0,
+      }))
+    })
+  }, [quotedPets])
+  const [includeTransport, setIncludeTransport] = useState(hasTransportParam ? transportParam : RESERVATION_DATA.withTransport)
   const [selectedDeparture, setSelectedDeparture] = useState<string | null>(null)
   const [selectedReturn, setSelectedReturn] = useState<string | null>(null)
 
@@ -268,6 +330,8 @@ export default function BookingConfirmationPage() {
 
   const hotel = HOTEL_DATA
   const reservation = RESERVATION_DATA
+  const quotedPetSizesLabel = pets.map((pet) => pet.size).filter(Boolean).join(", ")
+  const petCountLabel = `${pets.length} ${pets.length === 1 ? "mascota" : "mascotas"}`
 
   const basePrice = reservation.pricePerNight * reservation.nights
   const transportPrice = includeTransport ? reservation.transportPrice : 0
@@ -275,13 +339,15 @@ export default function BookingConfirmationPage() {
   const selectedAddressCommuneMatchesQuote =
     !includeTransport ||
     !addressSelectedFromGoogle ||
-    normalizeCommuneName(commune) === normalizeCommuneName(reservation.quotedTransportCommune)
+    normalizeCommuneName(commune) === normalizeCommuneName(quotedTransportCommune)
   const rutHasValue = cleanRut(rut).length > 0
   const rutIsValid = rutHasValue && isValidChileRut(rut)
   const emailHasValue = email.trim().length > 0
   const emailIsValid = emailHasValue && isValidEmail(email)
 
   const updatePet = (index: number, field: keyof PetData, value: string | number) => {
+    if (field === "breed" || field === "size") return
+
     const newPets = [...pets]
     newPets[index] = { ...newPets[index], [field]: value }
     setPets(newPets)
@@ -300,7 +366,8 @@ export default function BookingConfirmationPage() {
   }
 
   const allConditionsAccepted = vaccinesUpToDate && isCastrated && notInHeat
-  const canPay = allConditionsAccepted && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid
+  const transportSlotsSelected = !includeTransport || (!!selectedDeparture && !!selectedReturn)
+  const canPay = allConditionsAccepted && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid && transportSlotsSelected
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -374,10 +441,10 @@ export default function BookingConfirmationPage() {
             city: "Santiago",
             dateFrom: "7 mayo",
             dateTo: "9 mayo",
-            petCount: 2,
-            withTransport: true,
+            petCount: pets.length,
+            withTransport: includeTransport,
           }}
-          onChangeClick={() => {}}
+          onChangeClick={() => router.push(landingUrl)}
         />
 
         {/* Main content */}
@@ -411,9 +478,9 @@ export default function BookingConfirmationPage() {
               <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "#E5E7EB" }}>
                 <h3 className="font-bold text-sm mb-3" style={{ color: "#0A1830" }}>Resumen Reserva</h3>
                 <ul className="flex flex-col gap-1.5 text-xs" style={{ color: "#555" }}>
-                  <li>{reservation.petCount} mascotas, {reservation.petSize}</li>
+                  <li>{petCountLabel}{quotedPetSizesLabel ? `, ${quotedPetSizesLabel}` : ""}</li>
                   <li>{reservation.nights} noches ({reservation.dateFrom} - {reservation.dateTo})</li>
-                  {reservation.withTransport && <li>Transporte incluido</li>}
+                  {includeTransport && <li>Transporte incluido</li>}
                 </ul>
               </div>
 
@@ -675,7 +742,10 @@ export default function BookingConfirmationPage() {
                   {!selectedAddressCommuneMatchesQuote && (
                     <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#F59E0B" }}>
                       <p className="text-sm font-semibold" style={{ color: "#92400E" }}>
-                        La dirección debe estar en {reservation.quotedTransportCommune}, que es la comuna usada para cotizar el transporte.
+                        La dirección debe estar en {quotedTransportCommune}, que es la comuna usada para cotizar el transporte.{" "}
+                        <Link href={landingUrl} className="underline underline-offset-2 transition-opacity hover:opacity-75">
+                          Cambiar reserva
+                        </Link>
                       </p>
                     </div>
                   )}
@@ -750,9 +820,9 @@ export default function BookingConfirmationPage() {
                           <input
                             type="text"
                             value={pet.breed}
-                            onChange={(e) => updatePet(index, "breed", e.target.value)}
-                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                            style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                            readOnly
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
                             placeholder="Raza"
                           />
                         </div>
@@ -760,19 +830,14 @@ export default function BookingConfirmationPage() {
                           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
                             Tamaño
                           </label>
-                          <div className="relative">
-                            <select
-                              value={pet.size}
-                              onChange={(e) => updatePet(index, "size", e.target.value)}
-                              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                              style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
-                            >
-                              {PET_SIZES.map((size) => (
-                                <option key={size} value={size}>{size}</option>
-                              ))}
-                            </select>
-                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
-                          </div>
+                          <input
+                            type="text"
+                            value={pet.size}
+                            readOnly
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }}
+                            placeholder="Tamaño cotizado"
+                          />
                         </div>
                       </div>
 
@@ -889,43 +954,13 @@ export default function BookingConfirmationPage() {
                 </div>
               </div>
 
-              {/* Selected transport */}
-              <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                  <h2 className="text-lg font-bold" style={{ color: "#0A1830" }}>
-                    Transporte Seleccionado
+              {/* Transport schedules — only shown when user requested transport */}
+              {includeTransport && (
+                <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                  <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>
+                    Horarios de Transporte de tu mascota
                   </h2>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIncludeTransport(!includeTransport)
-                      if (includeTransport) {
-                        setSelectedDeparture(null)
-                        setSelectedReturn(null)
-                      }
-                    }}
-                    className="flex w-full items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors sm:w-auto"
-                    style={{
-                      backgroundColor: includeTransport ? "#FEF3C7" : "#fff",
-                      borderColor: includeTransport ? "#FFC43D" : "#E5E7EB",
-                      color: "#0A1830",
-                    }}
-                  >
-                    {includeTransport ? (
-                      <>
-                        <X size={14} />
-                        No deseo transporte
-                      </>
-                    ) : (
-                      <>
-                        <Car size={14} />
-                        Agregar Transporte
-                      </>
-                    )}
-                  </button>
-                </div>
 
-                {includeTransport && (
                   <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex-1">
                       <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Ida</p>
@@ -985,8 +1020,8 @@ export default function BookingConfirmationPage() {
                       </div>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Confirm conditions */}
               <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
@@ -1055,10 +1090,10 @@ export default function BookingConfirmationPage() {
                 </h2>
 
                 <ul className="flex flex-col gap-1.5 text-sm mb-4" style={{ color: "#555" }}>
-                  <li>{reservation.petCount} mascotas {reservation.petSize.toLowerCase()}</li>
+                  <li>{petCountLabel}{quotedPetSizesLabel ? ` (${quotedPetSizesLabel})` : ""}</li>
                   <li>{reservation.nights} noches ({reservation.dateFrom} - {reservation.dateTo})</li>
                   {includeTransport && (
-                    <li>Transporte incluido desde {reservation.transportFrom}</li>
+                    <li>Transporte incluido desde {transportFrom}</li>
                   )}
                 </ul>
 
@@ -1088,5 +1123,13 @@ export default function BookingConfirmationPage() {
         </div>
       </div>
     </main>
+  )
+}
+
+export default function BookingConfirmationPage() {
+  return (
+    <Suspense>
+      <BookingConfirmationContent />
+    </Suspense>
   )
 }

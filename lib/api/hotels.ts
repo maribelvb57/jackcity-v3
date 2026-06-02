@@ -64,20 +64,26 @@ function formatDate(date: Date): string {
 
 const API_BASE = "http://localhost:8080"
 
+export type SearchResult = {
+  searchId: string
+  hotels: Hotel[]
+}
+
 export async function searchHotels(params: {
   city: string
   mascotas: { tamano: string }[]
   startDate: Date
   endDate: Date
   needTransport: boolean
-}): Promise<Hotel[]> {
+  transportCommune?: string
+}): Promise<SearchResult> {
   const body = {
     city: params.city,
     pets: params.mascotas.map((m) => ({ size: PET_SIZE_MAP[m.tamano] ?? "SMALL" })),
     checkinDate: formatDate(params.startDate),
     checkoutDate: formatDate(params.endDate),
     needsTransport: params.needTransport,
-    ...(params.needTransport && { userCommuneCode: "SMI" }),
+    ...(params.needTransport && params.transportCommune && { transportCommune: params.transportCommune }),
   }
 
   const res = await fetch(`${API_BASE}/api/hotels/search`, {

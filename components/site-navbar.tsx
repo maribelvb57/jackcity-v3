@@ -1,14 +1,21 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { User } from "lucide-react"
 
 export function SiteNavbar() {
+  const [homeHref, setHomeHref] = useState("/")
+
+  useEffect(() => {
+    setHomeHref(window.location.search ? `/${window.location.search}` : "/")
+  }, [])
+
   return (
     <nav className="w-full px-4 md:px-6 flex items-center h-14" style={{ backgroundColor: "#0D2B45" }}>
 
       {/* Logo */}
-      <Link href="/" className="flex items-center gap-2.5 flex-shrink-0">
+      <Link href={homeHref} className="flex items-center gap-2.5 flex-shrink-0">
         <img
           src="/images/dog-icon.png"
           alt="JackCity mascot"

@@ -10,7 +10,9 @@ import { formatClp } from "@/lib/format"
 import { SiteNavbar } from "@/components/site-navbar"
 import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { getHotelBookingDetail } from "@/lib/api/hotel-detail"
+import { createQuote } from "@/lib/api/quotes"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
+import { parsePetBreedsParam } from "@/lib/search-pets"
 import {
   MapPin,
   ChevronLeft,
@@ -42,15 +44,28 @@ function HotelDetailContent() {
   const { id: hotelId } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [isCreatingQuote, setIsCreatingQuote] = useState(false)
+  const [quoteError, setQuoteError] = useState(false)
 
   const cityParam = searchParams.get("city") ?? "SANTIAGO"
   const checkinParam = searchParams.get("checkin") ?? ""
   const checkoutParam = searchParams.get("checkout") ?? ""
   const petsParam = searchParams.get("pets") ?? "SMALL"
+  const breedsParam = searchParams.get("breeds") ?? ""
   const transportParam = searchParams.get("transport") === "true"
   const transportByParam = searchParams.get("transportBy") ?? undefined
+  const communeCodeParam = searchParams.get("communeCode") ?? ""
+  const communeParam = searchParams.get("commune") ?? ""
+  const searchIdParam = searchParams.get("searchId") ?? ""
+  const listIndexParam = parseInt(searchParams.get("listIndex") ?? "0", 10)
 
   const petSizes = petsParam.split(",") as PetSize[]
+  const petBreeds = parsePetBreedsParam(breedsParam)
+  const petsPayload = petSizes.map((size, i) => ({
+    id: null,
+    breed: petBreeds[i] ?? "",
+    size,
+  }))
 
   const checkinDate = checkinParam ? new Date(`${checkinParam}T12:00:00`) : null
   const checkoutDate = checkoutParam ? new Date(`${checkoutParam}T12:00:00`) : null
@@ -67,17 +82,20 @@ function HotelDetailContent() {
   }
 
   const { data: hotel, isLoading, isError } = useQuery({
-    queryKey: ["hotel-detail", hotelId, cityParam, checkinParam, checkoutParam, petsParam, transportParam, transportByParam],
+    queryKey: ["hotel-detail", hotelId, cityParam, checkinParam, checkoutParam, petsParam, transportParam, transportByParam, communeCodeParam, searchIdParam, listIndexParam],
     queryFn: () => getHotelBookingDetail({
       hotelId,
       city: cityParam,
-      pets: petSizes,
+      pets: petsPayload,
       checkinDate: checkinParam,
       checkoutDate: checkoutParam,
       needsTransport: transportParam,
       transportBy: transportByParam,
+      transportCommune: transportParam ? communeCodeParam : undefined,
+      searchId: searchIdParam,
+      listIndex: listIndexParam,
     }),
-    enabled: !!hotelId && !!checkinParam && !!checkoutParam,
+    enabled: !!hotelId && !!checkinParam && !!checkoutParam && !!searchIdParam,
   })
 
   const images = [
@@ -95,7 +113,41 @@ function HotelDetailContent() {
   const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % images.length)
   const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
 
-  const backUrl = `/search?city=${cityParam}&checkin=${checkinParam}&checkout=${checkoutParam}&pets=${petsParam}&transport=${transportParam}`
+  const backParams = new URLSearchParams({
+    city: cityParam,
+    checkin: checkinParam,
+    checkout: checkoutParam,
+    pets: petsParam,
+    ...(breedsParam && { breeds: breedsParam }),
+    transport: String(transportParam),
+    ...(transportParam && communeCodeParam && { communeCode: communeCodeParam }),
+    ...(transportParam && communeParam && { commune: communeParam }),
+  })
+  const backUrl = `/search?${backParams.toString()}`
+  const landingUrl = `/?${backParams.toString()}`
+
+  const handleReservar = async () => {
+    setIsCreatingQuote(true)
+    setQuoteError(false)
+    try {
+      const quote = await createQuote({
+        hotelId,
+        city: cityParam,
+        pets: petsPayload,
+        checkinDate: checkinParam,
+        checkoutDate: checkoutParam,
+        needsTransport: transportParam,
+        transportBy: transportByParam,
+        transportCommune: transportParam ? communeCodeParam : undefined,
+        searchId: searchIdParam,
+        listIndex: listIndexParam,
+      })
+      router.push(`/confirmation/${quote.quoteId}`)
+    } catch {
+      setQuoteError(true)
+      setIsCreatingQuote(false)
+    }
+  }
 
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
@@ -104,7 +156,7 @@ function HotelDetailContent() {
 
         <SearchSummaryBar
           data={summaryData}
-          onChangeClick={() => router.push("/")}
+          onChangeClick={() => router.push(landingUrl)}
         />
 
         <div className="w-full px-4 pt-4 pb-[300px] md:px-6 md:pt-6 md:pb-[300px]">
@@ -309,12 +361,18 @@ function HotelDetailContent() {
                       </div>
                     </div>
 
+                    {quoteError && (
+                      <p className="mt-3 text-sm text-center" style={{ color: "#8A1C1C" }}>
+                        No pudimos procesar la reserva. Intenta nuevamente.
+                      </p>
+                    )}
                     <button
-                      onClick={() => router.push("/confirmation")}
-                      className="w-full mt-4 py-3.5 rounded-xl font-bold text-base transition-opacity hover:opacity-90"
+                      onClick={handleReservar}
+                      disabled={isCreatingQuote}
+                      className="w-full mt-4 py-3.5 rounded-xl font-bold text-base transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
                       style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
                     >
-                      Reservar
+                      {isCreatingQuote ? "Procesando..." : "Reservar"}
                     </button>
                   </div>
                 </div>
