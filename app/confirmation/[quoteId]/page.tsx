@@ -11,6 +11,8 @@ import { SiteNavbar } from "@/components/site-navbar"
 import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { formatClp } from "@/lib/format"
 import { getQuote } from "@/lib/api/quotes"
+import { confirmBooking } from "@/lib/api/bookings"
+import { validateEmail } from "@/lib/api/customers"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
 import { getTransportCommuneByCode } from "@/config/transport-communes"
 import {
@@ -24,6 +26,10 @@ import {
   Minus,
   Plus,
   Check,
+  Info,
+  LockKeyhole,
+  Building2,
+  ShieldCheck,
 } from "lucide-react"
 
 const SLOT_LABELS: Record<string, string> = {
@@ -41,6 +47,7 @@ const COUNTRY_CODES = [
 ]
 
 const PET_COLORS = ["Negro", "Blanco", "Marrón", "Dorado", "Gris", "Manchado", "Otro"]
+const PAY_NOW_PERCENTAGE = 0.3
 
 interface PetData {
   name: string
@@ -127,7 +134,6 @@ function getAddressComponent(place: GooglePlaceResult, componentType: string, sh
 function parseGoogleAddress(place: GooglePlaceResult) {
   const streetNumber = getAddressComponent(place, "street_number", true)
   const route = getAddressComponent(place, "route")
-  const streetAddress = [route, streetNumber].filter(Boolean).join(" ")
   const commune =
     getAddressComponent(place, "administrative_area_level_3") ||
     getAddressComponent(place, "locality") ||
@@ -137,8 +143,11 @@ function parseGoogleAddress(place: GooglePlaceResult) {
     getAddressComponent(place, "administrative_area_level_2") ||
     getAddressComponent(place, "locality") ||
     commune
+  const displayAddress = [route, streetNumber].filter(Boolean).join(" ") || place.name || ""
   return {
-    address: streetAddress || place.name || "",
+    displayAddress,
+    street: route || place.name || "",
+    streetNumber,
     commune,
     city,
     country: getAddressComponent(place, "country"),
@@ -197,11 +206,15 @@ function ConfirmationContent() {
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [email, setEmail] = useState("")
+  const [emailAccountExists, setEmailAccountExists] = useState(false)
+  const [isValidatingEmail, setIsValidatingEmail] = useState(false)
   const [country, setCountry] = useState("")
   const [city, setCity] = useState("")
   const [saveData, setSaveData] = useState(false)
   const [commune, setCommune] = useState("")
-  const [address, setAddress] = useState("")
+  const [address, setAddress] = useState("")       // valor visible en el input (calle + número)
+  const [streetName, setStreetName] = useState("") // solo la calle, para el payload
+  const [streetNumber, setStreetNumber] = useState("")
   const [apartment, setApartment] = useState("")
   const [addressReference, setAddressReference] = useState("")
   const [addressSelectedFromGoogle, setAddressSelectedFromGoogle] = useState(false)
@@ -237,6 +250,10 @@ function ConfirmationContent() {
   const [isCastrated, setIsCastrated] = useState(false)
   const [notInHeat, setNotInHeat] = useState(false)
 
+  // Submit state
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(false)
+
   // Derived values from quote
   const includeTransport = quote?.needsTransport ?? false
   const quotedTransportCommune = getTransportCommuneByCode(quote?.transportCommune ?? "")?.commune ?? quote?.transportCommune ?? ""
@@ -251,6 +268,8 @@ function ConfirmationContent() {
   const totalPrice = includeTransport
     ? (quote?.pricing.totalPrice ?? 0)
     : (quote?.pricing.bookingPrice ?? 0)
+  const payNowPrice = Math.round(totalPrice * PAY_NOW_PERCENTAGE)
+  const payAtHotelPrice = totalPrice - payNowPrice
 
   const petCountLabel = `${pets.length} ${pets.length === 1 ? "mascota" : "mascotas"}`
   const quotedPetSizesLabel = pets.map((p) => p.size).filter(Boolean).join(", ")
@@ -265,7 +284,7 @@ function ConfirmationContent() {
   const emailHasValue = email.trim().length > 0
   const emailIsValid = emailHasValue && isValidEmail(email)
   const transportSlotsSelected = !includeTransport || (!!selectedDeparture && !!selectedReturn)
-  const canPay = allConditionsAccepted() && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid && transportSlotsSelected
+  const canPay = allConditionsAccepted() && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid && !emailAccountExists && transportSlotsSelected
 
   function allConditionsAccepted() {
     return vaccinesUpToDate && isCastrated && notInHeat
@@ -318,7 +337,9 @@ function ConfirmationContent() {
           const place = autocomplete.getPlace()
           if (!place.geometry) { setAddressSelectedFromGoogle(false); return }
           const parsed = parseGoogleAddress(place)
-          setAddress(parsed.address)
+          setAddress(parsed.displayAddress)
+          setStreetName(parsed.street)
+          setStreetNumber(parsed.streetNumber)
           setCommune(parsed.commune)
           setCity(parsed.city)
           setCountry(parsed.country)
@@ -338,7 +359,114 @@ function ConfirmationContent() {
         googleWindow.google?.maps?.event?.clearInstanceListeners(autocomplete)
       }
     }
-  }, [])
+  }, [quote])
+
+  const handleEmailBlur = async () => {
+    if (!emailIsValid) return
+    setIsValidatingEmail(true)
+    try {
+      const status = await validateEmail(email.trim())
+      setEmailAccountExists(status === "ACCOUNT_EXISTS")
+    } catch {
+      // si falla la validación dejamos pasar, el backend lo rechazará si corresponde
+    } finally {
+      setIsValidatingEmail(false)
+    }
+  }
+
+  const handleConfirm = async () => {
+    if (!quote) return
+    setIsSubmitting(true)
+    setSubmitError(false)
+    try {
+      const weightParsed = (weight: string) => {
+        const n = parseFloat(weight)
+        return isNaN(n) ? undefined : n
+      }
+      const GENDER_MAP: Record<string, string> = { Macho: "MALE", Hembra: "FEMALE" }
+
+      const payload = {
+        quoteId: quote.quoteId,
+        user: {
+          userId: null,
+          firstName,
+          lastName,
+          email,
+          phone: `${countryCode}${phone}`,
+          rut,
+          saveUserData: saveData,
+          address: {
+            street: streetName || address,
+            ...(streetNumber.trim() && { number: streetNumber.trim() }),
+            ...(apartment.trim() && { apartment: apartment.trim() }),
+            commune,
+            city,
+            country,
+            ...(addressReference.trim() && { reference: addressReference.trim() }),
+          },
+        },
+        pets: pets.map((pet, i) => ({
+          id: quote.pets[i]?.id ?? null,
+          breed: quote.pets[i]?.breed ?? pet.breed,
+          size: quote.pets[i]?.size ?? pet.size,
+          name: pet.name,
+          gender: GENDER_MAP[pet.gender] ?? pet.gender,
+          ...(weightParsed(pet.weight) !== undefined && { weight: weightParsed(pet.weight) }),
+          ...(pet.color && { color: pet.color }),
+          ...(pet.age > 0 && { age: pet.age }),
+        })),
+        ...(includeTransport && selectedDeparture && selectedReturn && {
+          transport: {
+            departureSlot: selectedDeparture,
+            returnSlot: selectedReturn,
+          },
+        }),
+      }
+      console.log("confirmBooking payload:", JSON.stringify(payload, null, 2))
+
+      await confirmBooking({
+        quoteId: quote.quoteId,
+        user: {
+          userId: null,
+          firstName,
+          lastName,
+          email,
+          phone: `${countryCode}${phone}`,
+          rut,
+          saveUserData: saveData,
+          address: {
+            street: streetName || address,
+            ...(streetNumber.trim() && { number: streetNumber.trim() }),
+            ...(apartment.trim() && { apartment: apartment.trim() }),
+            commune,
+            city,
+            country,
+            ...(addressReference.trim() && { reference: addressReference.trim() }),
+          },
+        },
+        pets: pets.map((pet, i) => ({
+          id: quote.pets[i]?.id ?? null,
+          breed: quote.pets[i]?.breed ?? pet.breed,
+          size: quote.pets[i]?.size ?? pet.size,
+          name: pet.name,
+          gender: GENDER_MAP[pet.gender] ?? pet.gender,
+          ...(weightParsed(pet.weight) !== undefined && { weight: weightParsed(pet.weight) }),
+          ...(pet.color && { color: pet.color }),
+          ...(pet.age > 0 && { age: pet.age }),
+        })),
+        ...(includeTransport && selectedDeparture && selectedReturn && {
+          transport: {
+            departureSlot: selectedDeparture,
+            returnSlot: selectedReturn,
+          },
+        }),
+      })
+      router.push("/success")
+    } catch {
+      setSubmitError(true)
+      setIsSubmitting(false)
+    }
+  }
 
   const summaryData = {
     city: "Santiago",
@@ -459,7 +587,7 @@ function ConfirmationContent() {
                 </button>
 
                 {/* Personal data */}
-                <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                <div className="bg-white rounded-2xl p-5 border overflow-hidden" style={{ borderColor: "#E5E7EB" }}>
                   <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>Datos personales</h2>
                   <div className="flex flex-col gap-4">
                     <div className="flex flex-col sm:flex-row gap-4">
@@ -484,13 +612,28 @@ function ConfirmationContent() {
                       <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Email</label>
                       <div className="relative">
                         <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
-                        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                        <input type="email" value={email}
+                          onChange={(e) => { setEmail(e.target.value); setEmailAccountExists(false) }}
+                          onBlur={handleEmailBlur}
                           className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                          style={{ borderColor: emailHasValue && !emailIsValid ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                          style={{ borderColor: (emailHasValue && !emailIsValid) || emailAccountExists ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
                           placeholder="correo@ejemplo.com" />
                       </div>
                       {emailHasValue && !emailIsValid && (
                         <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>Ingresa un email válido.</p>
+                      )}
+                      {isValidatingEmail && (
+                        <p className="mt-1.5 text-xs" style={{ color: "#6B7280" }}>Verificando correo...</p>
+                      )}
+                      {emailAccountExists && (
+                        <div className="mt-2 rounded-xl border px-4 py-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#F59E0B" }}>
+                          <p className="text-sm font-semibold" style={{ color: "#92400E" }}>
+                            Este correo ya está asociado a una cuenta JackCity.
+                          </p>
+                          <p className="mt-0.5 text-sm" style={{ color: "#92400E" }}>
+                            Para proteger tus reservas, por favor inicia sesión o usa otro correo.
+                          </p>
+                        </div>
                       )}
                     </div>
 
@@ -544,6 +687,8 @@ function ConfirmationContent() {
                           <input ref={addressInputRef} type="text" value={address}
                             onChange={(e) => {
                               setAddress(e.target.value)
+                              setStreetName("")
+                              setStreetNumber("")
                               setAddressSelectedFromGoogle(false)
                               setCommune("")
                               setCity("")
@@ -801,30 +946,114 @@ function ConfirmationContent() {
 
                 {/* Reservation summary + pay */}
                 <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
-                  <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>Resumen Reserva</h2>
-                  <ul className="flex flex-col gap-1.5 text-sm mb-4" style={{ color: "#555" }}>
-                    <li>{petCountLabel}{quotedPetSizesLabel ? ` (${quotedPetSizesLabel})` : ""}</li>
-                    <li>
-                      {nights} {nights === 1 ? "noche" : "noches"}
-                      {checkinDate && checkoutDate && (
-                        <span> ({format(checkinDate, "d MMM", { locale: es })} - {format(checkoutDate, "d MMM", { locale: es })})</span>
-                      )}
-                    </li>
-                    {includeTransport && <li>Transporte incluido desde {transportFrom}</li>}
-                  </ul>
-                  <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pt-4 border-t" style={{ borderColor: "#E5E7EB" }}>
+                  <div className="grid gap-4 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
                     <div>
-                      <p className="text-3xl md:text-4xl font-bold" style={{ color: "#0A1830" }}>{formatClp(totalPrice)}</p>
-                      <p className="text-xs" style={{ color: "#888" }}>IVA incluido</p>
+                      <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>
+                        Resumen Reserva
+                      </h2>
+                      <ul className="flex flex-col gap-1.5 text-sm" style={{ color: "#555" }}>
+                        <li>{petCountLabel}{quotedPetSizesLabel ? ` (${quotedPetSizesLabel})` : ""}</li>
+                        <li>
+                          {nights} {nights === 1 ? "noche" : "noches"}
+                          {checkinDate && checkoutDate && (
+                            <span> ({format(checkinDate, "d MMM", { locale: es })} - {format(checkoutDate, "d MMM", { locale: es })})</span>
+                          )}
+                        </li>
+                        {includeTransport && <li>Transporte incluido desde {transportFrom}</li>}
+                      </ul>
                     </div>
-                    <button
-                      onClick={() => router.push("/success")}
-                      disabled={!canPay}
-                      className="w-full sm:w-auto px-8 py-3.5 rounded-xl font-bold text-base transition-opacity disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-                      style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
-                    >
-                      Ir a Pagar
-                    </button>
+
+                    <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
+                      <div className="flex gap-3">
+                        <Info size={22} className="mt-0.5 flex-shrink-0" style={{ color: "#2563EB" }} />
+                        <div className="flex flex-col gap-1 text-sm" style={{ color: "#0A1830" }}>
+                          <p>
+                            Para confirmar tu reserva debes pagar <strong>ahora el 30%</strong>.
+                          </p>
+                          <p>
+                            El 70% restante lo abonarás directamente en el hotel.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 pt-5 border-t" style={{ borderColor: "#E5E7EB" }}>
+                    <div className="min-w-0">
+                      <div className="grid min-w-0 items-stretch gap-2 md:grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)_32px_minmax(0,1fr)]">
+                        <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#FFFFFF", borderColor: "#EEF0F5" }}>
+                          <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Total Alojamiento (100%)</p>
+                          <p className="mt-1 text-xs" style={{ color: "#667085" }}>Monto total de tu reserva</p>
+                          <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(totalPrice)}</p>
+                          <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
+                        </div>
+
+                        <div className="hidden md:flex items-center justify-center">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold" style={{ backgroundColor: "#F3F4F6", color: "#0A1830" }}>
+                            =
+                          </div>
+                        </div>
+
+                        <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#FFFBF0", borderColor: "#FFD47A" }}>
+                          <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pagar ahora (30%)</p>
+                          <p className="mt-1 text-xs" style={{ color: "#667085" }}>Paga ahora para confirmar tu reserva</p>
+                          <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(payNowPrice)}</p>
+                          <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
+                          <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#FFE9A8", color: "#C77700" }}>
+                            <LockKeyhole size={13} />
+                            Se paga ahora
+                          </div>
+                        </div>
+
+                        <div className="hidden md:flex items-center justify-center">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full text-xl font-semibold" style={{ backgroundColor: "#F3F4F6", color: "#0A1830" }}>
+                            +
+                          </div>
+                        </div>
+
+                        <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
+                          <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pagar en el hotel (70%)</p>
+                          <p className="mt-1 text-xs" style={{ color: "#667085" }}>Abona directamente en el hotel</p>
+                          <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(payAtHotelPrice)}</p>
+                          <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
+                          <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#DCEBFF", color: "#2563EB" }}>
+                            <Building2 size={13} />
+                            Se paga en el hotel
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-col gap-4 border-t pt-4 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: "#E5E7EB" }}>
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#EAF2FF" }}>
+                            <ShieldCheck size={24} style={{ color: "#0A1830" }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pago seguro y protegido</p>
+                            <p className="mt-1 text-xs leading-relaxed" style={{ color: "#667085" }}>
+                              Tu pago está 100% protegido. Al hacer clic en “Ir a Pagar” serás redirigido a nuestro procesador de pagos seguro.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex w-full flex-shrink-0 flex-col gap-2 sm:w-auto sm:min-w-[220px]">
+                          {submitError && (
+                            <p className="text-sm text-red-600 text-center">{submitError}</p>
+                          )}
+                          <button
+                            onClick={handleConfirm}
+                            disabled={!canPay || isSubmitting}
+                            className="w-full rounded-2xl px-6 py-4 text-base font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 hover:opacity-90"
+                            style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
+                          >
+                            <span className="flex items-center justify-center gap-2">
+                              <LockKeyhole size={18} />
+                              {isSubmitting ? "Procesando..." : "Ir a Pagar"}
+                            </span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
