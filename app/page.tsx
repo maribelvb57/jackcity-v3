@@ -19,9 +19,11 @@ export default function Home() {
         <HeroHeader />
 
         {/* Section 2: Search bar (attached to header) */}
-        <Suspense>
-          <SearchBar />
-        </Suspense>
+        <div id="buscar">
+          <Suspense>
+            <SearchBar />
+          </Suspense>
+        </div>
 
         {/* Section 3: Promotional */}
         <PromoSection />

@@ -12,7 +12,7 @@ import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { formatClp } from "@/lib/format"
 import { getQuote } from "@/lib/api/quotes"
 import { confirmBooking } from "@/lib/api/bookings"
-import { validateEmail } from "@/lib/api/customers"
+import { validateEmail, getCustomerProfile, type CustomerProfile } from "@/lib/api/customers"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
 import { getTransportCommuneByCode } from "@/config/transport-communes"
 import {
@@ -30,13 +30,10 @@ import {
   LockKeyhole,
   Building2,
   ShieldCheck,
+  Home,
 } from "lucide-react"
-
-const SLOT_LABELS: Record<string, string> = {
-  AM: "Mañana (AM)",
-  MD: "Mediodía (MD)",
-  PM: "Tarde (PM)",
-}
+import { slotTime } from "@/lib/transport-slots"
+import { useClerk, useUser } from "@clerk/nextjs"
 
 const COUNTRY_CODES = [
   { code: "+56", country: "CL" },
@@ -50,6 +47,7 @@ const PET_COLORS = ["Negro", "Blanco", "Marrón", "Dorado", "Gris", "Manchado", 
 const PAY_NOW_PERCENTAGE = 0.3
 
 interface PetData {
+  petId: string | null
   name: string
   breed: string
   size: string
@@ -194,6 +192,8 @@ function isValidEmail(value: string) {
 function ConfirmationContent() {
   const router = useRouter()
   const { quoteId } = useParams<{ quoteId: string }>()
+  const { openSignIn } = useClerk()
+  const { user: clerkUser, isSignedIn } = useUser()
   const addressInputRef = useRef<HTMLInputElement | null>(null)
 
   const { data: quote, isLoading, isError } = useQuery({
@@ -219,6 +219,12 @@ function ConfirmationContent() {
   const [addressReference, setAddressReference] = useState("")
   const [addressSelectedFromGoogle, setAddressSelectedFromGoogle] = useState(false)
   const [addressAutocompleteError, setAddressAutocompleteError] = useState("")
+  const [savedAddresses, setSavedAddresses] = useState<CustomerProfile["addresses"]>([])
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null)
+  const [showNewAddressForm, setShowNewAddressForm] = useState(false)
+  const [savedPets, setSavedPets] = useState<CustomerProfile["pets"]>([])
+  const [selectedPetIds, setSelectedPetIds] = useState<string[]>([])
+  const [hasInteractedWithPets, setHasInteractedWithPets] = useState(false)
   const [rut, setRut] = useState("")
   const [countryCode, setCountryCode] = useState("+56")
   const [phone, setPhone] = useState("")
@@ -229,6 +235,7 @@ function ConfirmationContent() {
   useEffect(() => {
     if (quote && !petsInitialized) {
       setPets(quote.pets.map((p) => ({
+        petId: null,
         name: "",
         breed: p.breed,
         size: PET_SIZE_LABEL[p.size as PetSize] ?? p.size,
@@ -240,6 +247,68 @@ function ConfirmationContent() {
       setPetsInitialized(true)
     }
   }, [quote, petsInitialized])
+
+  // Pre-fill personal data and load saved addresses when user logs in
+  useEffect(() => {
+    if (!isSignedIn || !clerkUser?.id) return
+    getCustomerProfile(clerkUser.id).then((profile) => {
+      const { firstName: fn, lastName: ln, email: em, phone: ph, rut: rt } = profile.user
+      if (fn) setFirstName(fn)
+      if (ln) setLastName(ln)
+      if (em) setEmail(em)
+      if (rt) setRut(rt)
+      if (ph) {
+        const match = COUNTRY_CODES.find((cc) => ph.startsWith(cc.code))
+        if (match) {
+          setCountryCode(match.code)
+          setPhone(ph.slice(match.code.length))
+        } else {
+          setPhone(ph)
+        }
+      }
+      if (profile.addresses.length > 0) {
+        setSavedAddresses(profile.addresses)
+      }
+      const activePets = profile.pets.filter(p => p.active)
+      if (activePets.length > 0) {
+        setSavedPets(activePets)
+      }
+    }).catch(() => {
+      // si falla no bloqueamos el flujo, el usuario puede llenar manualmente
+    })
+  }, [isSignedIn, clerkUser?.id])
+
+  // Sync selected saved pets → pets state for payload
+  useEffect(() => {
+    if (!quote || !isSignedIn || savedPets.length === 0) return
+    if (selectedPetIds.length === 0) {
+      setPets(quote.pets.map((p) => ({
+        petId: null, name: "", breed: p.breed,
+        size: PET_SIZE_LABEL[p.size as PetSize] ?? p.size,
+        gender: "", weight: "", color: "", age: 0,
+      })))
+      return
+    }
+    const selected = savedPets.filter(p => selectedPetIds.includes(p.id))
+    const remaining = [...selected]
+    setPets(quote.pets.map((quotePet) => {
+      const idx = remaining.findIndex(p => p.size === quotePet.size)
+      if (idx >= 0) {
+        const sp = remaining.splice(idx, 1)[0]
+        return {
+          petId: sp.id,
+          name: sp.name,
+          breed: sp.breed,
+          size: PET_SIZE_LABEL[sp.size as PetSize] ?? sp.size,
+          gender: sp.gender === "MALE" ? "Macho" : sp.gender === "FEMALE" ? "Hembra" : sp.gender,
+          weight: sp.weight?.toString() ?? "",
+          color: sp.color ?? "",
+          age: sp.age ?? 0,
+        }
+      }
+      return { petId: null, name: "", breed: quotePet.breed, size: PET_SIZE_LABEL[quotePet.size as PetSize] ?? quotePet.size, gender: "", weight: "", color: "", age: 0 }
+    }))
+  }, [selectedPetIds, savedPets, quote, isSignedIn])
 
   // Transport
   const [selectedDeparture, setSelectedDeparture] = useState<string | null>(null)
@@ -284,7 +353,57 @@ function ConfirmationContent() {
   const emailHasValue = email.trim().length > 0
   const emailIsValid = emailHasValue && isValidEmail(email)
   const transportSlotsSelected = !includeTransport || (!!selectedDeparture && !!selectedReturn)
-  const canPay = allConditionsAccepted() && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid && !emailAccountExists && transportSlotsSelected
+
+  const matchingAddresses = isSignedIn && savedAddresses.length > 0
+    ? (includeTransport
+        ? savedAddresses.filter(a => normalizeCommuneName(a.commune) === normalizeCommuneName(quotedTransportCommune))
+        : savedAddresses)
+    : []
+  const nonMatchingAddresses = isSignedIn && savedAddresses.length > 0 && includeTransport
+    ? savedAddresses.filter(a => normalizeCommuneName(a.commune) !== normalizeCommuneName(quotedTransportCommune))
+    : []
+  const hasNoMatchingAddresses = isSignedIn && savedAddresses.length > 0 && includeTransport && matchingAddresses.length === 0
+
+  const requiredSizes = quote?.pets.map(p => p.size) ?? []
+  const savedPetsActive = isSignedIn && savedPets.length > 0
+  const isMultiPetBooking = (quote?.pets.length ?? 1) > 1
+
+  const petSelectionErrorMsg = (() => {
+    if (!savedPetsActive || !isMultiPetBooking || !hasInteractedWithPets) return null
+    const needed = quote?.pets.length ?? 0
+    if (selectedPetIds.length < needed) {
+      const missing = needed - selectedPetIds.length
+      return `Selecciona ${missing} mascota${missing > 1 ? "s" : ""} más para completar la reserva`
+    }
+    const reqCount = (quote?.pets ?? []).reduce<Record<string, number>>(
+      (a, p) => ({ ...a, [p.size]: (a[p.size] ?? 0) + 1 }), {}
+    )
+    const selPets = savedPets.filter(p => selectedPetIds.includes(p.id))
+    const selCount = selPets.reduce<Record<string, number>>(
+      (a, p) => ({ ...a, [p.size]: (a[p.size] ?? 0) + 1 }), {}
+    )
+    const matches = JSON.stringify(Object.entries(selCount).sort()) === JSON.stringify(Object.entries(reqCount).sort())
+    if (!matches) {
+      const needed = Object.entries(reqCount)
+        .map(([size, count]) => `${count} ${PET_SIZE_LABEL[size as PetSize] ?? size}`)
+        .join(", ")
+      return `Las mascotas seleccionadas no coinciden con los tamaños de la reserva (necesitas: ${needed})`
+    }
+    return null
+  })()
+
+  const petsMatchQuote = !savedPetsActive || (() => {
+    const reqCount = (quote?.pets ?? []).reduce<Record<string, number>>(
+      (a, p) => ({ ...a, [p.size]: (a[p.size] ?? 0) + 1 }), {}
+    )
+    const selPets = savedPets.filter(p => selectedPetIds.includes(p.id))
+    const selCount = selPets.reduce<Record<string, number>>(
+      (a, p) => ({ ...a, [p.size]: (a[p.size] ?? 0) + 1 }), {}
+    )
+    return JSON.stringify(Object.entries(selCount).sort()) === JSON.stringify(Object.entries(reqCount).sort())
+  })()
+
+  const canPay = allConditionsAccepted() && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid && !emailAccountExists && transportSlotsSelected && petsMatchQuote
 
   function allConditionsAccepted() {
     return vaccinesUpToDate && isCastrated && notInHeat
@@ -406,7 +525,7 @@ function ConfirmationContent() {
           },
         },
         pets: pets.map((pet, i) => ({
-          id: quote.pets[i]?.id ?? null,
+          id: pet.petId ?? null,
           breed: quote.pets[i]?.breed ?? pet.breed,
           size: quote.pets[i]?.size ?? pet.size,
           name: pet.name,
@@ -424,7 +543,7 @@ function ConfirmationContent() {
       }
       console.log("confirmBooking payload:", JSON.stringify(payload, null, 2))
 
-      await confirmBooking({
+      const { bookingId } = await confirmBooking({
         quoteId: quote.quoteId,
         user: {
           userId: null,
@@ -445,7 +564,7 @@ function ConfirmationContent() {
           },
         },
         pets: pets.map((pet, i) => ({
-          id: quote.pets[i]?.id ?? null,
+          id: pet.petId ?? null,
           breed: quote.pets[i]?.breed ?? pet.breed,
           size: quote.pets[i]?.size ?? pet.size,
           name: pet.name,
@@ -461,11 +580,40 @@ function ConfirmationContent() {
           },
         }),
       })
-      router.push("/success")
+      router.push(`/success?bookingId=${bookingId}`)
     } catch {
       setSubmitError(true)
       setIsSubmitting(false)
     }
+  }
+
+  const togglePetSelection = (petId: string) => {
+    setHasInteractedWithPets(true)
+    const isSinglePet = (quote?.pets.length ?? 1) === 1
+    if (isSinglePet) {
+      setSelectedPetIds(prev => prev[0] === petId ? [] : [petId])
+    } else {
+      const maxPets = quote?.pets.length ?? 0
+      setSelectedPetIds(prev => {
+        if (prev.includes(petId)) return prev.filter(id => id !== petId)
+        if (prev.length >= maxPets) return prev
+        return [...prev, petId]
+      })
+    }
+  }
+
+  const selectSavedAddress = (addr: CustomerProfile["addresses"][number]) => {
+    setSelectedAddressId(addr.id)
+    setAddress([addr.street, addr.number].filter(Boolean).join(" "))
+    setStreetName(addr.street)
+    setStreetNumber(addr.number ?? "")
+    setApartment(addr.apartment ?? "")
+    setAddressReference(addr.reference ?? "")
+    setCommune(addr.commune)
+    setCity(addr.city)
+    setCountry(addr.country)
+    setAddressSelectedFromGoogle(true)
+    setAddressAutocompleteError("")
   }
 
   const summaryData = {
@@ -577,14 +725,22 @@ function ConfirmationContent() {
                   Confirmación de Reserva
                 </h1>
 
-                {/* Login button */}
-                <button
-                  className="w-full sm:w-auto self-start flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm border-2 transition-colors hover:bg-gray-50"
-                  style={{ borderColor: "#0A1830", color: "#0A1830" }}
-                >
-                  <User size={16} />
-                  Inicia Sesión
-                </button>
+                {/* Login button / greeting */}
+                {isSignedIn ? (
+                  <p className="text-base font-semibold" style={{ color: "#0A1830" }}>
+                    ¡Hola, {clerkUser?.firstName ?? firstName}!
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openSignIn()}
+                    className="w-full sm:w-auto self-start flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-semibold text-sm border-2 transition-colors hover:bg-gray-50"
+                    style={{ borderColor: "#0A1830", color: "#0A1830" }}
+                  >
+                    <User size={16} />
+                    Inicia Sesión
+                  </button>
+                )}
 
                 {/* Personal data */}
                 <div className="bg-white rounded-2xl p-5 border overflow-hidden" style={{ borderColor: "#E5E7EB" }}>
@@ -674,200 +830,470 @@ function ConfirmationContent() {
 
                 {/* Address */}
                 <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
-                  <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>
-                    <MapPin size={20} className="inline-block mr-2" style={{ color: "#0A1830" }} />
-                    Mi dirección
-                  </h2>
-                  <div className="flex flex-col gap-4">
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <div className="flex-1">
-                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Dirección</label>
-                        <div className="relative">
-                          <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
-                          <input ref={addressInputRef} type="text" value={address}
-                            onChange={(e) => {
-                              setAddress(e.target.value)
-                              setStreetName("")
-                              setStreetNumber("")
-                              setAddressSelectedFromGoogle(false)
-                              setCommune("")
-                              setCity("")
-                              setCountry("")
-                            }}
-                            className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                            style={{ borderColor: address && !addressSelectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
-                            placeholder="Calle y número" autoComplete="street-address" />
-                        </div>
-                        {addressAutocompleteError && (
-                          <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>{addressAutocompleteError}</p>
-                        )}
-                      </div>
-                      <div className="w-full sm:w-36">
-                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Depto</label>
-                        <input type="text" value={apartment} onChange={(e) => setApartment(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Opcional" autoComplete="address-line2" />
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <div className="flex-1">
-                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>País</label>
-                        <input type="text" value={country} readOnly
-                          className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                          style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Ciudad</label>
-                        <input type="text" value={city} readOnly
-                          className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                          style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
-                      </div>
-                      <div className="flex-1">
-                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Comuna</label>
-                        <input type="text" value={commune} readOnly
-                          className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                          style={{
-                            backgroundColor: "#F9FAFB",
-                            borderColor: selectedAddressCommuneMatchesQuote ? "#E5E7EB" : "#F59E0B",
-                            color: "#0A1830",
-                          }} placeholder="Pendiente" />
-                      </div>
-                    </div>
-
-                    {!selectedAddressCommuneMatchesQuote && (
-                      <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#F59E0B" }}>
-                        <p className="text-sm font-semibold" style={{ color: "#92400E" }}>
-                          La dirección debe estar en {quotedTransportCommune}, que es la comuna usada para cotizar el transporte.{" "}
-                          <Link href="/" className="underline underline-offset-2 transition-opacity hover:opacity-75">
-                            Cambiar reserva
-                          </Link>
-                        </p>
-                      </div>
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
+                      <MapPin size={20} style={{ color: "#0A1830" }} />
+                      Mi dirección
+                    </h2>
+                    {/* Show "+ Nueva dire" only in list mode (not when no matching addresses) */}
+                    {isSignedIn && savedAddresses.length > 0 && !showNewAddressForm && !hasNoMatchingAddresses && (
+                      <button
+                        type="button"
+                        onClick={() => { setShowNewAddressForm(true); setSelectedAddressId(null) }}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-colors hover:bg-gray-50"
+                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                      >
+                        <Plus size={15} />
+                        Nueva dire
+                      </button>
                     )}
-
-                    <div>
-                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Referencia</label>
-                      <input type="text" value={addressReference} onChange={(e) => setAddressReference(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Ej: Portón negro, casa al fondo" />
-                    </div>
                   </div>
+
+                  {/* Case: logged in + addresses + not in new-form mode + has matching (or no transport) */}
+                  {isSignedIn && savedAddresses.length > 0 && !showNewAddressForm && !hasNoMatchingAddresses ? (
+                    <>
+                      <p className="text-sm mb-4" style={{ color: "#6B7280" }}>
+                        Selecciona una de tus direcciones guardadas o agrega una nueva.
+                      </p>
+                      <p className="text-sm font-bold mb-3" style={{ color: "#0A1830" }}>Direcciones guardadas</p>
+
+                      {/* Matching addresses (selectable) */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {matchingAddresses.map((addr, index) => {
+                          const isSelected = selectedAddressId === addr.id
+                          const line1 = [addr.street, addr.number, addr.apartment ? `Depto ${addr.apartment}` : null].filter(Boolean).join(" ")
+                          const line2 = [addr.commune, addr.city, addr.country].filter(Boolean).join(", ")
+                          return (
+                            <button
+                              key={addr.id}
+                              type="button"
+                              onClick={() => selectSavedAddress(addr)}
+                              className="flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors w-full"
+                              style={{
+                                borderColor: isSelected ? "#FFC43D" : "#E5E7EB",
+                                backgroundColor: isSelected ? "#FFFBF0" : "#fff",
+                              }}
+                            >
+                              <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                                style={{ borderColor: isSelected ? "#FFC43D" : "#D1D5DB" }}>
+                                {isSelected && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#FFC43D" }} />}
+                              </div>
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: "#F3F4F6" }}>
+                                <Home size={18} style={{ color: "#0A1830" }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
+                                  {addr.label ?? `Dirección ${index + 1}`}
+                                </p>
+                                <p className="text-xs mt-0.5" style={{ color: "#555" }}>{line1}</p>
+                                <p className="text-xs" style={{ color: "#6B7280" }}>{line2}</p>
+                              </div>
+                              {addr.isDefault && (
+                                <span className="flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-full"
+                                  style={{ backgroundColor: "#FEF3C7", color: "#B45309" }}>
+                                  Predeterminada
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Non-matching addresses (transport case) */}
+                      {nonMatchingAddresses.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold mb-2" style={{ color: "#9CA3AF" }}>
+                            Otras direcciones que tienes registradas en otras comunas
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {nonMatchingAddresses.map((addr, index) => {
+                              const line1 = [addr.street, addr.number, addr.apartment ? `Depto ${addr.apartment}` : null].filter(Boolean).join(" ")
+                              const line2 = [addr.commune, addr.city, addr.country].filter(Boolean).join(", ")
+                              return (
+                                <div
+                                  key={addr.id}
+                                  className="flex items-center gap-3 px-4 py-3 rounded-xl border w-full"
+                                  style={{ borderColor: "#E5E7EB", backgroundColor: "#F9FAFB", opacity: 0.6 }}
+                                >
+                                  <div className="w-5 h-5 rounded-full border-2 flex-shrink-0"
+                                    style={{ borderColor: "#D1D5DB" }} />
+                                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                                    style={{ backgroundColor: "#EFEFEF" }}>
+                                    <Home size={18} style={{ color: "#9CA3AF" }} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold" style={{ color: "#6B7280" }}>
+                                      {addr.label ?? `Dirección ${index + 1}`}
+                                    </p>
+                                    <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>{line1}</p>
+                                    <p className="text-xs" style={{ color: "#9CA3AF" }}>{line2}</p>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+
+                      {/* Case: logged in + transport + no address in required commune (hide once user enters a valid one) */}
+                      {hasNoMatchingAddresses && !(addressSelectedFromGoogle && normalizeCommuneName(commune) === normalizeCommuneName(quotedTransportCommune)) && (
+                        <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#F0F7FF", borderColor: "#BFD7FF" }}>
+                          <p className="text-sm" style={{ color: "#1D4ED8" }}>
+                            No tienes ninguna dirección guardada en <strong>{quotedTransportCommune}</strong>, que es la comuna de tu reserva. Ingresa una nueva aquí abajo para continuar, o si prefieres{" "}
+                            <Link href="/#buscar" className="font-semibold underline underline-offset-2 transition-opacity hover:opacity-75">
+                              edita tu reserva desde el inicio
+                            </Link>
+                            {" "}para elegir otra comuna.
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Back button when coming from list via "+ Nueva dire" */}
+                      {isSignedIn && savedAddresses.length > 0 && showNewAddressForm && (
+                        <button
+                          type="button"
+                          onClick={() => setShowNewAddressForm(false)}
+                          className="self-start text-sm font-semibold transition-opacity hover:opacity-75"
+                          style={{ color: "#6B7280" }}
+                        >
+                          ← Volver a mis direcciones
+                        </button>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Dirección</label>
+                          <div className="relative">
+                            <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
+                            <input ref={addressInputRef} type="text" value={address}
+                              onChange={(e) => {
+                                setAddress(e.target.value)
+                                setStreetName("")
+                                setStreetNumber("")
+                                setAddressSelectedFromGoogle(false)
+                                setCommune("")
+                                setCity("")
+                                setCountry("")
+                              }}
+                              className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                              style={{ borderColor: address && !addressSelectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                              placeholder="Calle y número" autoComplete="street-address" />
+                          </div>
+                          {addressAutocompleteError && (
+                            <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>{addressAutocompleteError}</p>
+                          )}
+                        </div>
+                        <div className="w-full sm:w-36">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Depto</label>
+                          <input type="text" value={apartment} onChange={(e) => setApartment(e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                            style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Opcional" autoComplete="address-line2" />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>País</label>
+                          <input type="text" value={country} readOnly
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Ciudad</label>
+                          <input type="text" value={city} readOnly
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Comuna</label>
+                          <input type="text" value={commune} readOnly
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                            style={{
+                              backgroundColor: "#F9FAFB",
+                              borderColor: selectedAddressCommuneMatchesQuote ? "#E5E7EB" : "#F59E0B",
+                              color: "#0A1830",
+                            }} placeholder="Pendiente" />
+                        </div>
+                      </div>
+
+                      {!selectedAddressCommuneMatchesQuote && (
+                        <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#F59E0B" }}>
+                          <p className="text-sm font-semibold" style={{ color: "#92400E" }}>
+                            La dirección debe estar en {quotedTransportCommune}, que es la comuna usada para cotizar el transporte.{" "}
+                            <Link href="/" className="underline underline-offset-2 transition-opacity hover:opacity-75">
+                              Cambiar reserva
+                            </Link>
+                          </p>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Referencia</label>
+                        <input type="text" value={addressReference} onChange={(e) => setAddressReference(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Ej: Portón negro, casa al fondo" />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Save data */}
-                <label className="flex items-center gap-3 cursor-pointer px-4 py-3 rounded-xl border"
-                  style={{ borderColor: "#F5C518", backgroundColor: "#FFFBEA" }}>
-                  <input type="checkbox" checked={saveData} onChange={(e) => setSaveData(e.target.checked)}
-                    className="w-4 h-4 rounded cursor-pointer accent-[#F5C518] flex-shrink-0" />
-                  <span className="text-sm font-semibold" style={{ color: "#0A1830" }}>
-                    Guardar mis datos para las próximas reservas en Jack City
-                  </span>
-                </label>
+                {!isSignedIn && (
+                  <label className="flex items-center gap-3 cursor-pointer px-4 py-3 rounded-xl border"
+                    style={{ borderColor: "#F5C518", backgroundColor: "#FFFBEA" }}>
+                    <input type="checkbox" checked={saveData} onChange={(e) => setSaveData(e.target.checked)}
+                      className="w-4 h-4 rounded cursor-pointer accent-[#F5C518] flex-shrink-0" />
+                    <span className="text-sm font-semibold" style={{ color: "#0A1830" }}>
+                      Guardar mis datos para las próximas reservas en Jack City
+                    </span>
+                  </label>
+                )}
 
-                {/* Pets form */}
+                {/* Pets */}
                 <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
-                  <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>
-                    <PawPrint size={20} className="inline-block mr-2" style={{ color: "#0A1830" }} />
-                    Mi(s) Mascota(s)
-                  </h2>
-                  <div className="flex flex-col gap-6">
-                    {pets.map((pet, index) => (
-                      <div key={index} className="flex flex-col gap-3">
-                        {pets.length > 1 && (
-                          <p className="text-xs font-semibold" style={{ color: "#6B7280" }}>Mascota {index + 1}</p>
-                        )}
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <div className="flex-1">
-                            <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Nombre</label>
-                            <input type="text" value={pet.name} onChange={(e) => updatePet(index, "name", e.target.value)}
-                              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                              style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Nombre mascota" />
-                          </div>
-                          <div className="flex-1">
-                            <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Raza</label>
-                            <input type="text" value={pet.breed} readOnly
-                              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                              style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} />
-                          </div>
-                          <div className="flex-1">
-                            <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Tamaño</label>
-                            <input type="text" value={pet.size} readOnly
-                              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                              style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} />
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <div className="flex-1">
-                            <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Género</label>
-                            <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: "#E5E7EB" }}>
-                              {["Macho", "Hembra"].map((g) => (
-                                <label key={g} className="flex items-center gap-2 cursor-pointer">
-                                  <input type="radio" name={`gender-${index}`} value={g}
-                                    checked={pet.gender === g} onChange={(e) => updatePet(index, "gender", e.target.value)}
-                                    className="w-4 h-4 cursor-pointer accent-[#0A1830]" />
-                                  <span className="text-sm" style={{ color: "#0A1830" }}>{g}</span>
-                                </label>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                              Peso <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
-                            </label>
-                            <div className="relative">
-                              <input type="text" inputMode="decimal" value={pet.weight}
-                                onChange={(e) => updatePet(index, "weight", e.target.value)}
-                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 pr-12"
-                                style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="0" />
-                              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "#9CA3AF" }}>kg</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <div className="flex-1">
-                            <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                              Color <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
-                            </label>
-                            <div className="relative">
-                              <select value={pet.color} onChange={(e) => updatePet(index, "color", e.target.value)}
-                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                                style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                                <option value="">Seleccionar color</option>
-                                {PET_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
-                              </select>
-                              <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
-                            </div>
-                          </div>
-                          <div className="flex-1">
-                            <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                              Edad <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
-                            </label>
-                            <div className="flex items-center gap-1">
-                              <button type="button" onClick={() => decrementAge(index)}
-                                className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
-                                style={{ borderColor: "#E5E7EB" }}>
-                                <Minus size={16} style={{ color: "#0A1830" }} />
-                              </button>
-                              <div className="flex-1 h-10 flex items-center justify-center rounded-xl border text-sm font-semibold"
-                                style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                                {pet.age === 0 ? "—" : `${pet.age} año${pet.age !== 1 ? "s" : ""}`}
-                              </div>
-                              <button type="button" onClick={() => incrementAge(index)}
-                                className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
-                                style={{ borderColor: "#E5E7EB" }}>
-                                <Plus size={16} style={{ color: "#0A1830" }} />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        {index < pets.length - 1 && <hr className="mt-3" style={{ borderColor: "#E5E7EB" }} />}
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
+                      <PawPrint size={20} style={{ color: "#0A1830" }} />
+                      Mi(s) Mascota(s)
+                    </h2>
                   </div>
+
+                  {savedPetsActive ? (
+                    <>
+                      <p className="text-sm mb-4" style={{ color: "#6B7280" }}>
+                        Selecciona {quote.pets.length === 1 ? "la mascota" : `las ${quote.pets.length} mascotas`} para esta reserva.
+                      </p>
+                      <p className="text-sm font-bold mb-3" style={{ color: "#0A1830" }}>Mascotas guardadas</p>
+
+                      {/* Selectable pets */}
+                      <div className="flex flex-col gap-3">
+                        {savedPets.filter(p => requiredSizes.includes(p.size)).map((pet) => {
+                          const isSelected = selectedPetIds.includes(pet.id)
+                          const isAtMax = selectedPetIds.length >= (quote.pets.length)
+                          const isDisabled = !isSelected && isAtMax
+                          const isSinglePet = quote.pets.length === 1
+                          return (
+                            <button
+                              key={pet.id}
+                              type="button"
+                              onClick={() => !isDisabled && togglePetSelection(pet.id)}
+                              className="flex items-start gap-3 px-4 py-4 rounded-xl border text-left w-full transition-colors"
+                              style={{
+                                borderColor: isSelected ? "#FFC43D" : "#E5E7EB",
+                                backgroundColor: isSelected ? "#FFFBF0" : "#fff",
+                                opacity: isDisabled ? 0.5 : 1,
+                                cursor: isDisabled ? "not-allowed" : "pointer",
+                              }}
+                            >
+                              {/* Radio / Checkbox */}
+                              {isSinglePet ? (
+                                <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-1"
+                                  style={{ borderColor: isSelected ? "#FFC43D" : "#D1D5DB" }}>
+                                  {isSelected && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#FFC43D" }} />}
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-1"
+                                  style={{ borderColor: isSelected ? "#FFC43D" : "#D1D5DB", backgroundColor: isSelected ? "#FFC43D" : "transparent" }}>
+                                  {isSelected && <Check size={12} style={{ color: "#0A1830" }} strokeWidth={3} />}
+                                </div>
+                              )}
+                              {/* Icon */}
+                              <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: "#F3F4F6" }}>
+                                <PawPrint size={26} style={{ color: "#0A1830" }} />
+                              </div>
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-base font-bold mb-2" style={{ color: "#0A1830" }}>{pet.name}</p>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
+                                  <div>
+                                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Raza</p>
+                                    <p className="text-sm" style={{ color: "#0A1830" }}>{pet.breed}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Tamaño</p>
+                                    <p className="text-sm" style={{ color: "#0A1830" }}>{PET_SIZE_LABEL[pet.size as PetSize] ?? pet.size}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Género</p>
+                                    <p className="text-sm" style={{ color: "#0A1830" }}>{pet.gender === "MALE" ? "Macho" : pet.gender === "FEMALE" ? "Hembra" : "—"}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Peso</p>
+                                    <p className="text-sm" style={{ color: "#0A1830" }}>{pet.weight ? `${pet.weight} kg` : "—"}</p>
+                                  </div>
+                                  {(pet.color || pet.age) && (
+                                    <>
+                                      <div>
+                                        <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Color</p>
+                                        <p className="text-sm" style={{ color: "#0A1830" }}>{pet.color ?? "—"}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Edad</p>
+                                        <p className="text-sm" style={{ color: "#0A1830" }}>{pet.age ? `${pet.age} año${pet.age !== 1 ? "s" : ""}` : "—"}</p>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Inline error for multi-pet size/count mismatch */}
+                      {petSelectionErrorMsg && (
+                        <div className="mt-2 flex items-start gap-2 rounded-xl border px-4 py-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#F59E0B" }}>
+                          <AlertCircle size={16} className="flex-shrink-0 mt-0.5" style={{ color: "#B45309" }} />
+                          <p className="text-sm" style={{ color: "#92400E" }}>{petSelectionErrorMsg}</p>
+                        </div>
+                      )}
+
+                      {/* Unselectable pets (size mismatch) */}
+                      {savedPets.some(p => !requiredSizes.includes(p.size)) && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold mb-2" style={{ color: "#9CA3AF" }}>
+                            Tamaño no disponible para la reserva que seleccionaste
+                          </p>
+                          <div className="flex flex-col gap-3">
+                            {savedPets.filter(p => !requiredSizes.includes(p.size)).map((pet) => (
+                              <div
+                                key={pet.id}
+                                className="flex items-start gap-3 px-4 py-4 rounded-xl border text-left w-full"
+                                style={{ borderColor: "#E5E7EB", backgroundColor: "#F9FAFB", opacity: 0.6 }}
+                              >
+                                <div className="w-5 h-5 rounded-full border-2 flex-shrink-0 mt-1" style={{ borderColor: "#D1D5DB" }} />
+                                <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                                  style={{ backgroundColor: "#EFEFEF" }}>
+                                  <PawPrint size={26} style={{ color: "#9CA3AF" }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-base font-bold mb-2" style={{ color: "#6B7280" }}>{pet.name}</p>
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
+                                    <div>
+                                      <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Raza</p>
+                                      <p className="text-sm" style={{ color: "#6B7280" }}>{pet.breed}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Tamaño</p>
+                                      <p className="text-sm" style={{ color: "#6B7280" }}>{PET_SIZE_LABEL[pet.size as PetSize] ?? pet.size}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Género</p>
+                                      <p className="text-sm" style={{ color: "#6B7280" }}>{pet.gender === "MALE" ? "Macho" : pet.gender === "FEMALE" ? "Hembra" : "—"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Peso</p>
+                                      <p className="text-sm" style={{ color: "#6B7280" }}>{pet.weight ? `${pet.weight} kg` : "—"}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col gap-6 mt-4">
+                      {pets.map((pet, index) => (
+                        <div key={index} className="flex flex-col gap-3">
+                          {pets.length > 1 && (
+                            <p className="text-xs font-semibold" style={{ color: "#6B7280" }}>Mascota {index + 1}</p>
+                          )}
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Nombre</label>
+                              <input type="text" value={pet.name} onChange={(e) => updatePet(index, "name", e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                                style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Nombre mascota" />
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Raza</label>
+                              <input type="text" value={pet.breed} readOnly
+                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                                style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} />
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Tamaño</label>
+                              <input type="text" value={pet.size} readOnly
+                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                                style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} />
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Género</label>
+                              <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: "#E5E7EB" }}>
+                                {["Macho", "Hembra"].map((g) => (
+                                  <label key={g} className="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name={`gender-${index}`} value={g}
+                                      checked={pet.gender === g} onChange={(e) => updatePet(index, "gender", e.target.value)}
+                                      className="w-4 h-4 cursor-pointer accent-[#0A1830]" />
+                                    <span className="text-sm" style={{ color: "#0A1830" }}>{g}</span>
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                                Peso <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+                              </label>
+                              <div className="relative">
+                                <input type="text" inputMode="decimal" value={pet.weight}
+                                  onChange={(e) => updatePet(index, "weight", e.target.value)}
+                                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 pr-12"
+                                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="0" />
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "#9CA3AF" }}>kg</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                                Color <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+                              </label>
+                              <div className="relative">
+                                <select value={pet.color} onChange={(e) => updatePet(index, "color", e.target.value)}
+                                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
+                                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+                                  <option value="">Seleccionar color</option>
+                                  {PET_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                                Edad <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+                              </label>
+                              <div className="flex items-center gap-1">
+                                <button type="button" onClick={() => decrementAge(index)}
+                                  className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
+                                  style={{ borderColor: "#E5E7EB" }}>
+                                  <Minus size={16} style={{ color: "#0A1830" }} />
+                                </button>
+                                <div className="flex-1 h-10 flex items-center justify-center rounded-xl border text-sm font-semibold"
+                                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+                                  {pet.age === 0 ? "—" : `${pet.age} año${pet.age !== 1 ? "s" : ""}`}
+                                </div>
+                                <button type="button" onClick={() => incrementAge(index)}
+                                  className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
+                                  style={{ borderColor: "#E5E7EB" }}>
+                                  <Plus size={16} style={{ color: "#0A1830" }} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                          {index < pets.length - 1 && <hr className="mt-3" style={{ borderColor: "#E5E7EB" }} />}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Transport schedules */}
@@ -892,7 +1318,7 @@ function ConfirmationContent() {
                                 style={{ borderColor: selectedDeparture === slot ? "#FFC43D" : "#D1D5DB" }}>
                                 {selectedDeparture === slot && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#FFC43D" }} />}
                               </div>
-                              {SLOT_LABELS[slot] ?? slot}
+                              {slotTime(slot)}
                             </button>
                           ))}
                         </div>
@@ -912,7 +1338,7 @@ function ConfirmationContent() {
                                 style={{ borderColor: selectedReturn === slot ? "#FFC43D" : "#D1D5DB" }}>
                                 {selectedReturn === slot && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#FFC43D" }} />}
                               </div>
-                              {SLOT_LABELS[slot] ?? slot}
+                              {slotTime(slot)}
                             </button>
                           ))}
                         </div>

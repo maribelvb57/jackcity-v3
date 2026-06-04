@@ -39,6 +39,34 @@ export type ConfirmBookingResult = {
   bookingId: string
 }
 
+export type BookingDetail = {
+  bookingId: string
+  hotel: {
+    name: string
+    commune: string
+    mainPhotoUrl: string | null
+    checkinWindow: string
+  }
+  pets: { name: string }[]
+  checkinDate: string
+  checkoutDate: string
+  transport: {
+    included: boolean
+    departureSlot?: string
+    returnSlot?: string
+  }
+  pricing: {
+    totalPrice: number
+  }
+  freeCancellationDeadline: string
+}
+
+export async function getBooking(bookingId: string): Promise<BookingDetail> {
+  const res = await fetch(`${API_BASE}/api/bookings/${bookingId}`)
+  if (!res.ok) throw new Error(`Get booking failed: ${res.status}`)
+  return res.json()
+}
+
 export async function confirmBooking(params: ConfirmBookingParams): Promise<ConfirmBookingResult> {
   const res = await fetch(`${API_BASE}/api/bookings/confirm`, {
     method: "POST",

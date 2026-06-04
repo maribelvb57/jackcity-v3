@@ -29,6 +29,8 @@ const CITY_LABELS: Record<string, string> = {
   VDM: "Viña del Mar",
 }
 
+const PAY_NOW_PERCENTAGE = 0.3
+
 function getScoreLabel(score: number): string {
   if (score >= 9.5) return "Excepcional"
   if (score >= 9.0) return "Fantástico"
@@ -108,6 +110,7 @@ function HotelDetailContent() {
   const score = hotel?.avgRating ?? null
   const scoreLabel = score != null ? getScoreLabel(score) : "—"
   const totalPrice = hotel?.pricing?.totalPrice ?? 0
+  const payNowPrice = Math.round(totalPrice * PAY_NOW_PERCENTAGE)
   const hasTransportPrice = (hotel?.pricing?.transportPrice ?? 0) > 0
 
   const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % images.length)
@@ -358,6 +361,9 @@ function HotelDetailContent() {
                           <p className="text-xs" style={{ color: "#888" }}>Valor del transporte incluido</p>
                         )}
                         <p className="text-xs" style={{ color: "#888" }}>IVA incluido</p>
+                        <p className="mt-1 rounded-lg px-3 py-2 text-xs font-bold leading-snug sm:whitespace-nowrap sm:text-right" style={{ backgroundColor: "#FFF7D6", color: "#0A1830" }}>
+                          Reserva ahora pagando el 30% por {formatClp(payNowPrice)}
+                        </p>
                       </div>
                     </div>
 

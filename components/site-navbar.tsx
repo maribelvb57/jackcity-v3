@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { User } from "lucide-react"
+import { useClerk, useUser, UserButton } from "@clerk/nextjs"
 
 export function SiteNavbar() {
+  const { openSignIn } = useClerk()
+  const { isSignedIn } = useUser()
   const [homeHref, setHomeHref] = useState("/")
 
   useEffect(() => {
@@ -41,15 +44,21 @@ export function SiteNavbar() {
           </a>
         ))}
 
-        {/* Ingresar button */}
-        <button
-          type="button"
-          className="ml-3 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-90"
-          style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
-        >
-          <User size={13} strokeWidth={2.5} />
-          Ingresar
-        </button>
+        {isSignedIn ? (
+          <div className="ml-3">
+            <UserButton />
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openSignIn()}
+            className="ml-3 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
+          >
+            <User size={13} strokeWidth={2.5} />
+            Ingresar
+          </button>
+        )}
       </div>
 
     </nav>
