@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server"
 import { Resend } from "resend"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.RESEND_API_KEY
+    if (!apiKey) {
+      return NextResponse.json({ error: "Servicio de correo no configurado." }, { status: 503 })
+    }
+
     const { name, email, phone, message } = await req.json()
 
     if (!name?.trim() || !email?.trim() || !message?.trim()) {
@@ -16,8 +19,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Email inválido." }, { status: 400 })
     }
 
-    await resend.emails.send({
-      from: "JackCity Contacto <onboarding@resend.dev>",
+    const resend = new Resend(apiKey)
+
+    const { data, error } = await resend.emails.send({
+      from: "JackCity Contacto <contacto@jackcity.cl>",
       to: "contacto@jackcity.cl",
       replyTo: email.trim(),
       subject: `Nuevo mensaje de contacto — ${name.trim()}`,
@@ -36,8 +41,15 @@ export async function POST(req: Request) {
       ].join("\n"),
     })
 
+    if (error) {
+      console.error("Resend error:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    console.log("Email enviado, id:", data?.id)
     return NextResponse.json({ ok: true })
-  } catch {
+  } catch (err) {
+    console.error("Contact route error:", err)
     return NextResponse.json({ error: "No se pudo enviar el mensaje. Intenta más tarde." }, { status: 500 })
   }
 }

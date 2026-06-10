@@ -33,8 +33,9 @@ export function ContactModal({ open, onClose }: ContactModalProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, email, phone, message }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Error al enviar")
+      const contentType = res.headers.get("content-type") ?? ""
+      const data = contentType.includes("application/json") ? await res.json() : {}
+      if (!res.ok) throw new Error(data.error || "No se pudo enviar el mensaje. Intenta más tarde.")
       setSent(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo enviar el mensaje. Intenta más tarde.")
