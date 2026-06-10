@@ -2,14 +2,16 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { MapPin, CalendarDays, Dog, Truck, Search, ChevronDown, Plus, X } from "lucide-react"
+import { MapPin, CalendarDays, Dog, Truck, Search, ChevronDown, Plus, X, Check } from "lucide-react"
+import { useUser } from "@clerk/nextjs"
 import { DayPicker, DateRange } from "react-day-picker"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { useSearchStore } from "@/providers/search-store-provider"
 import { defaultMascota, type Mascota } from "@/stores/search-store"
 import { PET_SIZE_LABEL, PET_SIZE_MAP, type PetSize } from "@/lib/api/hotels"
-import { encodePetBreeds, parsePetBreedsParam } from "@/lib/search-pets"
+import { encodePetBreeds, parsePetBreedsParam, encodePetIds, parsePetIdsParam } from "@/lib/search-pets"
+import { getCustomerProfile } from "@/lib/api/customers"
 import { TRANSPORT_COMMUNES, getTransportCommuneByCode } from "@/config/transport-communes"
 import "react-day-picker/style.css"
 
@@ -80,7 +82,38 @@ export function SearchBar() {
   const mascotas = useSearchStore((state) => state.mascotas)
   const setMascotas = useSearchStore((state) => state.setMascotas)
 
-  const allPetsValid = mascotas.every(
+  const { user: clerkUser, isSignedIn } = useUser()
+  const [savedPets, setSavedPets] = useState<Array<{ id: string; name: string; breed: string; size: string }>>([])
+
+  useEffect(() => {
+    if (!isSignedIn || !clerkUser?.id) return
+    getCustomerProfile(clerkUser.id)
+      .then(data => setSavedPets(data.pets.filter(p => p.active).map(p => ({ id: String(p.id), name: p.name, breed: p.breed, size: p.size }))))
+      .catch(() => {})
+  }, [isSignedIn, clerkUser?.id])
+
+  const showSavedPetsUI = isSignedIn && savedPets.length > 0
+
+  // When saved pets UI activates, drop any default anonymous placeholder
+  useEffect(() => {
+    if (!showSavedPetsUI) return
+    setMascotas(prev => prev.filter(m => m.petId || m.raza !== "Sin especificar"))
+  }, [showSavedPetsUI])
+
+  const effectiveMascotas = showSavedPetsUI
+    ? mascotas.filter(m => m.petId || m.raza !== "Sin especificar")
+    : mascotas
+
+  const toggleSavedPet = (pet: { id: string; name: string; breed: string; size: string }) => {
+    const alreadyIn = mascotas.findIndex(m => m.petId === pet.id)
+    if (alreadyIn >= 0) {
+      setMascotas(prev => prev.filter((_, i) => i !== alreadyIn))
+    } else {
+      setMascotas(prev => [...prev, { raza: pet.breed, tamano: PET_SIZE_LABEL[pet.size as PetSize] ?? "", petId: pet.id }])
+    }
+  }
+
+  const allPetsValid = effectiveMascotas.length > 0 && effectiveMascotas.every(
     (m) => m.raza !== "Sin especificar" && (m.raza !== "Otra Raza o mestizo" || !!m.tamano)
   )
   const isSearchEnabled = !!(dateRange?.from && dateRange?.to) && allPetsValid
@@ -130,21 +163,22 @@ export function SearchBar() {
 
     if (petsParam || petBreeds.length > 0) {
       const petSizes = petsParam?.split(",").filter(Boolean) ?? []
+      const petIds = parsePetIdsParam(searchParams.get("petIds"))
       const petCount = Math.max(petSizes.length, petBreeds.length, 1)
       setMascotas(
         Array.from({ length: petCount }, (_, index) => {
           const raza = petBreeds[index] ?? "Sin especificar"
           const sizeCode = petSizes[index] as PetSize | undefined
           const tamano = sizeCode ? PET_SIZE_LABEL[sizeCode] ?? "" : RAZAS_TAMANOS[raza] ?? ""
-
-          return { raza, tamano }
+          return { raza, tamano, petId: petIds[index] ?? null }
         })
       )
     }
   }, [])
 
   const petsLabel = () => {
-    const count = mascotas.length
+    const count = effectiveMascotas.length
+    if (count === 0) return "Mascotas"
     return count === 1 ? "1 mascota" : `${count} mascotas`
   }
 
@@ -354,114 +388,156 @@ export function SearchBar() {
                     className="absolute top-full mt-1 left-0 z-50 rounded-2xl shadow-2xl border p-4"
                     style={{ backgroundColor: inputColor, borderColor: inputBorder, minWidth: 300, width: "100%" }}
                   >
-                    {mascotas.map((mascota, index) => (
-                      <div key={index} className="mb-4 relative">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm font-bold" style={{ color: "#0A1830" }}>
-                            Mascota {index + 1}
-                          </span>
-                          {mascotas.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => removeMascota(index)}
-                              className="flex items-center justify-center w-5 h-5 rounded-full transition-colors hover:bg-red-50"
-                              style={{ color: "#aaa" }}
-                              aria-label="Eliminar mascota"
-                            >
-                              <X size={13} />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Raza */}
-                        <div className="flex items-center gap-3 mb-2.5">
-                          <span className="text-sm w-16 flex-shrink-0" style={{ color: helperColor }}>
-                            Raza
-                          </span>
-                          <div className="relative flex-1">
-                            <select
-                              value={mascota.raza}
-                              onChange={(e) => updateMascota(index, "raza", e.target.value)}
-                              className="w-full appearance-none px-3 py-1.5 pr-8 rounded-lg border text-sm"
-                              style={{
-                                backgroundColor: "#fff",
-                                borderColor: inputBorder,
-                                color: "#0A1830",
-                              }}
-                            >
-                              {RAZAS.map((r) => (
-                                <option key={r} value={r}>{r}</option>
-                              ))}
-                            </select>
-                            <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: fieldIconColor }} />
-                          </div>
-                        </div>
-
-                        {/* Tamaño */}
-                        {(() => {
-                          const isOtraRaza = mascota.raza === "Otra Raza o mestizo"
-                          const isDisabled = !isOtraRaza
+                    {showSavedPetsUI ? (
+                      <>
+                        {/* Saved pets checkboxes */}
+                        {savedPets.map(pet => {
+                          const isChecked = mascotas.some(m => m.petId === pet.id)
+                          const sizeLabel = PET_SIZE_LABEL[pet.size as PetSize] ?? pet.size
                           return (
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm w-16 flex-shrink-0" style={{ color: helperColor }}>
-                                Tamaño
+                            <button
+                              key={pet.id}
+                              type="button"
+                              onClick={() => toggleSavedPet(pet)}
+                              className="flex items-center gap-3 w-full mb-3 text-left"
+                            >
+                              <div className="w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center"
+                                style={{ borderColor: isChecked ? accentColor : "#D1D5DB", backgroundColor: isChecked ? accentColor : "transparent" }}>
+                                {isChecked && <Check size={10} strokeWidth={3} style={{ color: "#fff" }} />}
+                              </div>
+                              <span className="text-sm" style={{ color: "#0A1830" }}>
+                                {pet.name}{" "}
+                                <span style={{ color: helperColor }}>({pet.breed} / {sizeLabel})</span>
                               </span>
+                            </button>
+                          )
+                        })}
+
+                        {/* Anonymous mascotas (raza selector) */}
+                        {mascotas.filter(m => !m.petId).map((mascota, anonIdx) => {
+                          const globalIdx = mascotas.findIndex((m, i) => !m.petId && mascotas.slice(0, i).filter(x => !x.petId).length === anonIdx)
+                          return (
+                            <div key={`anon-${anonIdx}`} className="mt-3 pt-3 border-t" style={{ borderColor: "#E5DFC8" }}>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm font-bold" style={{ color: "#0A1830" }}>Otra mascota</span>
+                                <button type="button" onClick={() => removeMascota(globalIdx)}
+                                  className="flex items-center justify-center w-5 h-5 rounded-full hover:bg-red-50"
+                                  style={{ color: "#aaa" }}>
+                                  <X size={13} />
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-3 mb-2.5">
+                                <span className="text-sm w-16 flex-shrink-0" style={{ color: helperColor }}>Raza</span>
+                                <div className="relative flex-1">
+                                  <select value={mascota.raza} onChange={(e) => updateMascota(globalIdx, "raza", e.target.value)}
+                                    className="w-full appearance-none px-3 py-1.5 pr-8 rounded-lg border text-sm"
+                                    style={{ backgroundColor: "#fff", borderColor: inputBorder, color: "#0A1830" }}>
+                                    {RAZAS.map(r => <option key={r} value={r}>{r}</option>)}
+                                  </select>
+                                  <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: fieldIconColor }} />
+                                </div>
+                              </div>
+                              {(() => {
+                                const isOtraRaza = mascota.raza === "Otra Raza o mestizo"
+                                const isDisabled = !isOtraRaza
+                                return (
+                                  <div className="flex items-center gap-3">
+                                    <span className="text-sm w-16 flex-shrink-0" style={{ color: helperColor }}>Tamaño</span>
+                                    <div className="relative flex-1">
+                                      <select value={mascota.tamano} onChange={(e) => updateMascota(globalIdx, "tamano", e.target.value)}
+                                        disabled={isDisabled}
+                                        className="w-full appearance-none px-3 py-1.5 pr-8 rounded-lg border text-sm"
+                                        style={{ backgroundColor: isDisabled ? "#F5F3EE" : "#fff", borderColor: inputBorder, color: mascota.tamano ? "#0A1830" : "#999", cursor: isDisabled ? "not-allowed" : "pointer", opacity: isDisabled ? 0.7 : 1 }}>
+                                        <option value="" disabled>Indicar tamaño</option>
+                                        {TAMANOS.map(t => <option key={t} value={t}>{t}</option>)}
+                                      </select>
+                                      <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: fieldIconColor }} />
+                                    </div>
+                                  </div>
+                                )
+                              })()}
+                            </div>
+                          )
+                        })}
+
+                        {/* Agregar otra mascota */}
+                        {mascotas.length < 3 && (
+                          <button type="button" onClick={addMascota}
+                            className="flex items-center gap-1.5 text-sm font-medium mt-3 mb-4 transition-opacity hover:opacity-70"
+                            style={{ color: accentColor }}>
+                            <Plus size={14} />
+                            Agregar otra mascota
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Guest UI — existing behavior */}
+                        {mascotas.map((mascota, index) => (
+                          <div key={index} className="mb-4 relative">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-sm font-bold" style={{ color: "#0A1830" }}>Mascota {index + 1}</span>
+                              {mascotas.length > 1 && (
+                                <button type="button" onClick={() => removeMascota(index)}
+                                  className="flex items-center justify-center w-5 h-5 rounded-full transition-colors hover:bg-red-50"
+                                  style={{ color: "#aaa" }}>
+                                  <X size={13} />
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 mb-2.5">
+                              <span className="text-sm w-16 flex-shrink-0" style={{ color: helperColor }}>Raza</span>
                               <div className="relative flex-1">
-                                <select
-                                  value={mascota.tamano}
-                                  onChange={(e) => updateMascota(index, "tamano", e.target.value)}
-                                  disabled={isDisabled}
+                                <select value={mascota.raza} onChange={(e) => updateMascota(index, "raza", e.target.value)}
                                   className="w-full appearance-none px-3 py-1.5 pr-8 rounded-lg border text-sm"
-                                  style={{
-                                    backgroundColor: isDisabled ? "#F5F3EE" : "#fff",
-                                    borderColor: inputBorder,
-                                    color: mascota.tamano ? "#0A1830" : "#999",
-                                    cursor: isDisabled ? "not-allowed" : "pointer",
-                                    opacity: isDisabled ? 0.7 : 1,
-                                  }}
-                                >
-                                  <option value="" disabled>Indicar tamaño</option>
-                                  {TAMANOS.map((t) => (
-                                    <option key={t} value={t}>{t}</option>
-                                  ))}
+                                  style={{ backgroundColor: "#fff", borderColor: inputBorder, color: "#0A1830" }}>
+                                  {RAZAS.map(r => <option key={r} value={r}>{r}</option>)}
                                 </select>
                                 <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: fieldIconColor }} />
                               </div>
                             </div>
-                          )
-                        })()}
-
-                        {index < mascotas.length - 1 && (
-                          <div className="mt-4 border-t" style={{ borderColor: "#E5DFC8" }} />
+                            {(() => {
+                              const isOtraRaza = mascota.raza === "Otra Raza o mestizo"
+                              const isDisabled = !isOtraRaza
+                              return (
+                                <div className="flex items-center gap-3">
+                                  <span className="text-sm w-16 flex-shrink-0" style={{ color: helperColor }}>Tamaño</span>
+                                  <div className="relative flex-1">
+                                    <select value={mascota.tamano} onChange={(e) => updateMascota(index, "tamano", e.target.value)}
+                                      disabled={isDisabled}
+                                      className="w-full appearance-none px-3 py-1.5 pr-8 rounded-lg border text-sm"
+                                      style={{ backgroundColor: isDisabled ? "#F5F3EE" : "#fff", borderColor: inputBorder, color: mascota.tamano ? "#0A1830" : "#999", cursor: isDisabled ? "not-allowed" : "pointer", opacity: isDisabled ? 0.7 : 1 }}>
+                                      <option value="" disabled>Indicar tamaño</option>
+                                      {TAMANOS.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                    <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: fieldIconColor }} />
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                            {index < mascotas.length - 1 && <div className="mt-4 border-t" style={{ borderColor: "#E5DFC8" }} />}
+                          </div>
+                        ))}
+                        {mascotas.length < 3 && (
+                          <button type="button" onClick={addMascota}
+                            className="flex items-center gap-1.5 text-sm font-medium mb-4 transition-opacity hover:opacity-70"
+                            style={{ color: accentColor }}>
+                            <Plus size={14} />
+                            Agregar otra mascota
+                          </button>
                         )}
-                      </div>
-                    ))}
-
-                    {/* Agregar otra mascota — máximo 3 */}
-                    {mascotas.length < 3 && (
-                      <button
-                        type="button"
-                        onClick={addMascota}
-                        className="flex items-center gap-1.5 text-sm font-medium mb-4 transition-opacity hover:opacity-70"
-                        style={{ color: accentColor }}
-                      >
-                        <Plus size={14} />
-                        Agregar otra mascota
-                      </button>
+                      </>
                     )}
 
                     <div className="mb-4 border-t" style={{ borderColor: "#E5DFC8" }} />
 
                     {/* Listo */}
                     <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setPetsOpen(false)}
+                      <button type="button" onClick={() => setPetsOpen(false)}
                         className="px-5 py-1.5 rounded-lg text-sm font-semibold text-white transition-colors"
                         style={{ backgroundColor: accentColor }}
                         onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = accentHover)}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = accentColor)}
-                      >
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = accentColor)}>
                         Listo
                       </button>
                     </div>
@@ -483,8 +559,9 @@ export function SearchBar() {
                       city,
                       checkin: format(dateRange.from, "yyyy-MM-dd"),
                       checkout: format(dateRange.to, "yyyy-MM-dd"),
-                      pets: mascotas.map((m) => PET_SIZE_MAP[m.tamano] ?? "SMALL").join(","),
-                      breeds: encodePetBreeds(mascotas.map((m) => m.raza)),
+                      pets: effectiveMascotas.map((m) => PET_SIZE_MAP[m.tamano] ?? "SMALL").join(","),
+                      breeds: encodePetBreeds(effectiveMascotas.map((m) => m.raza)),
+                      petIds: encodePetIds(effectiveMascotas.map((m) => m.petId ?? null)),
                       transport: String(needsTransport),
                       ...(needsTransport && {
                         communeCode: transportCommuneCode,

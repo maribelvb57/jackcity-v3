@@ -55,7 +55,7 @@ export function HowItWorks() {
                 className="text-3xl md:text-4xl font-bold text-balance mb-4"
                 style={{ color: "#2D2A20" }}
               >
-                Reservar en Petstay es pan comido
+                Reservar en JackCity es pan comido
               </h2>
               <p className="text-base leading-relaxed max-w-lg mx-auto" style={{ color: "#6B6350" }}>
                 En cuatro simples pasos tu peque tendrá su lugar asegurado en el mejor hotel canino.

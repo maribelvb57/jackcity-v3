@@ -31,6 +31,10 @@ import {
   Building2,
   ShieldCheck,
   Home,
+  CalendarDays,
+  Car,
+  CreditCard,
+  Hotel,
 } from "lucide-react"
 import { slotTime } from "@/lib/transport-slots"
 import { useClerk, useUser } from "@clerk/nextjs"
@@ -189,6 +193,109 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim())
 }
 
+interface PetFormProps {
+  pet: PetData
+  index: number
+  pets: PetData[]
+  updatePet: (index: number, field: keyof PetData, value: string | number) => void
+  incrementAge: (index: number) => void
+  decrementAge: (index: number) => void
+}
+
+function PetForm({ pet, index, pets, updatePet, incrementAge, decrementAge }: PetFormProps) {
+  return (
+    <div className="flex flex-col gap-3">
+      {pets.filter(p => !p.petId).length > 1 && (
+        <p className="text-xs font-semibold" style={{ color: "#6B7280" }}>Mascota {index + 1}</p>
+      )}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Nombre</label>
+          <input type="text" value={pet.name} onChange={(e) => updatePet(index, "name", e.target.value)}
+            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+            style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Nombre mascota" />
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Raza</label>
+          <input type="text" value={pet.breed} readOnly
+            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} />
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Tamaño</label>
+          <input type="text" value={pet.size} readOnly
+            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} />
+        </div>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Género</label>
+          <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: "#E5E7EB" }}>
+            {["Macho", "Hembra"].map((g) => (
+              <label key={g} className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name={`gender-${index}`} value={g}
+                  checked={pet.gender === g} onChange={(e) => updatePet(index, "gender", e.target.value)}
+                  className="w-4 h-4 cursor-pointer accent-[#0A1830]" />
+                <span className="text-sm" style={{ color: "#0A1830" }}>{g}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+            Peso <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+          </label>
+          <div className="relative">
+            <input type="text" inputMode="decimal" value={pet.weight}
+              onChange={(e) => updatePet(index, "weight", e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 pr-12"
+              style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="0" />
+            <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "#9CA3AF" }}>kg</span>
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+            Color <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+          </label>
+          <div className="relative">
+            <select value={pet.color} onChange={(e) => updatePet(index, "color", e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
+              style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+              <option value="">Seleccionar color</option>
+              {PET_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
+          </div>
+        </div>
+        <div className="flex-1">
+          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+            Edad <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+          </label>
+          <div className="flex items-center gap-1">
+            <button type="button" onClick={() => decrementAge(index)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
+              style={{ borderColor: "#E5E7EB" }}>
+              <Minus size={16} style={{ color: "#0A1830" }} />
+            </button>
+            <div className="flex-1 h-10 flex items-center justify-center rounded-xl border text-sm font-semibold"
+              style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+              {pet.age === 0 ? "—" : `${pet.age} año${pet.age !== 1 ? "s" : ""}`}
+            </div>
+            <button type="button" onClick={() => incrementAge(index)}
+              className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
+              style={{ borderColor: "#E5E7EB" }}>
+              <Plus size={16} style={{ color: "#0A1830" }} />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ConfirmationContent() {
   const router = useRouter()
   const { quoteId } = useParams<{ quoteId: string }>()
@@ -235,7 +342,7 @@ function ConfirmationContent() {
   useEffect(() => {
     if (quote && !petsInitialized) {
       setPets(quote.pets.map((p) => ({
-        petId: null,
+        petId: p.id ?? null,
         name: "",
         breed: p.breed,
         size: PET_SIZE_LABEL[p.size as PetSize] ?? p.size,
@@ -277,6 +384,19 @@ function ConfirmationContent() {
       // si falla no bloqueamos el flujo, el usuario puede llenar manualmente
     })
   }, [isSignedIn, clerkUser?.id])
+
+  // Auto-select saved pets based on quote pet ids
+  useEffect(() => {
+    if (!isSignedIn || savedPets.length === 0 || !quote) return
+    const idsFromQuote = quote.pets.map(p => p.id).filter((id): id is string => !!id)
+    if (idsFromQuote.length === 0) return
+    const validIds = idsFromQuote.filter(id => savedPets.some(p => String(p.id) === String(id)))
+    if (validIds.length === 0) return
+    setSelectedPetIds(prev => {
+      const toAdd = validIds.map(String).filter(id => !prev.includes(id))
+      return toAdd.length > 0 ? [...prev, ...toAdd] : prev
+    })
+  }, [savedPets, quote, isSignedIn])
 
   // Sync selected saved pets → pets state for payload
   useEffect(() => {
@@ -334,11 +454,14 @@ function ConfirmationContent() {
     ? Math.round((checkoutDate.getTime() - checkinDate.getTime()) / 86400000)
     : 1
 
+  const accommodationPrice = quote?.pricing.bookingPrice ?? 0
+  const transportPrice = includeTransport ? (quote?.pricing.transportPrice ?? 0) : 0
   const totalPrice = includeTransport
-    ? (quote?.pricing.totalPrice ?? 0)
-    : (quote?.pricing.bookingPrice ?? 0)
-  const payNowPrice = Math.round(totalPrice * PAY_NOW_PERCENTAGE)
-  const payAtHotelPrice = totalPrice - payNowPrice
+    ? (quote?.pricing.totalPrice ?? accommodationPrice + transportPrice)
+    : accommodationPrice
+  const payNowAccommodationPrice = Math.round(accommodationPrice * PAY_NOW_PERCENTAGE)
+  const payNowPrice = payNowAccommodationPrice + transportPrice
+  const payAtHotelPrice = accommodationPrice - payNowAccommodationPrice
 
   const petCountLabel = `${pets.length} ${pets.length === 1 ? "mascota" : "mascotas"}`
   const quotedPetSizesLabel = pets.map((p) => p.size).filter(Boolean).join(", ")
@@ -366,10 +489,12 @@ function ConfirmationContent() {
 
   const requiredSizes = quote?.pets.map(p => p.size) ?? []
   const savedPetsActive = isSignedIn && savedPets.length > 0
-  const isMultiPetBooking = (quote?.pets.length ?? 1) > 1
+  const isSinglePet = (quote?.pets.length ?? 1) === 1
+  const isMultiPetBooking = !isSinglePet
+  const anyPetHasId = (quote?.pets ?? []).some(p => !!p.id)
 
   const petSelectionErrorMsg = (() => {
-    if (!savedPetsActive || !isMultiPetBooking || !hasInteractedWithPets) return null
+    if (!savedPetsActive || anyPetHasId || !isMultiPetBooking || !hasInteractedWithPets) return null
     const needed = quote?.pets.length ?? 0
     if (selectedPetIds.length < needed) {
       const missing = needed - selectedPetIds.length
@@ -392,7 +517,7 @@ function ConfirmationContent() {
     return null
   })()
 
-  const petsMatchQuote = !savedPetsActive || (() => {
+  const petsMatchQuote = !savedPetsActive || anyPetHasId || isSinglePet || (() => {
     const reqCount = (quote?.pets ?? []).reduce<Record<string, number>>(
       (a, p) => ({ ...a, [p.size]: (a[p.size] ?? 0) + 1 }), {}
     )
@@ -828,231 +953,6 @@ function ConfirmationContent() {
                   </div>
                 </div>
 
-                {/* Address */}
-                <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
-                      <MapPin size={20} style={{ color: "#0A1830" }} />
-                      Mi dirección
-                    </h2>
-                    {/* Show "+ Nueva dire" only in list mode (not when no matching addresses) */}
-                    {isSignedIn && savedAddresses.length > 0 && !showNewAddressForm && !hasNoMatchingAddresses && (
-                      <button
-                        type="button"
-                        onClick={() => { setShowNewAddressForm(true); setSelectedAddressId(null) }}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-colors hover:bg-gray-50"
-                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
-                      >
-                        <Plus size={15} />
-                        Nueva dire
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Case: logged in + addresses + not in new-form mode + has matching (or no transport) */}
-                  {isSignedIn && savedAddresses.length > 0 && !showNewAddressForm && !hasNoMatchingAddresses ? (
-                    <>
-                      <p className="text-sm mb-4" style={{ color: "#6B7280" }}>
-                        Selecciona una de tus direcciones guardadas o agrega una nueva.
-                      </p>
-                      <p className="text-sm font-bold mb-3" style={{ color: "#0A1830" }}>Direcciones guardadas</p>
-
-                      {/* Matching addresses (selectable) */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {matchingAddresses.map((addr, index) => {
-                          const isSelected = selectedAddressId === addr.id
-                          const line1 = [addr.street, addr.number, addr.apartment ? `Depto ${addr.apartment}` : null].filter(Boolean).join(" ")
-                          const line2 = [addr.commune, addr.city, addr.country].filter(Boolean).join(", ")
-                          return (
-                            <button
-                              key={addr.id}
-                              type="button"
-                              onClick={() => selectSavedAddress(addr)}
-                              className="flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors w-full"
-                              style={{
-                                borderColor: isSelected ? "#FFC43D" : "#E5E7EB",
-                                backgroundColor: isSelected ? "#FFFBF0" : "#fff",
-                              }}
-                            >
-                              <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                                style={{ borderColor: isSelected ? "#FFC43D" : "#D1D5DB" }}>
-                                {isSelected && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#FFC43D" }} />}
-                              </div>
-                              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                                style={{ backgroundColor: "#F3F4F6" }}>
-                                <Home size={18} style={{ color: "#0A1830" }} />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
-                                  {addr.label ?? `Dirección ${index + 1}`}
-                                </p>
-                                <p className="text-xs mt-0.5" style={{ color: "#555" }}>{line1}</p>
-                                <p className="text-xs" style={{ color: "#6B7280" }}>{line2}</p>
-                              </div>
-                              {addr.isDefault && (
-                                <span className="flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-full"
-                                  style={{ backgroundColor: "#FEF3C7", color: "#B45309" }}>
-                                  Predeterminada
-                                </span>
-                              )}
-                            </button>
-                          )
-                        })}
-                      </div>
-
-                      {/* Non-matching addresses (transport case) */}
-                      {nonMatchingAddresses.length > 0 && (
-                        <div className="mt-4">
-                          <p className="text-xs font-semibold mb-2" style={{ color: "#9CA3AF" }}>
-                            Otras direcciones que tienes registradas en otras comunas
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {nonMatchingAddresses.map((addr, index) => {
-                              const line1 = [addr.street, addr.number, addr.apartment ? `Depto ${addr.apartment}` : null].filter(Boolean).join(" ")
-                              const line2 = [addr.commune, addr.city, addr.country].filter(Boolean).join(", ")
-                              return (
-                                <div
-                                  key={addr.id}
-                                  className="flex items-center gap-3 px-4 py-3 rounded-xl border w-full"
-                                  style={{ borderColor: "#E5E7EB", backgroundColor: "#F9FAFB", opacity: 0.6 }}
-                                >
-                                  <div className="w-5 h-5 rounded-full border-2 flex-shrink-0"
-                                    style={{ borderColor: "#D1D5DB" }} />
-                                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                                    style={{ backgroundColor: "#EFEFEF" }}>
-                                    <Home size={18} style={{ color: "#9CA3AF" }} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-bold" style={{ color: "#6B7280" }}>
-                                      {addr.label ?? `Dirección ${index + 1}`}
-                                    </p>
-                                    <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>{line1}</p>
-                                    <p className="text-xs" style={{ color: "#9CA3AF" }}>{line2}</p>
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="flex flex-col gap-4">
-
-                      {/* Case: logged in + transport + no address in required commune (hide once user enters a valid one) */}
-                      {hasNoMatchingAddresses && !(addressSelectedFromGoogle && normalizeCommuneName(commune) === normalizeCommuneName(quotedTransportCommune)) && (
-                        <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#F0F7FF", borderColor: "#BFD7FF" }}>
-                          <p className="text-sm" style={{ color: "#1D4ED8" }}>
-                            No tienes ninguna dirección guardada en <strong>{quotedTransportCommune}</strong>, que es la comuna de tu reserva. Ingresa una nueva aquí abajo para continuar, o si prefieres{" "}
-                            <Link href="/#buscar" className="font-semibold underline underline-offset-2 transition-opacity hover:opacity-75">
-                              edita tu reserva desde el inicio
-                            </Link>
-                            {" "}para elegir otra comuna.
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Back button when coming from list via "+ Nueva dire" */}
-                      {isSignedIn && savedAddresses.length > 0 && showNewAddressForm && (
-                        <button
-                          type="button"
-                          onClick={() => setShowNewAddressForm(false)}
-                          className="self-start text-sm font-semibold transition-opacity hover:opacity-75"
-                          style={{ color: "#6B7280" }}
-                        >
-                          ← Volver a mis direcciones
-                        </button>
-                      )}
-
-                      <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="flex-1">
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Dirección</label>
-                          <div className="relative">
-                            <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
-                            <input ref={addressInputRef} type="text" value={address}
-                              onChange={(e) => {
-                                setAddress(e.target.value)
-                                setStreetName("")
-                                setStreetNumber("")
-                                setAddressSelectedFromGoogle(false)
-                                setCommune("")
-                                setCity("")
-                                setCountry("")
-                              }}
-                              className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                              style={{ borderColor: address && !addressSelectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
-                              placeholder="Calle y número" autoComplete="street-address" />
-                          </div>
-                          {addressAutocompleteError && (
-                            <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>{addressAutocompleteError}</p>
-                          )}
-                        </div>
-                        <div className="w-full sm:w-36">
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Depto</label>
-                          <input type="text" value={apartment} onChange={(e) => setApartment(e.target.value)}
-                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                            style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Opcional" autoComplete="address-line2" />
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="flex-1">
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>País</label>
-                          <input type="text" value={country} readOnly
-                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Ciudad</label>
-                          <input type="text" value={city} readOnly
-                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
-                        </div>
-                        <div className="flex-1">
-                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Comuna</label>
-                          <input type="text" value={commune} readOnly
-                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                            style={{
-                              backgroundColor: "#F9FAFB",
-                              borderColor: selectedAddressCommuneMatchesQuote ? "#E5E7EB" : "#F59E0B",
-                              color: "#0A1830",
-                            }} placeholder="Pendiente" />
-                        </div>
-                      </div>
-
-                      {!selectedAddressCommuneMatchesQuote && (
-                        <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#F59E0B" }}>
-                          <p className="text-sm font-semibold" style={{ color: "#92400E" }}>
-                            La dirección debe estar en {quotedTransportCommune}, que es la comuna usada para cotizar el transporte.{" "}
-                            <Link href="/" className="underline underline-offset-2 transition-opacity hover:opacity-75">
-                              Cambiar reserva
-                            </Link>
-                          </p>
-                        </div>
-                      )}
-
-                      <div>
-                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Referencia</label>
-                        <input type="text" value={addressReference} onChange={(e) => setAddressReference(e.target.value)}
-                          className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Ej: Portón negro, casa al fondo" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Save data */}
-                {!isSignedIn && (
-                  <label className="flex items-center gap-3 cursor-pointer px-4 py-3 rounded-xl border"
-                    style={{ borderColor: "#F5C518", backgroundColor: "#FFFBEA" }}>
-                    <input type="checkbox" checked={saveData} onChange={(e) => setSaveData(e.target.checked)}
-                      className="w-4 h-4 rounded cursor-pointer accent-[#F5C518] flex-shrink-0" />
-                    <span className="text-sm font-semibold" style={{ color: "#0A1830" }}>
-                      Guardar mis datos para las próximas reservas en Jack City
-                    </span>
-                  </label>
-                )}
-
                 {/* Pets */}
                 <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                   <div className="flex items-center justify-between mb-1">
@@ -1062,7 +962,44 @@ function ConfirmationContent() {
                     </h2>
                   </div>
 
-                  {savedPetsActive ? (
+                  {anyPetHasId ? (
+                    // Cases 2 & 4: some/all pets identified → cards + optional forms
+                    <>
+                      <div className="flex flex-col gap-3 mt-3">
+                        {savedPets.filter(p => selectedPetIds.includes(String(p.id))).map((pet) => (
+                          <div key={pet.id} className="flex items-start gap-3 px-4 py-4 rounded-xl border"
+                            style={{ borderColor: "#FFC43D", backgroundColor: "#FFFBF0" }}>
+                            <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: "#F3F4F6" }}>
+                              <PawPrint size={26} style={{ color: "#0A1830" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-base font-bold mb-2" style={{ color: "#0A1830" }}>{pet.name}</p>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-2">
+                                <div><p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Raza</p><p className="text-sm" style={{ color: "#0A1830" }}>{pet.breed}</p></div>
+                                <div><p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Tamaño</p><p className="text-sm" style={{ color: "#0A1830" }}>{PET_SIZE_LABEL[pet.size as PetSize] ?? pet.size}</p></div>
+                                <div><p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Género</p><p className="text-sm" style={{ color: "#0A1830" }}>{pet.gender === "MALE" ? "Macho" : pet.gender === "FEMALE" ? "Hembra" : "—"}</p></div>
+                                <div><p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Peso</p><p className="text-sm" style={{ color: "#0A1830" }}>{pet.weight ? `${pet.weight} kg` : "—"}</p></div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Forms for unidentified pets in the same booking */}
+                      {pets.some(p => !p.petId) && (
+                        <div className="flex flex-col gap-6 mt-4">
+                          {pets.map((pet, index) => !pet.petId ? (
+                            <PetForm key={index} pet={pet} index={index} pets={pets} updatePet={updatePet} incrementAge={incrementAge} decrementAge={decrementAge} />
+                          ) : null)}
+                        </div>
+                      )}
+                      <p className="mt-3 text-xs" style={{ color: "#9CA3AF" }}>
+                        ¿Quieres cambiar {isSinglePet ? "la mascota" : "las mascotas"}?{" "}
+                        <Link href="/" className="underline underline-offset-2 hover:opacity-75">Vuelve al inicio</Link>
+                      </p>
+                    </>
+                  ) : savedPetsActive && isMultiPetBooking ? (
+                    // Case 5: multi-pet, logged in, no ids → selection list
                     <>
                       <p className="text-sm mb-4" style={{ color: "#6B7280" }}>
                         Selecciona {quote.pets.length === 1 ? "la mascota" : `las ${quote.pets.length} mascotas`} para esta reserva.
@@ -1199,102 +1136,236 @@ function ConfirmationContent() {
                       )}
                     </>
                   ) : (
+                    // Cases 1, 3, 6: guest or logged-in with no ids → forms
                     <div className="flex flex-col gap-6 mt-4">
                       {pets.map((pet, index) => (
-                        <div key={index} className="flex flex-col gap-3">
-                          {pets.length > 1 && (
-                            <p className="text-xs font-semibold" style={{ color: "#6B7280" }}>Mascota {index + 1}</p>
-                          )}
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="flex-1">
-                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Nombre</label>
-                              <input type="text" value={pet.name} onChange={(e) => updatePet(index, "name", e.target.value)}
-                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                                style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Nombre mascota" />
-                            </div>
-                            <div className="flex-1">
-                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Raza</label>
-                              <input type="text" value={pet.breed} readOnly
-                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                                style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} />
-                            </div>
-                            <div className="flex-1">
-                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Tamaño</label>
-                              <input type="text" value={pet.size} readOnly
-                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
-                                style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} />
-                            </div>
-                          </div>
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="flex-1">
-                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Género</label>
-                              <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: "#E5E7EB" }}>
-                                {["Macho", "Hembra"].map((g) => (
-                                  <label key={g} className="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name={`gender-${index}`} value={g}
-                                      checked={pet.gender === g} onChange={(e) => updatePet(index, "gender", e.target.value)}
-                                      className="w-4 h-4 cursor-pointer accent-[#0A1830]" />
-                                    <span className="text-sm" style={{ color: "#0A1830" }}>{g}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                                Peso <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
-                              </label>
-                              <div className="relative">
-                                <input type="text" inputMode="decimal" value={pet.weight}
-                                  onChange={(e) => updatePet(index, "weight", e.target.value)}
-                                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 pr-12"
-                                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="0" />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "#9CA3AF" }}>kg</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <div className="flex-1">
-                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                                Color <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
-                              </label>
-                              <div className="relative">
-                                <select value={pet.color} onChange={(e) => updatePet(index, "color", e.target.value)}
-                                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                                  <option value="">Seleccionar color</option>
-                                  {PET_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
-                                </select>
-                                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                                Edad <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
-                              </label>
-                              <div className="flex items-center gap-1">
-                                <button type="button" onClick={() => decrementAge(index)}
-                                  className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
-                                  style={{ borderColor: "#E5E7EB" }}>
-                                  <Minus size={16} style={{ color: "#0A1830" }} />
-                                </button>
-                                <div className="flex-1 h-10 flex items-center justify-center rounded-xl border text-sm font-semibold"
-                                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                                  {pet.age === 0 ? "—" : `${pet.age} año${pet.age !== 1 ? "s" : ""}`}
-                                </div>
-                                <button type="button" onClick={() => incrementAge(index)}
-                                  className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
-                                  style={{ borderColor: "#E5E7EB" }}>
-                                  <Plus size={16} style={{ color: "#0A1830" }} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
+                        <div key={index}>
+                          <PetForm pet={pet} index={index} pets={pets} updatePet={updatePet} incrementAge={incrementAge} decrementAge={decrementAge} />
                           {index < pets.length - 1 && <hr className="mt-3" style={{ borderColor: "#E5E7EB" }} />}
                         </div>
                       ))}
                     </div>
                   )}
                 </div>
+
+                {/* Address */}
+                <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                  <div className="flex items-center justify-between mb-1">
+                    <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
+                      <MapPin size={20} style={{ color: "#0A1830" }} />
+                      Mi dirección
+                    </h2>
+                    {isSignedIn && savedAddresses.length > 0 && !showNewAddressForm && !hasNoMatchingAddresses && (
+                      <button
+                        type="button"
+                        onClick={() => { setShowNewAddressForm(true); setSelectedAddressId(null) }}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-colors hover:bg-gray-50"
+                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                      >
+                        <Plus size={15} />
+                        Nueva dire
+                      </button>
+                    )}
+                  </div>
+
+                  {isSignedIn && savedAddresses.length > 0 && !showNewAddressForm && !hasNoMatchingAddresses ? (
+                    <>
+                      <p className="text-sm mb-4" style={{ color: "#6B7280" }}>
+                        Selecciona una de tus direcciones guardadas o agrega una nueva.
+                      </p>
+                      <p className="text-sm font-bold mb-3" style={{ color: "#0A1830" }}>Direcciones guardadas</p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {matchingAddresses.map((addr, index) => {
+                          const isSelected = selectedAddressId === addr.id
+                          const line1 = [addr.street, addr.number, addr.apartment ? `Depto ${addr.apartment}` : null].filter(Boolean).join(" ")
+                          const line2 = [addr.commune, addr.city, addr.country].filter(Boolean).join(", ")
+                          return (
+                            <button
+                              key={addr.id}
+                              type="button"
+                              onClick={() => selectSavedAddress(addr)}
+                              className="flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors w-full"
+                              style={{
+                                borderColor: isSelected ? "#FFC43D" : "#E5E7EB",
+                                backgroundColor: isSelected ? "#FFFBF0" : "#fff",
+                              }}
+                            >
+                              <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                                style={{ borderColor: isSelected ? "#FFC43D" : "#D1D5DB" }}>
+                                {isSelected && <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#FFC43D" }} />}
+                              </div>
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: "#F3F4F6" }}>
+                                <Home size={18} style={{ color: "#0A1830" }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
+                                  {addr.label ?? `Dirección ${index + 1}`}
+                                </p>
+                                <p className="text-xs mt-0.5" style={{ color: "#555" }}>{line1}</p>
+                                <p className="text-xs" style={{ color: "#6B7280" }}>{line2}</p>
+                              </div>
+                              {addr.isDefault && (
+                                <span className="flex-shrink-0 text-xs font-semibold px-3 py-1 rounded-full"
+                                  style={{ backgroundColor: "#FEF3C7", color: "#B45309" }}>
+                                  Predeterminada
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {nonMatchingAddresses.length > 0 && (
+                        <div className="mt-4">
+                          <p className="text-xs font-semibold mb-2" style={{ color: "#9CA3AF" }}>
+                            Otras direcciones que tienes registradas en otras comunas
+                          </p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {nonMatchingAddresses.map((addr, index) => {
+                              const line1 = [addr.street, addr.number, addr.apartment ? `Depto ${addr.apartment}` : null].filter(Boolean).join(" ")
+                              const line2 = [addr.commune, addr.city, addr.country].filter(Boolean).join(", ")
+                              return (
+                                <div
+                                  key={addr.id}
+                                  className="flex items-center gap-3 px-4 py-3 rounded-xl border w-full"
+                                  style={{ borderColor: "#E5E7EB", backgroundColor: "#F9FAFB", opacity: 0.6 }}
+                                >
+                                  <div className="w-5 h-5 rounded-full border-2 flex-shrink-0"
+                                    style={{ borderColor: "#D1D5DB" }} />
+                                  <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                                    style={{ backgroundColor: "#EFEFEF" }}>
+                                    <Home size={18} style={{ color: "#9CA3AF" }} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold" style={{ color: "#6B7280" }}>
+                                      {addr.label ?? `Dirección ${index + 1}`}
+                                    </p>
+                                    <p className="text-xs mt-0.5" style={{ color: "#9CA3AF" }}>{line1}</p>
+                                    <p className="text-xs" style={{ color: "#9CA3AF" }}>{line2}</p>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+
+                      {hasNoMatchingAddresses && !(addressSelectedFromGoogle && normalizeCommuneName(commune) === normalizeCommuneName(quotedTransportCommune)) && (
+                        <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#F0F7FF", borderColor: "#BFD7FF" }}>
+                          <p className="text-sm" style={{ color: "#1D4ED8" }}>
+                            No tienes ninguna dirección guardada en <strong>{quotedTransportCommune}</strong>, que es la comuna de tu reserva. Ingresa una nueva aquí abajo para continuar, o si prefieres{" "}
+                            <Link href="/#buscar" className="font-semibold underline underline-offset-2 transition-opacity hover:opacity-75">
+                              edita tu reserva desde el inicio
+                            </Link>
+                            {" "}para elegir otra comuna.
+                          </p>
+                        </div>
+                      )}
+
+                      {isSignedIn && savedAddresses.length > 0 && showNewAddressForm && (
+                        <button
+                          type="button"
+                          onClick={() => setShowNewAddressForm(false)}
+                          className="self-start text-sm font-semibold transition-opacity hover:opacity-75"
+                          style={{ color: "#6B7280" }}
+                        >
+                          ← Volver a mis direcciones
+                        </button>
+                      )}
+
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Dirección</label>
+                          <div className="relative">
+                            <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
+                            <input ref={addressInputRef} type="text" value={address}
+                              onChange={(e) => {
+                                setAddress(e.target.value)
+                                setStreetName("")
+                                setStreetNumber("")
+                                setAddressSelectedFromGoogle(false)
+                                setCommune("")
+                                setCity("")
+                                setCountry("")
+                              }}
+                              className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                              style={{ borderColor: address && !addressSelectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                              placeholder="Calle y número" autoComplete="street-address" />
+                          </div>
+                          {addressAutocompleteError && (
+                            <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>{addressAutocompleteError}</p>
+                          )}
+                        </div>
+                        <div className="w-full sm:w-36">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Depto</label>
+                          <input type="text" value={apartment} onChange={(e) => setApartment(e.target.value)}
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                            style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Opcional" autoComplete="address-line2" />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>País</label>
+                          <input type="text" value={country} readOnly
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Ciudad</label>
+                          <input type="text" value={city} readOnly
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                            style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Comuna</label>
+                          <input type="text" value={commune} readOnly
+                            className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                            style={{
+                              backgroundColor: "#F9FAFB",
+                              borderColor: selectedAddressCommuneMatchesQuote ? "#E5E7EB" : "#F59E0B",
+                              color: "#0A1830",
+                            }} placeholder="Pendiente" />
+                        </div>
+                      </div>
+
+                      {!selectedAddressCommuneMatchesQuote && (
+                        <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#F59E0B" }}>
+                          <p className="text-sm font-semibold" style={{ color: "#92400E" }}>
+                            La dirección debe estar en {quotedTransportCommune}, que es la comuna usada para cotizar el transporte.{" "}
+                            <Link href="/" className="underline underline-offset-2 transition-opacity hover:opacity-75">
+                              Cambiar reserva
+                            </Link>
+                          </p>
+                        </div>
+                      )}
+
+                      <div>
+                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Referencia</label>
+                        <input type="text" value={addressReference} onChange={(e) => setAddressReference(e.target.value)}
+                          className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Ej: Portón negro, casa al fondo" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Save data */}
+                {!isSignedIn && (
+                  <label className="flex items-center gap-3 cursor-pointer px-4 py-3 rounded-xl border"
+                    style={{ borderColor: "#F5C518", backgroundColor: "#FFFBEA" }}>
+                    <input type="checkbox" checked={saveData} onChange={(e) => setSaveData(e.target.checked)}
+                      className="w-4 h-4 rounded cursor-pointer accent-[#F5C518] flex-shrink-0" />
+                    <span className="text-sm font-semibold" style={{ color: "#0A1830" }}>
+                      Guardar mis datos para las próximas reservas en Jack City
+                    </span>
+                  </label>
+                )}
 
                 {/* Transport schedules */}
                 {includeTransport && (
@@ -1371,115 +1442,189 @@ function ConfirmationContent() {
                 </div>
 
                 {/* Reservation summary + pay */}
-                <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
-                  <div className="grid gap-4 lg:grid-cols-[0.82fr_1.18fr] lg:items-start">
+                <div className="bg-white rounded-2xl border p-4 shadow-sm sm:p-6" style={{ borderColor: "#E5E7EB" }}>
+                  <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                     <div>
-                      <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>
-                        Resumen Reserva
+                      <h2 className="text-xl font-extrabold" style={{ color: "#0A1830" }}>
+                        Resumen de tu reserva
                       </h2>
-                      <ul className="flex flex-col gap-1.5 text-sm" style={{ color: "#555" }}>
-                        <li>{petCountLabel}{quotedPetSizesLabel ? ` (${quotedPetSizesLabel})` : ""}</li>
-                        <li>
-                          {nights} {nights === 1 ? "noche" : "noches"}
-                          {checkinDate && checkoutDate && (
-                            <span> ({format(checkinDate, "d MMM", { locale: es })} - {format(checkoutDate, "d MMM", { locale: es })})</span>
+                      <div className="mt-6 flex gap-4">
+                        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#ECE8FF" }}>
+                          <PawPrint size={28} fill="#0A1830" style={{ color: "#0A1830" }} />
+                        </div>
+                        <ul className="flex min-w-0 flex-col gap-3 text-base" style={{ color: "#0A1830" }}>
+                          <li>{petCountLabel}{quotedPetSizesLabel ? ` (${quotedPetSizesLabel})` : ""}</li>
+                          <li className="flex items-center gap-2">
+                            <CalendarDays size={18} className="flex-shrink-0" style={{ color: "#26364F" }} />
+                            <span>
+                              {nights} {nights === 1 ? "noche" : "noches"}
+                              {checkinDate && checkoutDate && (
+                                <> · {format(checkinDate, "d MMM", { locale: es })} - {format(checkoutDate, "d MMM", { locale: es })}</>
+                              )}
+                            </span>
+                          </li>
+                          {includeTransport && (
+                            <li className="flex items-center gap-2">
+                              <Car size={18} className="flex-shrink-0" style={{ color: "#26364F" }} />
+                              <span>Transporte JackCity (Ida y regreso)</span>
+                            </li>
                           )}
-                        </li>
-                        {includeTransport && <li>Transporte incluido desde {transportFrom}</li>}
-                      </ul>
+                        </ul>
+                      </div>
                     </div>
 
-                    <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
-                      <div className="flex gap-3">
-                        <Info size={22} className="mt-0.5 flex-shrink-0" style={{ color: "#2563EB" }} />
-                        <div className="flex flex-col gap-1 text-sm" style={{ color: "#0A1830" }}>
+                    <div className="rounded-2xl border px-5 py-4" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
+                      <div className="flex gap-4">
+                        <div className="mt-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#2563EB" }}>
+                          <Info size={24} style={{ color: "#FFFFFF" }} />
+                        </div>
+                        <div className="flex flex-col gap-4 text-base leading-relaxed" style={{ color: "#0A1830" }}>
                           <p>
-                            Para confirmar tu reserva debes pagar <strong>ahora el 30%</strong>.
+                            Para confirmar tu reserva debes pagar <strong>ahora</strong>{" "}
+                            <strong style={{ color: "#125BD8" }}>
+                              el 30% del alojamiento{includeTransport ? " + el 100% del transporte" : ""}.
+                            </strong>
                           </p>
                           <p>
-                            El 70% restante lo abonarás directamente en el hotel.
+                            El <strong>70% restante del alojamiento</strong> lo abonas directamente en el hotel.
                           </p>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-5 pt-5 border-t" style={{ borderColor: "#E5E7EB" }}>
-                    <div className="min-w-0">
-                      <div className="grid min-w-0 items-stretch gap-2 md:grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)_32px_minmax(0,1fr)]">
-                        <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#FFFFFF", borderColor: "#EEF0F5" }}>
-                          <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Total Alojamiento (100%)</p>
-                          <p className="mt-1 text-xs" style={{ color: "#667085" }}>Monto total de tu reserva</p>
-                          <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(totalPrice)}</p>
-                          <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
-                        </div>
+                  <div className="mt-7 rounded-2xl border p-4 sm:p-6" style={{ borderColor: "#E5E7EB" }}>
+                    <h3 className="text-xl font-extrabold" style={{ color: "#0A1830" }}>
+                      Total de tu reserva
+                    </h3>
 
-                        <div className="hidden md:flex items-center justify-center">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold" style={{ backgroundColor: "#F3F4F6", color: "#0A1830" }}>
-                            =
+                    <div className="mt-6 flex flex-col gap-5 text-base" style={{ color: "#0A1830" }}>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex min-w-0 items-center gap-4">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#EAF2FF" }}>
+                            <Hotel size={22} style={{ color: "#125BD8" }} />
                           </div>
+                          <p className="min-w-0">Alojamiento ({nights} {nights === 1 ? "noche" : "noches"})</p>
                         </div>
-
-                        <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#FFFBF0", borderColor: "#FFD47A" }}>
-                          <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pagar ahora (30%)</p>
-                          <p className="mt-1 text-xs" style={{ color: "#667085" }}>Paga ahora para confirmar tu reserva</p>
-                          <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(payNowPrice)}</p>
-                          <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
-                          <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#FFE9A8", color: "#C77700" }}>
-                            <LockKeyhole size={13} />
-                            Se paga ahora
-                          </div>
-                        </div>
-
-                        <div className="hidden md:flex items-center justify-center">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-full text-xl font-semibold" style={{ backgroundColor: "#F3F4F6", color: "#0A1830" }}>
-                            +
-                          </div>
-                        </div>
-
-                        <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
-                          <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pagar en el hotel (70%)</p>
-                          <p className="mt-1 text-xs" style={{ color: "#667085" }}>Abona directamente en el hotel</p>
-                          <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(payAtHotelPrice)}</p>
-                          <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
-                          <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#DCEBFF", color: "#2563EB" }}>
-                            <Building2 size={13} />
-                            Se paga en el hotel
-                          </div>
-                        </div>
+                        <p className="flex-shrink-0 font-semibold">{formatClp(accommodationPrice)}</p>
                       </div>
 
-                      <div className="mt-4 flex flex-col gap-4 border-t pt-4 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: "#E5E7EB" }}>
-                        <div className="flex min-w-0 items-start gap-3">
-                          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#EAF2FF" }}>
-                            <ShieldCheck size={24} style={{ color: "#0A1830" }} />
+                      {includeTransport && (
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex min-w-0 items-center gap-4">
+                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#DDF5EA" }}>
+                              <Car size={22} style={{ color: "#08785B" }} />
+                            </div>
+                            <p className="min-w-0">Transporte JackCity (Ida y regreso)</p>
                           </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pago seguro y protegido</p>
-                            <p className="mt-1 text-xs leading-relaxed" style={{ color: "#667085" }}>
-                              Tu pago está 100% protegido. Al hacer clic en “Ir a Pagar” serás redirigido a nuestro procesador de pagos seguro.
-                            </p>
-                          </div>
+                          <p className="flex-shrink-0 font-semibold">{formatClp(transportPrice)}</p>
                         </div>
+                      )}
 
-                        <div className="flex w-full flex-shrink-0 flex-col gap-2 sm:w-auto sm:min-w-[220px]">
-                          {submitError && (
-                            <p className="text-sm text-red-600 text-center">{submitError}</p>
-                          )}
-                          <button
-                            onClick={handleConfirm}
-                            disabled={!canPay || isSubmitting}
-                            className="w-full rounded-2xl px-6 py-4 text-base font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 hover:opacity-90"
-                            style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
-                          >
-                            <span className="flex items-center justify-center gap-2">
-                              <LockKeyhole size={18} />
-                              {isSubmitting ? "Procesando..." : "Ir a Pagar"}
-                            </span>
-                          </button>
+                      <div className="border-t pt-5" style={{ borderColor: "#E5E7EB" }}>
+                        <div className="flex items-end justify-between gap-4">
+                          <div>
+                            <p className="text-lg font-extrabold" style={{ color: "#0A1830" }}>Total reserva</p>
+                            <p className="mt-2 text-sm" style={{ color: "#667085" }}>IVA incluido</p>
+                          </div>
+                          <p className="text-2xl font-extrabold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(totalPrice)}</p>
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  <div className="mt-6 rounded-2xl border p-4 sm:p-6" style={{ backgroundColor: "#FFFBF0", borderColor: "#FFC43D" }}>
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex min-w-0 gap-4">
+                        <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#FFE7A3" }}>
+                          <CreditCard size={34} style={{ color: "#0A1830" }} />
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="text-xl font-extrabold" style={{ color: "#0A1830" }}>Pagar ahora por Webpay</h3>
+                          <p className="mt-2 text-base" style={{ color: "#0A1830" }}>
+                            30% del alojamiento{includeTransport ? " + 100% del transporte" : ""}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-4xl font-extrabold sm:text-right" style={{ color: "#B77900" }}>{formatClp(payNowPrice)}</p>
+                    </div>
+
+                    <div className="mt-5 border-t pt-5" style={{ borderColor: "#F6CF83", borderStyle: "dashed" }}>
+                      <div className="flex flex-col gap-4 text-base" style={{ color: "#0A1830" }}>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: "#2F9E68" }} />
+                            <p className="min-w-0">30% del alojamiento ({nights} {nights === 1 ? "noche" : "noches"})</p>
+                          </div>
+                          <p className="flex-shrink-0 font-extrabold">{formatClp(payNowAccommodationPrice)}</p>
+                        </div>
+                        {includeTransport && (
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: "#2F9E68" }} />
+                              <p className="min-w-0">Transporte JackCity (Ida y regreso)</p>
+                            </div>
+                            <p className="flex-shrink-0 font-extrabold">{formatClp(transportPrice)}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between gap-4 rounded-2xl px-5 py-4" style={{ backgroundColor: "#EEF8F2" }}>
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#D5F1E2" }}>
+                        <Building2 size={30} style={{ color: "#08785B" }} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-lg font-extrabold" style={{ color: "#08785B" }}>Saldo a pagar en el hotel</p>
+                        <p className="mt-1 text-base" style={{ color: "#0A1830" }}>70% restante del alojamiento</p>
+                      </div>
+                    </div>
+                    <p className="flex-shrink-0 text-3xl font-extrabold" style={{ color: "#08785B" }}>{formatClp(payAtHotelPrice)}</p>
+                  </div>
+
+                  <div className="mt-6 rounded-2xl border p-4 sm:p-5" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#EAF2FF" }}>
+                          <ShieldCheck size={30} style={{ color: "#125BD8" }} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-lg font-extrabold" style={{ color: "#0A1830" }}>Pago seguro y protegido</p>
+                          <p className="mt-1 text-sm leading-relaxed" style={{ color: "#0A1830" }}>
+                            Serás redirigido a Webpay para realizar el pago de forma segura.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-sm font-extrabold">
+                        <span style={{ color: "#E91E63" }}>transbank.</span>
+                        <span style={{ color: "#1A4BA3" }}>VISA</span>
+                        <span style={{ color: "#E11D48" }}>Mastercard</span>
+                        <span style={{ color: "#1777B8" }}>AMEX</span>
+                        <span style={{ color: "#0A1830" }}>Redcompra</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex flex-col gap-3">
+                    {submitError && (
+                      <p className="text-center text-sm text-red-600">{submitError}</p>
+                    )}
+                    <button
+                      onClick={handleConfirm}
+                      disabled={!canPay || isSubmitting}
+                      className="w-full rounded-xl px-6 py-4 text-lg font-extrabold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 hover:opacity-90"
+                      style={{ backgroundColor: "#FFB200", color: "#0A1830" }}
+                    >
+                      <span className="flex items-center justify-center gap-3">
+                        <LockKeyhole size={22} />
+                        {isSubmitting ? "Procesando..." : `Ir a pagar ${formatClp(payNowPrice)}`}
+                      </span>
+                    </button>
+                    <p className="text-center text-sm" style={{ color: "#667085" }}>
+                      Al continuar, aceptas los términos y condiciones de JackCity.
+                    </p>
                   </div>
                 </div>
 

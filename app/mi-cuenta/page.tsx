@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation"
 import { useAuth, useUser } from "@clerk/nextjs"
 import { SiteNavbar } from "@/components/site-navbar"
 import { getCustomerProfile, updateMe, type CustomerProfile } from "@/lib/api/customers"
-import { updatePet } from "@/lib/api/pets"
-import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
+import { createAddress, deleteAddress, type AddressResult } from "@/lib/api/addresses"
+import { createPet, updatePet, deletePet } from "@/lib/api/pets"
+import { PET_SIZE_LABEL, PET_SIZE_MAP, type PetSize } from "@/lib/api/hotels"
 import {
   User,
   Mail,
@@ -34,6 +35,31 @@ const COUNTRY_CODES = [
 
 const PET_COLORS = ["Negro", "Blanco", "Marrón", "Dorado", "Gris", "Manchado", "Otro"]
 const PET_SIZES = Object.entries(PET_SIZE_LABEL) as [PetSize, string][]
+const TAMANOS = ["Pequeño", "Mediano", "Grande", "Extra Grande"]
+const RAZAS_TAMANOS: Record<string, string> = {
+  "Akita Inu": "Grande",
+  "Beagle": "Mediano",
+  "Border Collie": "Mediano",
+  "Boxer": "Grande",
+  "Bulldog Francés": "Pequeño",
+  "Chihuahua": "Pequeño",
+  "Cocker Spaniel": "Mediano",
+  "Dachshund": "Pequeño",
+  "Golden Retriever": "Grande",
+  "Husky Siberiano": "Grande",
+  "Labrador Retriever": "Grande",
+  "Maltés": "Pequeño",
+  "Pastor Alemán": "Grande",
+  "Pitbull Terrier Americano": "Mediano",
+  "Poodle": "Pequeño",
+  "Pug": "Pequeño",
+  "Rottweiler": "Extra Grande",
+  "Schnauzer": "Pequeño",
+  "Shih Tzu": "Pequeño",
+  "Yorkshire Terrier": "Pequeño",
+  "Otra Raza o mestizo": "",
+}
+const RAZAS = Object.keys(RAZAS_TAMANOS)
 
 function cleanRut(value: string) {
   return value.replace(/[^0-9kK]/g, "").toUpperCase()
@@ -120,6 +146,37 @@ function parseGoogleAddress(place: GooglePlaceResult) {
   }
 }
 
+// ─── Confirm delete modal ─────────────────────────────────────────────────────
+
+interface ConfirmDeleteModalProps {
+  message: string
+  isDeleting: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}
+
+function ConfirmDeleteModal({ message, isDeleting, onConfirm, onCancel }: ConfirmDeleteModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 flex flex-col gap-4">
+        <p className="text-sm text-center" style={{ color: "#0A1830" }}>{message}</p>
+        <div className="flex gap-3">
+          <button type="button" onClick={onConfirm} disabled={isDeleting}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-50"
+            style={{ backgroundColor: "#EF4444", color: "#fff" }}>
+            {isDeleting ? "Eliminando..." : "Sí, eliminar"}
+          </button>
+          <button type="button" onClick={onCancel} disabled={isDeleting}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-gray-50 disabled:opacity-50"
+            style={{ borderColor: "#E5E7EB", color: "#6B7280" }}>
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Edit pet modal ───────────────────────────────────────────────────────────
 
 type PetRecord = CustomerProfile["pets"][number]
@@ -138,8 +195,9 @@ function EditPetModalWrapper(props: EditPetModalProps) {
 
 function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
   const [name, setName] = useState(pet.name)
-  const [breed, setBreed] = useState(pet.breed)
-  const [size, setSize] = useState(pet.size)
+  const [breed, setBreed] = useState(pet.breed ?? "")
+  // size stored as display label ("Pequeño", etc.) internally, converted to code on save
+  const [sizeLabel, setSizeLabel] = useState(PET_SIZE_LABEL[pet.size as PetSize] ?? "")
   const [gender, setGender] = useState(
     pet.gender === "MALE" ? "Macho" : pet.gender === "FEMALE" ? "Hembra" : ""
   )
@@ -149,7 +207,17 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
 
+  const isOtraRaza = breed === "Otra Raza o mestizo"
   const GENDER_MAP: Record<string, string> = { Macho: "MALE", Hembra: "FEMALE" }
+
+  const handleBreedChange = (newBreed: string) => {
+    setBreed(newBreed)
+    if (newBreed !== "Otra Raza o mestizo") {
+      setSizeLabel(RAZAS_TAMANOS[newBreed] ?? "")
+    } else {
+      setSizeLabel("")
+    }
+  }
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -157,23 +225,34 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
     try {
       const token = await getToken()
       if (!token) throw new Error("No token")
+      const sizeCode = PET_SIZE_MAP[sizeLabel] ?? sizeLabel
       const weightParsed = parseFloat(weight)
       await updatePet(pet.id, {
         name,
         breed,
-        size,
+        size: sizeCode,
         gender: GENDER_MAP[gender] ?? gender,
         ...(isNaN(weightParsed) ? {} : { weight: weightParsed }),
         ...(color && { color }),
         ...(age > 0 && { age }),
       }, token)
-      onSave({ ...pet, name, breed, size, gender: GENDER_MAP[gender] ?? gender, weight: isNaN(weightParsed) ? null : weightParsed, color: color || null, age: age || null })
+      onSave({
+        ...pet,
+        name, breed,
+        size: sizeCode,
+        gender: GENDER_MAP[gender] ?? gender,
+        weight: isNaN(weightParsed) ? null : weightParsed,
+        color: color || null,
+        age: age || null,
+      })
     } catch {
       setError("No se pudieron guardar los cambios. Intenta nuevamente.")
     } finally {
       setIsSaving(false)
     }
   }
+
+  const canSave = !!name && !!breed && !!sizeLabel && !!gender
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
@@ -186,6 +265,8 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
         </div>
 
         <div className="p-5 flex flex-col gap-4">
+
+          {/* Fila 1: Nombre + Género */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Nombre</label>
@@ -194,28 +275,8 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
                 style={{ borderColor: "#E5E7EB", color: "#0A1830" }} />
             </div>
             <div className="flex-1">
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Raza</label>
-              <input type="text" value={breed} onChange={(e) => setBreed(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                style={{ borderColor: "#E5E7EB", color: "#0A1830" }} />
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Tamaño</label>
-              <div className="relative">
-                <select value={size} onChange={(e) => setSize(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                  {PET_SIZES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                </select>
-                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
-              </div>
-            </div>
-            <div className="flex-1">
               <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Género</label>
-              <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: "#E5E7EB" }}>
+              <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4 h-[42px]" style={{ borderColor: "#E5E7EB" }}>
                 {["Macho", "Hembra"].map((g) => (
                   <label key={g} className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" name="edit-pet-gender" value={g}
@@ -228,6 +289,43 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
             </div>
           </div>
 
+          {/* Fila 2: Raza + Tamaño */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Raza</label>
+              <div className="relative">
+                <select value={breed} onChange={(e) => handleBreedChange(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
+                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+                  {RAZAS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                Tamaño
+                {!isOtraRaza && <span className="font-normal ml-1" style={{ color: "#9CA3AF" }}>(según raza)</span>}
+              </label>
+              <div className="relative">
+                <select value={sizeLabel} onChange={(e) => setSizeLabel(e.target.value)}
+                  disabled={!isOtraRaza}
+                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none appearance-none"
+                  style={{
+                    borderColor: "#E5E7EB",
+                    color: sizeLabel ? "#0A1830" : "#9CA3AF",
+                    backgroundColor: !isOtraRaza ? "#F9FAFB" : "#fff",
+                    cursor: !isOtraRaza ? "default" : "pointer",
+                  }}>
+                  <option value="">Seleccionar</option>
+                  {TAMANOS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Fila 3: Peso + Color */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
@@ -256,7 +354,8 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
             </div>
           </div>
 
-          <div className="flex-1">
+          {/* Edad */}
+          <div>
             <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
               Edad <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
             </label>
@@ -282,7 +381,7 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
 
           <div className="flex gap-3 pt-1">
             <button type="button" onClick={handleSave}
-              disabled={isSaving || !name || !breed || !size || !gender}
+              disabled={isSaving || !canSave}
               className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}>
               {isSaving ? "Guardando..." : "Guardar cambios"}
@@ -299,15 +398,251 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
   )
 }
 
+// ─── Add pet modal ────────────────────────────────────────────────────────────
+
+interface AddPetModalProps {
+  getToken: () => Promise<string | null>
+  onSave: (pet: PetRecord) => void
+  onClose: () => void
+}
+
+function AddPetModal({ getToken, onSave, onClose }: AddPetModalProps) {
+  const [name, setName] = useState("")
+  const [breed, setBreed] = useState("")
+  const [sizeLabel, setSizeLabel] = useState("")
+  const [gender, setGender] = useState("")
+  const [weight, setWeight] = useState("")
+  const [color, setColor] = useState("")
+  const [age, setAge] = useState(0)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState("")
+
+  const isOtraRaza = breed === "Otra Raza o mestizo"
+  const GENDER_MAP: Record<string, string> = { Macho: "MALE", Hembra: "FEMALE" }
+
+  const handleBreedChange = (newBreed: string) => {
+    setBreed(newBreed)
+    setSizeLabel(newBreed !== "Otra Raza o mestizo" ? (RAZAS_TAMANOS[newBreed] ?? "") : "")
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    setError("")
+    try {
+      const token = await getToken()
+      if (!token) throw new Error("No token")
+      const sizeCode = PET_SIZE_MAP[sizeLabel] ?? sizeLabel
+      const weightParsed = parseFloat(weight)
+      const result = await createPet({
+        name, breed,
+        size: sizeCode,
+        gender: GENDER_MAP[gender] ?? gender,
+        ...(isNaN(weightParsed) ? {} : { weight: weightParsed }),
+        ...(color && { color }),
+        ...(age > 0 && { age }),
+      }, token)
+      onSave({
+        id: result.id,
+        name, breed,
+        size: sizeCode,
+        gender: GENDER_MAP[gender] ?? gender,
+        weight: isNaN(weightParsed) ? null : weightParsed,
+        color: color || null,
+        age: age || null,
+        active: true,
+      })
+    } catch {
+      setError("No se pudo agregar la mascota. Intenta nuevamente.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const canSave = !!name && !!breed && !!sizeLabel && !!gender
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: "#E5E7EB" }}>
+          <h3 className="text-base font-bold" style={{ color: "#0A1830" }}>Agregar mascota</h3>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100" style={{ color: "#6B7280" }}>
+            <Plus size={20} className="rotate-45" />
+          </button>
+        </div>
+
+        <div className="p-5 flex flex-col gap-4">
+          {/* Fila 1: Nombre + Género */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Nombre</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Nombre mascota" />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Género</label>
+              <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4 h-[42px]" style={{ borderColor: "#E5E7EB" }}>
+                {["Macho", "Hembra"].map((g) => (
+                  <label key={g} className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="add-pet-gender" value={g}
+                      checked={gender === g} onChange={() => setGender(g)}
+                      className="w-4 h-4 cursor-pointer accent-[#0A1830]" />
+                    <span className="text-sm" style={{ color: "#0A1830" }}>{g}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Fila 2: Raza + Tamaño */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Raza</label>
+              <div className="relative">
+                <select value={breed} onChange={(e) => handleBreedChange(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
+                  style={{ borderColor: "#E5E7EB", color: breed ? "#0A1830" : "#9CA3AF" }}>
+                  <option value="">Seleccionar raza</option>
+                  {RAZAS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                Tamaño
+                {!isOtraRaza && breed && <span className="font-normal ml-1" style={{ color: "#9CA3AF" }}>(según raza)</span>}
+              </label>
+              <div className="relative">
+                <select value={sizeLabel} onChange={(e) => setSizeLabel(e.target.value)}
+                  disabled={!isOtraRaza}
+                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none appearance-none"
+                  style={{
+                    borderColor: "#E5E7EB",
+                    color: sizeLabel ? "#0A1830" : "#9CA3AF",
+                    backgroundColor: !isOtraRaza ? "#F9FAFB" : "#fff",
+                    cursor: !isOtraRaza ? "default" : "pointer",
+                  }}>
+                  <option value="">Seleccionar</option>
+                  {TAMANOS.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Fila 3: Peso + Color */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                Peso <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+              </label>
+              <div className="relative">
+                <input type="text" inputMode="decimal" value={weight} onChange={(e) => setWeight(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 pr-12"
+                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="0" />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "#9CA3AF" }}>kg</span>
+              </div>
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+                Color <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+              </label>
+              <div className="relative">
+                <select value={color} onChange={(e) => setColor(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
+                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+                  <option value="">Sin color</option>
+                  {PET_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Edad */}
+          <div>
+            <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
+              Edad <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
+            </label>
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={() => setAge(a => Math.max(a - 1, 0))}
+                className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
+                style={{ borderColor: "#E5E7EB" }}>
+                <Minus size={16} style={{ color: "#0A1830" }} />
+              </button>
+              <div className="flex-1 h-10 flex items-center justify-center rounded-xl border text-sm font-semibold"
+                style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+                {age === 0 ? "—" : `${age} año${age !== 1 ? "s" : ""}`}
+              </div>
+              <button type="button" onClick={() => setAge(a => Math.min(a + 1, 25))}
+                className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
+                style={{ borderColor: "#E5E7EB" }}>
+                <Plus size={16} style={{ color: "#0A1830" }} />
+              </button>
+            </div>
+          </div>
+
+          {error && <p className="text-sm" style={{ color: "#B45309" }}>{error}</p>}
+
+          <div className="flex gap-3 pt-1">
+            <button type="button" onClick={handleSave}
+              disabled={isSaving || !canSave}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}>
+              {isSaving ? "Guardando..." : "Agregar mascota"}
+            </button>
+            <button type="button" onClick={onClose} disabled={isSaving}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-gray-50 disabled:opacity-50"
+              style={{ borderColor: "#E5E7EB", color: "#6B7280" }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Add address modal ────────────────────────────────────────────────────────
+
+interface AddAddressModalProps {
+  getToken: () => Promise<string | null>
+  onSave: (addr: AddressResult) => void
+  onClose: () => void
+}
+
+function AddAddressModal({ getToken, onSave, onClose }: AddAddressModalProps) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+      <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="flex items-center justify-between p-5 border-b" style={{ borderColor: "#E5E7EB" }}>
+          <h3 className="text-base font-bold" style={{ color: "#0A1830" }}>Agregar dirección</h3>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100" style={{ color: "#6B7280" }}>
+            <Plus size={20} className="rotate-45" />
+          </button>
+        </div>
+        <div className="px-5 pb-5">
+          <AddressForm getToken={getToken} onSave={onSave} onCancel={onClose} />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── New address form (sub-component to keep the main component cleaner) ──────
 
 interface AddressFormProps {
+  getToken: () => Promise<string | null>
+  onSave: (addr: AddressResult) => void
   onCancel: () => void
 }
 
-function AddressForm({ onCancel }: AddressFormProps) {
+function AddressForm({ getToken, onSave, onCancel }: AddressFormProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [address, setAddress] = useState("")
+  const [streetName, setStreetName] = useState("")
+  const [streetNumber, setStreetNumber] = useState("")
   const [apartment, setApartment] = useState("")
   const [reference, setReference] = useState("")
   const [commune, setCommune] = useState("")
@@ -315,6 +650,17 @@ function AddressForm({ onCancel }: AddressFormProps) {
   const [country, setCountry] = useState("")
   const [selectedFromGoogle, setSelectedFromGoogle] = useState(false)
   const [autocompleteError, setAutocompleteError] = useState("")
+  const [streetNumberError, setStreetNumberError] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState("")
+
+  useEffect(() => {
+    if (selectedFromGoogle && !streetNumber) {
+      setStreetNumberError("Debes incluir el número de la calle (ej: Calle Valdivia 123)")
+    } else {
+      setStreetNumberError("")
+    }
+  }, [selectedFromGoogle, streetNumber])
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
@@ -334,6 +680,8 @@ function AddressForm({ onCancel }: AddressFormProps) {
         if (!place.geometry) { setSelectedFromGoogle(false); return }
         const parsed = parseGoogleAddress(place)
         setAddress(parsed.displayAddress)
+        setStreetName(parsed.street)
+        setStreetNumber(parsed.streetNumber)
         setCommune(parsed.commune)
         setCity(parsed.city)
         setCountry(parsed.country)
@@ -348,20 +696,42 @@ function AddressForm({ onCancel }: AddressFormProps) {
     }
   }, [])
 
+  const handleSave = async () => {
+    setIsSaving(true)
+    setSaveError("")
+    try {
+      const token = await getToken()
+      if (!token) throw new Error("No token")
+      const result = await createAddress({
+        street: streetName || address,
+        ...(streetNumber && { number: streetNumber }),
+        ...(apartment.trim() && { apartment: apartment.trim() }),
+        commune, city, country,
+        ...(reference.trim() && { reference: reference.trim() }),
+      }, token)
+      onSave(result)
+    } catch {
+      setSaveError("No se pudo guardar la dirección. Intenta nuevamente.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-4 pt-4 border-t mt-4" style={{ borderColor: "#E5E7EB" }}>
+    <div className="flex flex-col gap-4 pt-4">
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Dirección</label>
           <div className="relative">
             <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
             <input ref={inputRef} type="text" value={address}
-              onChange={(e) => { setAddress(e.target.value); setCommune(""); setCity(""); setCountry(""); setSelectedFromGoogle(false) }}
+              onChange={(e) => { setAddress(e.target.value); setStreetName(""); setStreetNumber(""); setCommune(""); setCity(""); setCountry(""); setSelectedFromGoogle(false) }}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-              style={{ borderColor: address && !selectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+              style={{ borderColor: streetNumberError ? "#DC2626" : address && !selectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
               placeholder="Calle y número" autoComplete="street-address" />
           </div>
           {autocompleteError && <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>{autocompleteError}</p>}
+          {streetNumberError && <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>{streetNumberError}</p>}
         </div>
         <div className="w-full sm:w-36">
           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Depto</label>
@@ -393,14 +763,16 @@ function AddressForm({ onCancel }: AddressFormProps) {
           className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
           style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Ej: Portón negro, casa al fondo" />
       </div>
+      {saveError && <p className="text-sm" style={{ color: "#B45309" }}>{saveError}</p>}
       <div className="flex gap-3">
-        <button type="button" disabled={!selectedFromGoogle}
+        <button type="button" onClick={handleSave}
+          disabled={!selectedFromGoogle || !streetNumber || isSaving}
           className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}>
-          Guardar dirección
+          {isSaving ? "Guardando..." : "Guardar dirección"}
         </button>
-        <button type="button" onClick={onCancel}
-          className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-gray-50"
+        <button type="button" onClick={onCancel} disabled={isSaving}
+          className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-gray-50 disabled:opacity-50"
           style={{ borderColor: "#E5E7EB", color: "#6B7280" }}>
           Cancelar
         </button>
@@ -437,19 +809,14 @@ function MiCuentaContent() {
 
   // Addresses
   const [addresses, setAddresses] = useState<CustomerProfile["addresses"]>([])
-  const [showAddAddressForm, setShowAddAddressForm] = useState(false)
+  const [showAddAddressModal, setShowAddAddressModal] = useState(false)
 
   // Pets
   const [pets, setPets] = useState<CustomerProfile["pets"]>([])
   const [editingPet, setEditingPet] = useState<PetRecord | null>(null)
-  const [showAddPetForm, setShowAddPetForm] = useState(false)
-  const [newPetName, setNewPetName] = useState("")
-  const [newPetBreed, setNewPetBreed] = useState("")
-  const [newPetSize, setNewPetSize] = useState("")
-  const [newPetGender, setNewPetGender] = useState("")
-  const [newPetWeight, setNewPetWeight] = useState("")
-  const [newPetColor, setNewPetColor] = useState("")
-  const [newPetAge, setNewPetAge] = useState(0)
+  const [showAddPetModal, setShowAddPetModal] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState<{ type: "pet" | "address"; id: string; label: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     if (!isLoaded) return
@@ -473,6 +840,27 @@ function MiCuentaContent() {
       .catch(() => {})
       .finally(() => setIsLoadingProfile(false))
   }, [isLoaded, isSignedIn, clerkUser?.id])
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return
+    setIsDeleting(true)
+    try {
+      const token = await getToken()
+      if (!token) throw new Error("No token")
+      if (confirmDelete.type === "pet") {
+        await deletePet(confirmDelete.id, token)
+        setPets(prev => prev.filter(p => String(p.id) !== confirmDelete.id))
+      } else {
+        await deleteAddress(confirmDelete.id, token)
+        setAddresses(prev => prev.filter(a => String(a.id) !== confirmDelete.id))
+      }
+      setConfirmDelete(null)
+    } catch {
+      // keep modal open so user can retry
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const cancelPersonalEdit = () => {
     setFirstName(origFirst); setLastName(origLast)
@@ -511,10 +899,6 @@ function MiCuentaContent() {
   const rutHasValue = cleanRut(rut).length > 0
   const rutIsValid = rutHasValue && isValidChileRut(rut)
 
-  const resetAddPetForm = () => {
-    setNewPetName(""); setNewPetBreed(""); setNewPetSize("")
-    setNewPetGender(""); setNewPetWeight(""); setNewPetColor(""); setNewPetAge(0)
-  }
 
   if (!isLoaded || isLoadingProfile) {
     return (
@@ -664,17 +1048,15 @@ function MiCuentaContent() {
                 <PawPrint size={20} style={{ color: "#0A1830" }} />
                 Mis mascotas
               </h2>
-              {!showAddPetForm && (
-                <button type="button" onClick={() => setShowAddPetForm(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-colors hover:bg-gray-50"
-                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                  <Plus size={15} />
-                  Agregar mascota
-                </button>
-              )}
+              <button type="button" onClick={() => setShowAddPetModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-colors hover:bg-gray-50"
+                style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+                <Plus size={15} />
+                Agregar mascota
+              </button>
             </div>
 
-            {pets.length === 0 && !showAddPetForm && (
+            {pets.length === 0 && (
               <p className="text-sm" style={{ color: "#9CA3AF" }}>No tienes mascotas guardadas.</p>
             )}
 
@@ -728,6 +1110,7 @@ function MiCuentaContent() {
                         <Pencil size={15} />
                       </button>
                       <button type="button"
+                        onClick={() => setConfirmDelete({ type: "pet", id: pet.id, label: pet.name })}
                         className="p-1.5 rounded-lg transition-colors hover:bg-red-50"
                         style={{ color: "#EF4444" }}>
                         <Trash2 size={15} />
@@ -738,113 +1121,6 @@ function MiCuentaContent() {
               </div>
             )}
 
-            {/* Add pet form */}
-            {showAddPetForm && (
-              <div className="flex flex-col gap-4 pt-4 border-t mt-2" style={{ borderColor: "#E5E7EB" }}>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Nombre</label>
-                    <input type="text" value={newPetName} onChange={(e) => setNewPetName(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                      style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Nombre mascota" />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Raza</label>
-                    <input type="text" value={newPetBreed} onChange={(e) => setNewPetBreed(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                      style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Ej: Golden Retriever" />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Tamaño</label>
-                    <div className="relative">
-                      <select value={newPetSize} onChange={(e) => setNewPetSize(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                        <option value="">Seleccionar</option>
-                        {PET_SIZES.map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-                      </select>
-                      <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Género</label>
-                    <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: "#E5E7EB" }}>
-                      {["Macho", "Hembra"].map((g) => (
-                        <label key={g} className="flex items-center gap-2 cursor-pointer">
-                          <input type="radio" name="new-pet-gender" value={g}
-                            checked={newPetGender === g} onChange={() => setNewPetGender(g)}
-                            className="w-4 h-4 cursor-pointer accent-[#0A1830]" />
-                          <span className="text-sm" style={{ color: "#0A1830" }}>{g}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                      Peso <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
-                    </label>
-                    <div className="relative">
-                      <input type="text" inputMode="decimal" value={newPetWeight}
-                        onChange={(e) => setNewPetWeight(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 pr-12"
-                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="0" />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm" style={{ color: "#9CA3AF" }}>kg</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                      Color <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
-                    </label>
-                    <div className="relative">
-                      <select value={newPetColor} onChange={(e) => setNewPetColor(e.target.value)}
-                        className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                        <option value="">Seleccionar color</option>
-                        {PET_COLORS.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                      <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
-                      Edad <span className="font-normal" style={{ color: "#9CA3AF" }}>(opcional)</span>
-                    </label>
-                    <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => setNewPetAge(a => Math.max(a - 1, 0))}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
-                        style={{ borderColor: "#E5E7EB" }}>
-                        <Minus size={16} style={{ color: "#0A1830" }} />
-                      </button>
-                      <div className="flex-1 h-10 flex items-center justify-center rounded-xl border text-sm font-semibold"
-                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                        {newPetAge === 0 ? "—" : `${newPetAge} año${newPetAge !== 1 ? "s" : ""}`}
-                      </div>
-                      <button type="button" onClick={() => setNewPetAge(a => Math.min(a + 1, 25))}
-                        className="w-10 h-10 flex items-center justify-center rounded-xl border transition-colors hover:bg-gray-50"
-                        style={{ borderColor: "#E5E7EB" }}>
-                        <Plus size={16} style={{ color: "#0A1830" }} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-1">
-                  <button type="button" disabled={!newPetName || !newPetBreed || !newPetSize || !newPetGender}
-                    className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}>
-                    Guardar mascota
-                  </button>
-                  <button type="button" onClick={() => { setShowAddPetForm(false); resetAddPetForm() }}
-                    className="px-5 py-2.5 rounded-xl text-sm font-semibold border transition-colors hover:bg-gray-50"
-                    style={{ borderColor: "#E5E7EB", color: "#6B7280" }}>
-                    Cancelar
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* ── Mis direcciones ───────────────────────────────────────────── */}
@@ -854,17 +1130,15 @@ function MiCuentaContent() {
                 <MapPin size={20} style={{ color: "#0A1830" }} />
                 Mis direcciones
               </h2>
-              {!showAddAddressForm && (
-                <button type="button" onClick={() => setShowAddAddressForm(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-colors hover:bg-gray-50"
-                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
-                  <Plus size={15} />
-                  Agregar dirección
-                </button>
-              )}
+              <button type="button" onClick={() => setShowAddAddressModal(true)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-semibold transition-colors hover:bg-gray-50"
+                style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+                <Plus size={15} />
+                Agregar dirección
+              </button>
             </div>
 
-            {addresses.length === 0 && !showAddAddressForm && (
+            {addresses.length === 0 && (
               <p className="text-sm" style={{ color: "#9CA3AF" }}>No tienes direcciones guardadas.</p>
             )}
 
@@ -883,7 +1157,7 @@ function MiCuentaContent() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
-                          {addr.label ?? `Dirección ${index + 1}`}
+                          {addr.label ?? [addr.street, addr.number].filter(Boolean).join(" ")}
                         </p>
                         <p className="text-xs mt-0.5" style={{ color: "#555" }}>{line1}</p>
                         <p className="text-xs" style={{ color: "#6B7280" }}>{line2}</p>
@@ -895,6 +1169,7 @@ function MiCuentaContent() {
                         )}
                       </div>
                       <button type="button"
+                        onClick={() => setConfirmDelete({ type: "address", id: String(addr.id), label: addr.label ?? line1 })}
                         className="flex-shrink-0 p-1.5 rounded-lg transition-colors hover:bg-red-50"
                         style={{ color: "#EF4444" }}>
                         <Trash2 size={16} />
@@ -905,9 +1180,6 @@ function MiCuentaContent() {
               </div>
             )}
 
-            {showAddAddressForm && (
-              <AddressForm onCancel={() => setShowAddAddressForm(false)} />
-            )}
           </div>
 
         </div>
@@ -922,6 +1194,37 @@ function MiCuentaContent() {
             setEditingPet(null)
           }}
           onClose={() => setEditingPet(null)}
+        />
+      )}
+
+      {showAddPetModal && (
+        <AddPetModal
+          getToken={getToken}
+          onSave={(newPet) => {
+            setPets(prev => [...prev, newPet])
+            setShowAddPetModal(false)
+          }}
+          onClose={() => setShowAddPetModal(false)}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmDeleteModal
+          message={`¿Estás segura que quieres eliminar "${confirmDelete.label}"? Esta acción no se puede deshacer.`}
+          isDeleting={isDeleting}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
+      {showAddAddressModal && (
+        <AddAddressModal
+          getToken={getToken}
+          onSave={(newAddr) => {
+            setAddresses(prev => [...prev, newAddr])
+            setShowAddAddressModal(false)
+          }}
+          onClose={() => setShowAddAddressModal(false)}
         />
       )}
     </main>

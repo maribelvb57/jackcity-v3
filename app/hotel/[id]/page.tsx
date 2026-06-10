@@ -12,7 +12,7 @@ import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { getHotelBookingDetail } from "@/lib/api/hotel-detail"
 import { createQuote } from "@/lib/api/quotes"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
-import { parsePetBreedsParam } from "@/lib/search-pets"
+import { parsePetBreedsParam, parsePetIdsParam } from "@/lib/search-pets"
 import {
   MapPin,
   ChevronLeft,
@@ -63,8 +63,10 @@ function HotelDetailContent() {
 
   const petSizes = petsParam.split(",") as PetSize[]
   const petBreeds = parsePetBreedsParam(breedsParam)
+  const petIdsParam = searchParams.get("petIds") ?? ""
+  const petIds = parsePetIdsParam(petIdsParam)
   const petsPayload = petSizes.map((size, i) => ({
-    id: null,
+    id: petIds[i] ?? null,
     breed: petBreeds[i] ?? "",
     size,
   }))
@@ -122,6 +124,7 @@ function HotelDetailContent() {
     checkout: checkoutParam,
     pets: petsParam,
     ...(breedsParam && { breeds: breedsParam }),
+    ...(petIdsParam && { petIds: petIdsParam }),
     transport: String(transportParam),
     ...(transportParam && communeCodeParam && { communeCode: communeCodeParam }),
     ...(transportParam && communeParam && { commune: communeParam }),

@@ -13,7 +13,7 @@ import { SearchFilters } from "@/components/search-filters"
 import { SearchBenefitsBanner } from "@/components/search-benefits-banner"
 import { useSearchStore } from "@/providers/search-store-provider"
 import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL, type SearchResult } from "@/lib/api/hotels"
-import { parsePetBreedsParam } from "@/lib/search-pets"
+import { parsePetBreedsParam, parsePetIdsParam } from "@/lib/search-pets"
 import { ZONE_COMMUNES } from "@/config/zones"
 import { getTransportCommuneByCode } from "@/config/transport-communes"
 
@@ -51,7 +51,7 @@ function hotelToCardData(
   hotel: Hotel,
   petCount: number,
   nights: number,
-  urlParams: { city: string; checkin: string; checkout: string; pets: string; breeds?: string; transport: boolean; communeCode?: string; commune?: string; searchId: string; listIndex: number }
+  urlParams: { city: string; checkin: string; checkout: string; pets: string; breeds?: string; petIds?: string; transport: boolean; communeCode?: string; commune?: string; searchId: string; listIndex: number }
 ): ResultCardData {
   const transportBy = hotel.transport?.provider ?? ""
   const qs = new URLSearchParams({
@@ -60,6 +60,7 @@ function hotelToCardData(
     checkout: urlParams.checkout ?? "",
     pets: urlParams.pets,
     ...(urlParams.breeds && { breeds: urlParams.breeds }),
+    ...(urlParams.petIds && { petIds: urlParams.petIds }),
     transport: String(urlParams.transport),
     ...(urlParams.transport && urlParams.communeCode && { communeCode: urlParams.communeCode }),
     ...(urlParams.transport && urlParams.commune && { commune: urlParams.commune }),
@@ -111,6 +112,7 @@ function SearchPageContent() {
   const petsParam = searchParams.get("pets") ?? "SMALL"
   const breedsParam = searchParams.get("breeds") ?? ""
   const petBreeds = parsePetBreedsParam(breedsParam)
+  const petIdsParam = searchParams.get("petIds") ?? ""
   const transportParam = searchParams.get("transport") === "true"
   const communeCodeParam = searchParams.get("communeCode") ?? ""
   const selectedTransportCommune = communeCodeParam ? getTransportCommuneByCode(communeCodeParam) : undefined
@@ -129,7 +131,8 @@ function SearchPageContent() {
   useEffect(() => {
     setCity(cityParam)
     if (startDate && endDate) setDateRange({ from: startDate, to: endDate })
-    setMascotas(petSizes.map((s, index) => ({ raza: petBreeds[index] ?? "Sin especificar", tamano: PET_SIZE_LABEL[s] ?? "" })))
+    const petIds = parsePetIdsParam(searchParams.get("petIds"))
+    setMascotas(petSizes.map((s, index) => ({ raza: petBreeds[index] ?? "Sin especificar", tamano: PET_SIZE_LABEL[s] ?? "", petId: petIds[index] ?? null })))
     setNeedsTransport(transportParam)
     if (transportParam && selectedTransportCommune) setTransportCommune(selectedTransportCommune)
   }, [])
@@ -200,6 +203,7 @@ function SearchPageContent() {
       checkout: toParam ?? "",
       pets: petsParam,
       breeds: breedsParam,
+      petIds: petIdsParam,
       transport: transportParam,
       communeCode: communeCodeParam,
       commune: communeParam,

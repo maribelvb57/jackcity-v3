@@ -72,7 +72,7 @@ export function PromoSection() {
               <div className="md:col-span-2 relative rounded-2xl overflow-hidden shadow-md border" style={{ height: 360, borderColor: "rgba(255, 255, 255, 0.08)" }}>
                 <Image
                   src="/images/promo-1.jpg"
-                  alt="Perros felices descansando en el hotel Petstay"
+                  alt="Perros felices descansando en el hotel Jackcity"
                   fill
                   className="object-cover"
                 />
@@ -100,7 +100,7 @@ export function PromoSection() {
                 <div className="relative rounded-2xl overflow-hidden shadow-md flex-1 border" style={{ height: 172, borderColor: "rgba(255, 255, 255, 0.08)" }}>
                   <Image
                     src="/images/promo-3.jpg"
-                    alt="Área de juegos para perros en Petstay"
+                    alt="Área de juegos para perros en JackCity"
                     fill
                     className="object-cover"
                   />

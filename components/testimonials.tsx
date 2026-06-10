@@ -8,7 +8,7 @@ const testimonials = [
     image: "/images/testimonial-1.jpg",
     pet: "Max, Golden Retriever",
     rating: 5,
-    text: "Dejar a Max en Petstay fue la mejor decisión. Llegué al aeropuerto sin ningún cargo de conciencia porque sabía que estaba en las mejores manos. ¡Max llegó a casa más feliz que nunca!",
+    text: "Dejar a Max en JakCity fue la mejor decisión. Llegué al aeropuerto sin ningún cargo de conciencia porque sabía que estaba en las mejores manos. ¡Max llegó a casa más feliz que nunca!",
   },
   {
     name: "Rodrigo Fuentes",
@@ -56,7 +56,7 @@ export function Testimonials() {
                 className="text-3xl md:text-4xl font-bold text-balance mb-4"
                 style={{ color: "#2D2A20" }}
               >
-                Familias que confían en Petstay
+                Familias que confían en JackCity
               </h2>
               <p className="text-base leading-relaxed max-w-lg mx-auto" style={{ color: "#6B6350" }}>
                 Miles de mascotas han disfrutado una estadía increíble en nuestros hoteles. Lee lo que opinan sus familias.

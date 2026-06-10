@@ -5,6 +5,7 @@ import { DEFAULT_TRANSPORT_COMMUNE } from "@/config/transport-communes"
 export type Mascota = {
   raza: string
   tamano: string
+  petId?: string | null
 }
 
 export type SearchState = {
