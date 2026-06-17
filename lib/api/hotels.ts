@@ -1,3 +1,5 @@
+import { API_BASE } from "./config"
+
 export type PetSize = "SMALL" | "MEDIUM" | "LARGE" | "EXTRA_LARGE"
 
 export type HotelMainBenefit = {
@@ -61,8 +63,6 @@ export const PET_SIZE_LABEL: Record<PetSize, string> = {
 function formatDate(date: Date): string {
   return date.toISOString().split("T")[0]
 }
-
-const API_BASE = "http://localhost:8080"
 
 export type SearchResult = {
   searchId: string

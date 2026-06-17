@@ -1,6 +1,5 @@
 import type { PetPayload } from "./hotel-detail"
-
-const API_BASE = "http://localhost:8080"
+import { API_BASE } from "./config"
 
 export type QuoteHotel = {
   id: string
