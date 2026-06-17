@@ -12,6 +12,8 @@ import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { formatClp } from "@/lib/format"
 import { getQuote } from "@/lib/api/quotes"
 import { confirmBooking } from "@/lib/api/bookings"
+import { createWebpayPayment } from "@/lib/api/payments"
+import { redirectToWebpay } from "@/lib/webpay"
 import { validateEmail, getCustomerProfile, type CustomerProfile } from "@/lib/api/customers"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
 import { getTransportCommuneByCode } from "@/config/transport-communes"
@@ -476,6 +478,7 @@ function ConfirmationContent() {
   const emailHasValue = email.trim().length > 0
   const emailIsValid = emailHasValue && isValidEmail(email)
   const transportSlotsSelected = !includeTransport || (!!selectedDeparture && !!selectedReturn)
+  const hasCompleteAddress = address.trim().length > 0 && commune.trim().length > 0 && city.trim().length > 0 && country.trim().length > 0
 
   const matchingAddresses = isSignedIn && savedAddresses.length > 0
     ? (includeTransport
@@ -528,7 +531,7 @@ function ConfirmationContent() {
     return JSON.stringify(Object.entries(selCount).sort()) === JSON.stringify(Object.entries(reqCount).sort())
   })()
 
-  const canPay = allConditionsAccepted() && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid && !emailAccountExists && transportSlotsSelected && petsMatchQuote
+  const canPay = allConditionsAccepted() && hasCompleteAddress && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid && !emailAccountExists && transportSlotsSelected && petsMatchQuote
 
   function allConditionsAccepted() {
     return vaccinesUpToDate && isCastrated && notInHeat
@@ -705,7 +708,9 @@ function ConfirmationContent() {
           },
         }),
       })
-      router.push(`/success?bookingId=${bookingId}`)
+
+      const { token, url } = await createWebpayPayment(bookingId)
+      redirectToWebpay(url, token)
     } catch {
       setSubmitError(true)
       setIsSubmitting(false)

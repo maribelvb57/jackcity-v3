@@ -7,12 +7,15 @@ import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { SiteNavbar } from "@/components/site-navbar"
-import { MapPin, Clock, Calendar, AlertCircle, LockKeyhole, Building2 } from "lucide-react"
+import { MapPin, Clock, Calendar, AlertCircle, LockKeyhole, Building2, ReceiptText, Download } from "lucide-react"
 import { formatClp } from "@/lib/format"
 import { getBooking } from "@/lib/api/bookings"
+import { getWebpayVoucherByBuyOrder } from "@/lib/api/payments"
 import { slotTime } from "@/lib/transport-slots"
 
 const PAY_NOW_PERCENTAGE = 0.3
+const MERCHANT_NAME = "AndesBits SpA (JackCity)"
+const DEBIT_PAYMENT_TYPE_CODES = new Set(["VD", "VP"])
 
 function formatDate(dateStr: string) {
   return format(new Date(`${dateStr}T12:00:00`), "d 'de' MMMM", { locale: es })
@@ -23,40 +26,63 @@ function formatPetNames(names: string[]) {
   return `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`
 }
 
-function SuccessContent() {
-  const searchParams = useSearchParams()
-  const bookingId = searchParams.get("bookingId")
+function paymentTypeLabel(code: string | null) {
+  if (!code) return "—"
+  return DEBIT_PAYMENT_TYPE_CODES.has(code) ? "Débito" : "Crédito"
+}
 
-  const { data: booking, isLoading, isError } = useQuery({
-    queryKey: ["booking", bookingId],
-    queryFn: () => getBooking(bookingId!),
-    enabled: !!bookingId,
+function installmentsLabel(count: number | null) {
+  if (!count || count <= 0) return "Sin cuotas"
+  return `${count} cuota${count === 1 ? "" : "s"}`
+}
+
+function FallbackScreen({ message }: { message: string }) {
+  return (
+    <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
+      <div className="w-full max-w-[1200px] flex flex-col" style={{ backgroundColor: "#ffffff" }}>
+        <SiteNavbar />
+        <div className="px-6 py-10 text-sm font-medium" style={{ color: "#8A1C1C" }}>
+          {message}
+        </div>
+      </div>
+    </main>
+  )
+}
+
+function ReservaExitoContent() {
+  const searchParams = useSearchParams()
+  const buyOrder = searchParams.get("orden")
+
+  const { data: voucher, isLoading: isVoucherLoading, isError: isVoucherError } = useQuery({
+    queryKey: ["webpay-voucher", buyOrder],
+    queryFn: () => getWebpayVoucherByBuyOrder(buyOrder!),
+    enabled: !!buyOrder,
   })
 
-  if (!bookingId || isError) {
-    return (
-      <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
-        <div className="w-full max-w-[1200px] flex flex-col" style={{ backgroundColor: "#ffffff" }}>
-          <SiteNavbar />
-          <div className="px-6 py-10 text-sm font-medium" style={{ color: "#8A1C1C" }}>
-            No pudimos cargar los datos de tu reserva.
-          </div>
-        </div>
-      </main>
-    )
+  const { data: booking, isLoading: isBookingLoading, isError: isBookingError } = useQuery({
+    queryKey: ["booking", voucher?.bookingId],
+    queryFn: () => getBooking(voucher!.bookingId),
+    enabled: !!voucher?.authorized && !!voucher?.bookingId,
+  })
+
+  if (!buyOrder || isVoucherError) {
+    return <FallbackScreen message="No pudimos cargar los datos de tu pago." />
   }
 
-  if (isLoading || !booking) {
-    return (
-      <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
-        <div className="w-full max-w-[1200px] flex flex-col" style={{ backgroundColor: "#ffffff" }}>
-          <SiteNavbar />
-          <div className="px-6 py-10 text-sm font-medium" style={{ color: "#0A1830" }}>
-            Cargando tu reserva...
-          </div>
-        </div>
-      </main>
-    )
+  if (isVoucherLoading || !voucher) {
+    return <FallbackScreen message="Cargando tu reserva..." />
+  }
+
+  if (!voucher.authorized) {
+    return <FallbackScreen message="Tu pago todavía no se pudo confirmar. Si el problema persiste, contáctanos." />
+  }
+
+  if (isBookingError) {
+    return <FallbackScreen message="No pudimos cargar los datos de tu reserva." />
+  }
+
+  if (isBookingLoading || !booking) {
+    return <FallbackScreen message="Cargando tu reserva..." />
   }
 
   const petNames = formatPetNames(booking.pets.map((p) => p.name))
@@ -73,6 +99,34 @@ function SuccessContent() {
     ? slotTime(booking.transport.departureSlot ?? "")
     : booking.hotel.checkinWindow
   const checkinWindowLabel = checkinWindow.trim() || "Horario por coordinar"
+  const serviceDescription = `Alojamiento para ${booking.pets.length === 1 ? "mascota" : `${booking.pets.length} mascotas`} en ${booking.hotel.name} (${nights} noche${nights === 1 ? "" : "s"})`
+  const transactionDateFormatted = voucher.transactionDate
+    ? format(new Date(voucher.transactionDate), "d MMM yyyy, HH:mm", { locale: es })
+    : "—"
+
+  const handleDownloadVoucher = () => {
+    const lines = [
+      "Comprobante de pago — JackCity",
+      `Comercio: ${MERCHANT_NAME}`,
+      `N° de orden: ${voucher.buyOrder}`,
+      `Monto pagado: ${formatClp(voucher.amount)} CLP`,
+      `Código de autorización: ${voucher.authorizationCode ?? "—"}`,
+      `Fecha de la transacción: ${transactionDateFormatted}`,
+      `Tipo de pago: ${paymentTypeLabel(voucher.paymentTypeCode)}`,
+      `Cuotas: ${installmentsLabel(voucher.installmentsNumber)}`,
+      `Tarjeta: ${voucher.cardLastFourDigits ? `**** ${voucher.cardLastFourDigits}` : "—"}`,
+      `Descripción: ${serviceDescription}`,
+    ]
+    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `comprobante-${voucher.buyOrder}.txt`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
@@ -107,23 +161,68 @@ function SuccessContent() {
             <div className="flex flex-col gap-1 lg:w-3/4 order-2">
 
               {/* Header */}
-              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-2 py-0">
-                <div className="w-full flex-1 pt-2 sm:pt-4">
-                  <h1 className="text-2xl md:text-3xl font-bold mb-0" style={{ color: "#0A1830" }}>
-                    Felicitaciones!
-                  </h1>
-                  <p className="text-lg md:text-xl" style={{ color: "#555" }}>
-                    Ya esta lista la reserva para tu peque
-                  </p>
+              <div className="w-full pt-2 sm:pt-4">
+                <h1 className="text-2xl md:text-3xl font-bold mb-0" style={{ color: "#0A1830" }}>
+                  Felicitaciones!
+                </h1>
+                <p className="text-lg md:text-xl" style={{ color: "#555" }}>
+                  Ya esta lista la reserva para tu peque
+                </p>
+              </div>
+
+              {/* Payment voucher — Transbank required fields */}
+              <div className="rounded-2xl p-5 border mt-3" style={{ backgroundColor: "#EEF8F2", borderColor: "#D5F1E2" }}>
+                <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: "#0A1830" }}>
+                  <ReceiptText size={24} style={{ color: "#0A1830" }} />
+                  Comprobante de pago
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5 text-base">
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Comercio</p>
+                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{MERCHANT_NAME}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>N° de orden</p>
+                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{voucher.buyOrder}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Monto pagado</p>
+                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{formatClp(voucher.amount)} CLP</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Código de autorización</p>
+                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{voucher.authorizationCode ?? "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Fecha de la transacción</p>
+                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{transactionDateFormatted}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Tipo de pago</p>
+                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{paymentTypeLabel(voucher.paymentTypeCode)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Cuotas</p>
+                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{installmentsLabel(voucher.installmentsNumber)}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Tarjeta</p>
+                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{voucher.cardLastFourDigits ? `**** ${voucher.cardLastFourDigits}` : "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Descripción</p>
+                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{serviceDescription}</p>
+                  </div>
                 </div>
-                <div className="relative w-[calc(100vw-1rem)] max-w-none sm:w-[26rem] lg:w-[26rem] aspect-[1133/681] flex-shrink-0">
-                  <Image
-                    src="/images/jack-reserva-exitosa.jpg"
-                    alt="Jack celebrando"
-                    fill
-                    className="object-contain"
-                  />
-                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadVoucher}
+                  className="mt-6 flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm border-2 transition-colors hover:bg-gray-50"
+                  style={{ borderColor: "#0A1830", color: "#0A1830" }}
+                >
+                  <Download size={16} />
+                  Descargar comprobante
+                </button>
               </div>
 
               {/* Reservation data */}
@@ -267,10 +366,10 @@ function SuccessContent() {
   )
 }
 
-export default function PaymentSuccessPage() {
+export default function ReservaExitoPage() {
   return (
     <Suspense>
-      <SuccessContent />
+      <ReservaExitoContent />
     </Suspense>
   )
 }
