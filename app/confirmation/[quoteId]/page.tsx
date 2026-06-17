@@ -1445,7 +1445,7 @@ function ConfirmationContent() {
                 <div className="bg-white rounded-2xl border p-4 shadow-sm sm:p-6" style={{ borderColor: "#E5E7EB" }}>
                   <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                     <div>
-                      <h2 className="text-xl font-extrabold" style={{ color: "#0A1830" }}>
+                      <h2 className="text-xl font-bold" style={{ color: "#0A1830" }}>
                         Resumen de tu reserva
                       </h2>
                       <div className="mt-6 flex gap-4">
@@ -1480,13 +1480,13 @@ function ConfirmationContent() {
                         </div>
                         <div className="flex flex-col gap-4 text-base leading-relaxed" style={{ color: "#0A1830" }}>
                           <p>
-                            Para confirmar tu reserva debes pagar <strong>ahora</strong>{" "}
-                            <strong style={{ color: "#125BD8" }}>
+                            Para confirmar tu reserva debes pagar <span className="font-semibold">ahora</span>{" "}
+                            <span className="font-semibold" style={{ color: "#125BD8" }}>
                               el 30% del alojamiento{includeTransport ? " + el 100% del transporte" : ""}.
-                            </strong>
+                            </span>
                           </p>
                           <p>
-                            El <strong>70% restante del alojamiento</strong> lo abonas directamente en el hotel.
+                            El <span className="font-semibold">70% restante del alojamiento</span> lo abonas directamente en el hotel.
                           </p>
                         </div>
                       </div>
@@ -1494,7 +1494,7 @@ function ConfirmationContent() {
                   </div>
 
                   <div className="mt-7 rounded-2xl border p-4 sm:p-6" style={{ borderColor: "#E5E7EB" }}>
-                    <h3 className="text-xl font-extrabold" style={{ color: "#0A1830" }}>
+                    <h3 className="text-xl font-bold" style={{ color: "#0A1830" }}>
                       Total de tu reserva
                     </h3>
 
@@ -1506,7 +1506,7 @@ function ConfirmationContent() {
                           </div>
                           <p className="min-w-0">Alojamiento ({nights} {nights === 1 ? "noche" : "noches"})</p>
                         </div>
-                        <p className="flex-shrink-0 font-semibold">{formatClp(accommodationPrice)}</p>
+                        <p className="flex-shrink-0 font-medium">{formatClp(accommodationPrice)}</p>
                       </div>
 
                       {includeTransport && (
@@ -1517,17 +1517,17 @@ function ConfirmationContent() {
                             </div>
                             <p className="min-w-0">Transporte JackCity (Ida y regreso)</p>
                           </div>
-                          <p className="flex-shrink-0 font-semibold">{formatClp(transportPrice)}</p>
+                          <p className="flex-shrink-0 font-medium">{formatClp(transportPrice)}</p>
                         </div>
                       )}
 
                       <div className="border-t pt-5" style={{ borderColor: "#E5E7EB" }}>
                         <div className="flex items-end justify-between gap-4">
                           <div>
-                            <p className="text-lg font-extrabold" style={{ color: "#0A1830" }}>Total reserva</p>
+                            <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>Total reserva</p>
                             <p className="mt-2 text-sm" style={{ color: "#667085" }}>IVA incluido</p>
                           </div>
-                          <p className="text-2xl font-extrabold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(totalPrice)}</p>
+                          <p className="text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(totalPrice)}</p>
                         </div>
                       </div>
                     </div>
@@ -1540,13 +1540,13 @@ function ConfirmationContent() {
                           <CreditCard size={34} style={{ color: "#0A1830" }} />
                         </div>
                         <div className="min-w-0">
-                          <h3 className="text-xl font-extrabold" style={{ color: "#0A1830" }}>Pagar ahora por Webpay</h3>
+                          <h3 className="text-xl font-bold" style={{ color: "#0A1830" }}>Pagar ahora por Webpay</h3>
                           <p className="mt-2 text-base" style={{ color: "#0A1830" }}>
                             30% del alojamiento{includeTransport ? " + 100% del transporte" : ""}
                           </p>
                         </div>
                       </div>
-                      <p className="text-4xl font-extrabold sm:text-right" style={{ color: "#B77900" }}>{formatClp(payNowPrice)}</p>
+                      <p className="text-4xl font-bold sm:text-right" style={{ color: "#B77900" }}>{formatClp(payNowPrice)}</p>
                     </div>
 
                     <div className="mt-5 border-t pt-5" style={{ borderColor: "#F6CF83", borderStyle: "dashed" }}>
@@ -1556,7 +1556,7 @@ function ConfirmationContent() {
                             <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: "#2F9E68" }} />
                             <p className="min-w-0">30% del alojamiento ({nights} {nights === 1 ? "noche" : "noches"})</p>
                           </div>
-                          <p className="flex-shrink-0 font-extrabold">{formatClp(payNowAccommodationPrice)}</p>
+                          <p className="flex-shrink-0 font-semibold">{formatClp(payNowAccommodationPrice)}</p>
                         </div>
                         {includeTransport && (
                           <div className="flex items-center justify-between gap-4">
@@ -1564,7 +1564,7 @@ function ConfirmationContent() {
                               <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: "#2F9E68" }} />
                               <p className="min-w-0">Transporte JackCity (Ida y regreso)</p>
                             </div>
-                            <p className="flex-shrink-0 font-extrabold">{formatClp(transportPrice)}</p>
+                            <p className="flex-shrink-0 font-semibold">{formatClp(transportPrice)}</p>
                           </div>
                         )}
                       </div>
@@ -1577,11 +1577,11 @@ function ConfirmationContent() {
                         <Building2 size={30} style={{ color: "#08785B" }} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-lg font-extrabold" style={{ color: "#08785B" }}>Saldo a pagar en el hotel</p>
+                        <p className="text-lg font-bold" style={{ color: "#08785B" }}>Saldo a pagar en el hotel</p>
                         <p className="mt-1 text-base" style={{ color: "#0A1830" }}>70% restante del alojamiento</p>
                       </div>
                     </div>
-                    <p className="flex-shrink-0 text-3xl font-extrabold" style={{ color: "#08785B" }}>{formatClp(payAtHotelPrice)}</p>
+                    <p className="flex-shrink-0 text-3xl font-bold" style={{ color: "#08785B" }}>{formatClp(payAtHotelPrice)}</p>
                   </div>
 
                   <div className="mt-6 rounded-2xl border p-4 sm:p-5" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
@@ -1591,13 +1591,13 @@ function ConfirmationContent() {
                           <ShieldCheck size={30} style={{ color: "#125BD8" }} />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-lg font-extrabold" style={{ color: "#0A1830" }}>Pago seguro y protegido</p>
+                          <p className="text-lg font-bold" style={{ color: "#0A1830" }}>Pago seguro y protegido</p>
                           <p className="mt-1 text-sm leading-relaxed" style={{ color: "#0A1830" }}>
                             Serás redirigido a Webpay para realizar el pago de forma segura.
                           </p>
                         </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-3 text-sm font-extrabold">
+                      <div className="flex flex-wrap items-center gap-3 text-sm font-bold">
                         <span style={{ color: "#E91E63" }}>transbank.</span>
                         <span style={{ color: "#1A4BA3" }}>VISA</span>
                         <span style={{ color: "#E11D48" }}>Mastercard</span>
@@ -1614,7 +1614,7 @@ function ConfirmationContent() {
                     <button
                       onClick={handleConfirm}
                       disabled={!canPay || isSubmitting}
-                      className="w-full rounded-xl px-6 py-4 text-lg font-extrabold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 hover:opacity-90"
+                      className="w-full rounded-xl px-6 py-4 text-lg font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 hover:opacity-90"
                       style={{ backgroundColor: "#FFB200", color: "#0A1830" }}
                     >
                       <span className="flex items-center justify-center gap-3">
