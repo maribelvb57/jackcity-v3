@@ -34,3 +34,7 @@ export async function getWebpayVoucherByBuyOrder(buyOrder: string): Promise<Webp
   if (!res.ok) throw new Error(`Get webpay voucher failed: ${res.status}`)
   return res.json()
 }
+
+export function getWebpayVoucherPdfUrl(buyOrder: string): string {
+  return `${API_BASE}/api/payments/webpay/by-buy-order/${buyOrder}/voucher`
+}

@@ -10,7 +10,7 @@ import { SiteNavbar } from "@/components/site-navbar"
 import { MapPin, Clock, Calendar, AlertCircle, LockKeyhole, Building2, ReceiptText, Download } from "lucide-react"
 import { formatClp } from "@/lib/format"
 import { getBooking } from "@/lib/api/bookings"
-import { getWebpayVoucherByBuyOrder } from "@/lib/api/payments"
+import { getWebpayVoucherByBuyOrder, getWebpayVoucherPdfUrl } from "@/lib/api/payments"
 import { slotTime } from "@/lib/transport-slots"
 
 const PAY_NOW_PERCENTAGE = 0.3
@@ -28,7 +28,7 @@ function formatPetNames(names: string[]) {
 
 function paymentTypeLabel(code: string | null) {
   if (!code) return "—"
-  return DEBIT_PAYMENT_TYPE_CODES.has(code) ? "Débito" : "Crédito"
+  return DEBIT_PAYMENT_TYPE_CODES.has(code) ? "Tarjeta de Débito" : "Tarjeta de Crédito"
 }
 
 function installmentsLabel(count: number | null) {
@@ -49,9 +49,9 @@ function FallbackScreen({ message }: { message: string }) {
   )
 }
 
-function ReservaExitoContent() {
+function BookingConfirmationSuccessContent() {
   const searchParams = useSearchParams()
-  const buyOrder = searchParams.get("orden")
+  const buyOrder = searchParams.get("orderId")
 
   const { data: voucher, isLoading: isVoucherLoading, isError: isVoucherError } = useQuery({
     queryKey: ["webpay-voucher", buyOrder],
@@ -99,33 +99,13 @@ function ReservaExitoContent() {
     ? slotTime(booking.transport.departureSlot ?? "")
     : booking.hotel.checkinWindow
   const checkinWindowLabel = checkinWindow.trim() || "Horario por coordinar"
-  const serviceDescription = `Alojamiento para ${booking.pets.length === 1 ? "mascota" : `${booking.pets.length} mascotas`} en ${booking.hotel.name} (${nights} noche${nights === 1 ? "" : "s"})`
+  const serviceDescription = `Pago por reserva de alojamiento en hotel ${booking.hotel.name} desde el ${checkinFormatted} hasta el ${checkoutFormatted}`
   const transactionDateFormatted = voucher.transactionDate
     ? format(new Date(voucher.transactionDate), "d MMM yyyy, HH:mm", { locale: es })
     : "—"
 
   const handleDownloadVoucher = () => {
-    const lines = [
-      "Comprobante de pago — JackCity",
-      `Comercio: ${MERCHANT_NAME}`,
-      `N° de orden: ${voucher.buyOrder}`,
-      `Monto pagado: ${formatClp(voucher.amount)} CLP`,
-      `Código de autorización: ${voucher.authorizationCode ?? "—"}`,
-      `Fecha de la transacción: ${transactionDateFormatted}`,
-      `Tipo de pago: ${paymentTypeLabel(voucher.paymentTypeCode)}`,
-      `Cuotas: ${installmentsLabel(voucher.installmentsNumber)}`,
-      `Tarjeta: ${voucher.cardLastFourDigits ? `**** ${voucher.cardLastFourDigits}` : "—"}`,
-      `Descripción: ${serviceDescription}`,
-    ]
-    const blob = new Blob([lines.join("\n")], { type: "text/plain;charset=utf-8" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = `comprobante-${voucher.buyOrder}.txt`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    window.open(getWebpayVoucherPdfUrl(voucher.buyOrder), "_blank")
   }
 
   return (
@@ -171,56 +151,56 @@ function ReservaExitoContent() {
               </div>
 
               {/* Payment voucher — Transbank required fields */}
-              <div className="rounded-2xl p-5 border mt-3" style={{ backgroundColor: "#EEF8F2", borderColor: "#D5F1E2" }}>
-                <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: "#0A1830" }}>
-                  <ReceiptText size={24} style={{ color: "#0A1830" }} />
+              <div className="rounded-2xl p-4 border mt-3" style={{ backgroundColor: "#EEF8F2", borderColor: "#D5F1E2" }}>
+                <h2 className="text-base font-bold mb-3 flex items-center gap-2" style={{ color: "#0A1830" }}>
+                  <ReceiptText size={18} style={{ color: "#0A1830" }} />
                   Comprobante de pago
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-5 text-base">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3 text-sm">
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Comercio</p>
-                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{MERCHANT_NAME}</p>
+                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Comercio</p>
+                    <p className="text-sm font-semibold" style={{ color: "#0A1830" }}>{MERCHANT_NAME}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>N° de orden</p>
-                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{voucher.buyOrder}</p>
+                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>N° de orden</p>
+                    <p className="text-sm font-semibold" style={{ color: "#0A1830" }}>{voucher.buyOrder}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Monto pagado</p>
-                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{formatClp(voucher.amount)} CLP</p>
+                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Monto pagado</p>
+                    <p className="text-sm font-semibold" style={{ color: "#0A1830" }}>{formatClp(voucher.amount)} CLP</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Código de autorización</p>
-                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{voucher.authorizationCode ?? "—"}</p>
+                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Código de autorización</p>
+                    <p className="text-sm font-semibold" style={{ color: "#0A1830" }}>{voucher.authorizationCode ?? "—"}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Fecha de la transacción</p>
-                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{transactionDateFormatted}</p>
+                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Fecha de la transacción</p>
+                    <p className="text-sm font-semibold" style={{ color: "#0A1830" }}>{transactionDateFormatted}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Tipo de pago</p>
-                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{paymentTypeLabel(voucher.paymentTypeCode)}</p>
+                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Tipo de pago</p>
+                    <p className="text-sm font-semibold" style={{ color: "#0A1830" }}>{paymentTypeLabel(voucher.paymentTypeCode)}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Cuotas</p>
-                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{installmentsLabel(voucher.installmentsNumber)}</p>
+                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Cuotas</p>
+                    <p className="text-sm font-semibold" style={{ color: "#0A1830" }}>{installmentsLabel(voucher.installmentsNumber)}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Tarjeta</p>
-                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{voucher.cardLastFourDigits ? `**** ${voucher.cardLastFourDigits}` : "—"}</p>
+                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Tarjeta</p>
+                    <p className="text-sm font-semibold" style={{ color: "#0A1830" }}>{voucher.cardLastFourDigits ? `**** ${voucher.cardLastFourDigits}` : "—"}</p>
                   </div>
                   <div>
-                    <p className="text-sm font-medium" style={{ color: "#9CA3AF" }}>Descripción</p>
-                    <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>{serviceDescription}</p>
+                    <p className="text-xs font-medium" style={{ color: "#9CA3AF" }}>Descripción</p>
+                    <p className="text-sm font-semibold" style={{ color: "#0A1830" }}>{serviceDescription}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={handleDownloadVoucher}
-                  className="mt-6 flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm border-2 transition-colors hover:bg-gray-50"
+                  className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-xs border-2 transition-colors hover:bg-gray-50"
                   style={{ borderColor: "#0A1830", color: "#0A1830" }}
                 >
-                  <Download size={16} />
+                  <Download size={14} />
                   Descargar comprobante
                 </button>
               </div>
@@ -366,10 +346,10 @@ function ReservaExitoContent() {
   )
 }
 
-export default function ReservaExitoPage() {
+export default function BookingConfirmationSuccessPage() {
   return (
     <Suspense>
-      <ReservaExitoContent />
+      <BookingConfirmationSuccessContent />
     </Suspense>
   )
 }
