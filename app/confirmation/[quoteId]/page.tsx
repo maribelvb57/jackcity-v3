@@ -12,7 +12,7 @@ import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { formatClp } from "@/lib/format"
 import { getQuote } from "@/lib/api/quotes"
 import { confirmBooking } from "@/lib/api/bookings"
-import { createWebpayPayment } from "@/lib/api/payments"
+import { BookingExpiredError, createWebpayPayment } from "@/lib/api/payments"
 import { redirectToWebpay } from "@/lib/webpay"
 import { validateEmail, getCustomerProfile, type CustomerProfile } from "@/lib/api/customers"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
@@ -711,7 +711,11 @@ function ConfirmationContent() {
 
       const { token, url } = await createWebpayPayment(bookingId)
       redirectToWebpay(url, token)
-    } catch {
+    } catch (error) {
+      if (error instanceof BookingExpiredError) {
+        router.push("/booking/confirmation/error?retryable=false&reason=expired")
+        return
+      }
       setSubmitError(true)
       setIsSubmitting(false)
     }
