@@ -21,7 +21,7 @@ import {
 const highlights = [
   { icon: PawPrint, label: "Hoteles pet friendly", color: "#0A1830" },
   { icon: ShieldCheck, label: "Mejor precio garantizado", color: "#2F7D32" },
-  { icon: RefreshCw, label: "Cancelación flexible", color: "#7C3FC5" },
+  { icon: RefreshCw, label: "Cancelación flexible", color: "#FF6B5E" },
 ]
 
 const steps = [
@@ -57,15 +57,15 @@ const steps = [
     icon: CreditCard,
     title: "Reserva con solo el 30%",
     desc: "Asegura tu lugar pagando solo el 30% del total y cancela sin costo hasta 3 días antes.",
-    color: "#7545C7",
-    bgColor: "#F3ECFF",
-    borderColor: "#8B5CF6",
+    color: "#0D2B45",
+    bgColor: "#EAF2F8",
+    borderColor: "#0D2B45",
   },
 ]
 
 export function HowItWorks() {
   return (
-    <section>
+    <section id="como-funciona">
       <div className="flex items-center justify-center">
         <div className="w-full max-w-[1200px] overflow-hidden" style={{ backgroundColor: "#FFFDF6" }}>
           <div className="relative px-4 py-12 sm:px-6 md:py-16 lg:px-10">
@@ -88,12 +88,12 @@ export function HowItWorks() {
                     ))}
                   </div>
 
-                  <p className="mb-4 inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.14em]" style={{ color: "#7C3FC5" }}>
+                  <p className="mb-4 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em]" style={{ color: "#2E7D32" }}>
                     <Sparkles size={16} />
                     Así de fácil
                   </p>
 
-                  <h2 className="max-w-[620px] text-4xl font-black leading-[1.02] sm:text-5xl lg:text-6xl" style={{ color: "#061B3A" }}>
+                  <h2 className="max-w-[480px] text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl" style={{ color: "#061B3A" }}>
                     Reservar en <span style={{ color: "#F5B000" }}>JackCity</span> es pan comido
                   </h2>
 
@@ -104,8 +104,8 @@ export function HowItWorks() {
                   <div className="mt-7 flex flex-wrap items-center gap-4">
                     <Link
                       href="#buscar"
-                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-7 text-base font-black shadow-lg transition-transform hover:-translate-y-0.5"
-                      style={{ backgroundColor: "#7545C7", color: "#FFFFFF", boxShadow: "0 14px 28px rgba(117, 69, 199, 0.25)" }}
+                      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-7 text-base font-bold shadow-lg transition-transform hover:-translate-y-0.5"
+                      style={{ backgroundColor: "#FFC43D", color: "#0D2B45", boxShadow: "0 14px 28px rgba(255, 196, 61, 0.28)" }}
                     >
                       Buscar hotel ahora
                       <PawPrint size={19} fill="currentColor" />
@@ -119,31 +119,24 @@ export function HowItWorks() {
 
                 <div className="relative min-h-[320px] overflow-hidden rounded-lg border shadow-xl sm:min-h-[420px]" style={{ borderColor: "#F0E1C8", backgroundColor: "#F7E7C8" }}>
                   <Image
-                    src="/images/hotel-casa-canina.jpg"
-                    alt="Hotel canino acogedor para reservar en JackCity"
+                    src="/images/jack-reserva-exitosa.jpg"
+                    alt="Jack disfrutando unas vacaciones con JackCity"
                     fill
                     sizes="(min-width: 1024px) 520px, 100vw"
-                    className="object-cover"
+                    className="object-cover object-center"
                   />
-                  <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(255,253,246,0.08) 0%, rgba(255,253,246,0.05) 38%, rgba(6,27,58,0.22) 100%)" }} />
-                  <Image
-                    src="/images/dog-banner.png"
-                    alt="Jack listo para encontrar hotel"
-                    width={260}
-                    height={249}
-                    className="absolute bottom-0 left-1/2 w-[190px] -translate-x-1/2 drop-shadow-2xl sm:w-[230px] lg:w-[260px]"
-                  />
+                  <div className="absolute inset-0" style={{ background: "linear-gradient(90deg, rgba(6,27,58,0.08) 0%, rgba(6,27,58,0.02) 48%, rgba(6,27,58,0.16) 100%)" }} />
                   <div className="absolute left-5 top-5 max-w-[230px] rounded-lg border bg-white/95 p-4 shadow-lg" style={{ borderColor: "#E9D9BE" }}>
-                    <p className="text-sm font-black leading-6" style={{ color: "#061B3A" }}>
+                    <p className="text-sm font-bold leading-6" style={{ color: "#061B3A" }}>
                       Diversión, mimos y comodidad garantizada
                     </p>
-                    <div className="mt-3 flex items-center gap-2 text-xs font-bold" style={{ color: "#7545C7" }}>
+                    <div className="mt-3 flex items-center gap-2 text-xs font-bold" style={{ color: "#2E7D32" }}>
                       <Heart size={15} fill="currentColor" />
                       Tu perro, nuestra prioridad
                     </div>
                   </div>
                   <div className="absolute bottom-5 right-5 hidden rounded-lg border bg-[#2F7D32] px-4 py-3 text-white shadow-lg sm:block" style={{ borderColor: "rgba(255,255,255,0.28)" }}>
-                    <p className="text-xs font-black uppercase tracking-[0.16em]">Reserva segura</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em]">Reserva segura</p>
                     <p className="mt-1 text-sm font-bold">Cancela sin costo hasta 3 días antes</p>
                   </div>
                 </div>
@@ -162,7 +155,7 @@ export function HowItWorks() {
                       <div className="mb-4 flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <span
-                            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-lg font-black text-white shadow"
+                            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full text-lg font-bold text-white shadow"
                             style={{ backgroundColor: step.color }}
                           >
                             {step.number}
@@ -181,7 +174,7 @@ export function HowItWorks() {
                         )}
                       </div>
 
-                      <h3 className="text-xl font-black leading-tight" style={{ color: "#061B3A" }}>
+                      <h3 className="text-xl font-bold leading-tight" style={{ color: "#061B3A" }}>
                         {step.title}
                       </h3>
                       <p className="mt-3 text-sm font-medium leading-6" style={{ color: "#4B5563" }}>
@@ -202,7 +195,7 @@ export function HowItWorks() {
                   Compara hoteles sin compromiso
                 </span>
                 <span className="flex items-center justify-center gap-2">
-                  <CalendarDays size={17} style={{ color: "#7545C7" }} />
+                  <CalendarDays size={17} style={{ color: "#0D2B45" }} />
                   Reserva pagando solo una parte
                 </span>
               </div>

@@ -61,9 +61,69 @@ export type BookingDetail = {
   freeCancellationDeadline: string
 }
 
+export type MyBookingStatus =
+  | "PENDING_PAYMENT"
+  | "PAID"
+  | "CONFIRMED"
+  | "INITIATED"
+  | "COMPLETED"
+  | "CLOSED"
+  | "EXPIRED"
+  | "CANCELLED"
+  | "NO_SHOW"
+
+export type MyBooking = {
+  id: string
+  status: MyBookingStatus
+  hotel: {
+    id: string
+    name: string
+    city: string
+    commune: string
+    mainPhotoUrl: string | null
+  }
+  checkinDate: string
+  checkoutDate: string
+  pets: {
+    id: string | null
+    name: string
+  }[]
+  pricing: {
+    totalPrice: number
+    paidPrice: number
+    pendingPrice: number
+  }
+  transport: {
+    included: boolean
+  }
+  cancellation: {
+    canCancel: boolean
+    freeCancellationDeadline: string
+    label: string
+  }
+  review: {
+    hasReview: boolean
+    score: number | null
+    positiveComment: string | null
+    negativeComment: string | null
+  }
+}
+
+export type MyBookingsResponse = {
+  bookings: MyBooking[]
+}
+
 export async function getBooking(bookingId: string): Promise<BookingDetail> {
   const res = await fetch(`${API_BASE}/api/bookings/${bookingId}`)
   if (!res.ok) throw new Error(`Get booking failed: ${res.status}`)
+  return res.json()
+}
+
+export async function getMyBookings(token?: string): Promise<MyBookingsResponse> {
+  const res = await fetch(`${API_BASE}/api/me/bookings`, {
+    headers: token ? { "Authorization": `Bearer ${token}` } : undefined,
+  })
+  if (!res.ok) throw new Error(`Get my bookings failed: ${res.status}`)
   return res.json()
 }
 

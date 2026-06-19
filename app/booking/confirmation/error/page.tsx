@@ -84,7 +84,7 @@ function BookingConfirmationErrorContent() {
               <p className="mb-3 text-sm font-bold uppercase tracking-[0.12em]" style={{ color: "#B45309" }}>
                 {expired ? "Tu reserva expiró" : "Hubo un problema con el pago"}
               </p>
-              <h1 className="max-w-[580px] text-3xl font-black leading-tight sm:text-4xl" style={{ color: "#0A1830" }}>
+              <h1 className="max-w-[580px] text-3xl font-bold leading-tight sm:text-4xl" style={{ color: "#0A1830" }}>
                 {expired ? "Tu reserva ya no está disponible" : "No pudimos confirmar tu reserva"}
               </h1>
               <p className="mt-4 max-w-[620px] text-base font-medium leading-7" style={{ color: "#4B5563" }}>
@@ -116,7 +116,7 @@ function BookingConfirmationErrorContent() {
                     type="button"
                     onClick={handleRetryPayment}
                     disabled={isRetrying}
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-black transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:-translate-y-0"
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-bold transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:-translate-y-0"
                     style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
                   >
                     {isRetrying ? <Loader2 size={17} className="animate-spin" /> : <RotateCcw size={17} strokeWidth={2.6} />}
@@ -125,7 +125,7 @@ function BookingConfirmationErrorContent() {
                 ) : (
                   <Link
                     href="/"
-                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-black transition-transform hover:-translate-y-0.5"
+                    className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-sm font-bold transition-transform hover:-translate-y-0.5"
                     style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
                   >
                     <ArrowLeft size={17} strokeWidth={2.6} />

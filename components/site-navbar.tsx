@@ -4,11 +4,13 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { User } from "lucide-react"
 import { useClerk, useUser, UserButton } from "@clerk/nextjs"
+import { ContactModal } from "@/components/contact-modal"
 
 export function SiteNavbar() {
   const { openSignIn } = useClerk()
   const { isSignedIn } = useUser()
   const [homeHref, setHomeHref] = useState("/")
+  const [contactOpen, setContactOpen] = useState(false)
 
   useEffect(() => {
     setHomeHref(window.location.search ? `/${window.location.search}` : "/")
@@ -33,16 +35,41 @@ export function SiteNavbar() {
 
       {/* Nav links + button pushed to the right */}
       <div className="hidden md:flex items-center gap-1 ml-auto">
-        {["Hotel", "Cómo Funciona", "Testimonios", "Contacto"].map((item) => (
-          <a
-            key={item}
-            href="#"
-            className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-white/10"
-            style={{ color: "#ffffff" }}
-          >
-            {item}
-          </a>
-        ))}
+        <a
+          href="/#como-funciona"
+          className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-white/10"
+          style={{ color: "#ffffff" }}
+        >
+          Cómo Funciona
+        </a>
+
+        {isSignedIn && (
+          <>
+            <Link
+              href="/mi-cuenta"
+              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-white/10"
+              style={{ color: "#ffffff" }}
+            >
+              Mi Cuenta
+            </Link>
+            <Link
+              href="/mis-reservas"
+              className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-white/10"
+              style={{ color: "#ffffff" }}
+            >
+              Mis Reservas
+            </Link>
+          </>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setContactOpen(true)}
+          className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-white/10"
+          style={{ color: "#ffffff" }}
+        >
+          Contacto
+        </button>
 
         {isSignedIn ? (
           <div className="ml-3">
@@ -56,10 +83,12 @@ export function SiteNavbar() {
             style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
           >
             <User size={13} strokeWidth={2.5} />
-            Ingresar
+            Iniciar Sesión
           </button>
         )}
       </div>
+
+      <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
 
     </nav>
   )
