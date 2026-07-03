@@ -9,6 +9,11 @@ export type HotelDetailPolicy = {
   confirmationRequired: boolean
 }
 
+export type HotelDetailTransport = {
+  departureSlots: string[]
+  returnSlots: string[]
+}
+
 export type HotelDetail = {
   name: string
   addressStreet: string | null
@@ -23,6 +28,7 @@ export type HotelDetail = {
   checkoutTime: string | null
   policies: HotelDetailPolicy[]
   benefits: HotelDetailBenefit[]
+  transport: HotelDetailTransport | null
   pricing: {
     bookingPrice: number | null
     transportPrice: number
@@ -74,6 +80,7 @@ export async function getHotelBookingDetail(params: {
   const data = await res.json()
   return {
     ...data.hotel,
+    transport: data.transport ?? null,
     pricing: data.pricing ?? null,
   }
 }

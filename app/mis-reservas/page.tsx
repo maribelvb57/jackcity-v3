@@ -169,7 +169,7 @@ export default function MyBookingsPage() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
+    <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
       <div className="w-full max-w-[1200px] min-h-screen flex flex-col" style={{ backgroundColor: "#F8FAFC" }}>
         <SiteNavbar />
 
@@ -401,6 +401,15 @@ export default function MyBookingsPage() {
                           </div>
 
                           <div className="flex flex-col gap-2 sm:flex-row">
+                            {booking.status === "PENDING_PAYMENT" && (
+                              <a
+                                href={`/booking/confirmation/error?bookingId=${booking.id}&retryable=true`}
+                                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full px-5 text-sm font-bold transition-opacity hover:opacity-90"
+                                style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
+                              >
+                                Reintentar pago de reserva
+                              </a>
+                            )}
                             {isCompleted && !booking.review.hasReview && (
                               <button
                                 type="button"

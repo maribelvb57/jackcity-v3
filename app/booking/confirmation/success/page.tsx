@@ -38,7 +38,7 @@ function installmentsLabel(count: number | null) {
 
 function FallbackScreen({ message }: { message: string }) {
   return (
-    <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
+    <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
       <div className="w-full max-w-[1200px] flex flex-col" style={{ backgroundColor: "#ffffff" }}>
         <SiteNavbar />
         <div className="px-6 py-10 text-sm font-medium" style={{ color: "#8A1C1C" }}>
@@ -109,7 +109,7 @@ function BookingConfirmationSuccessContent() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
+    <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
       <div className="w-full max-w-[1200px] flex flex-col" style={{ backgroundColor: "#ffffff" }}>
         <SiteNavbar />
 

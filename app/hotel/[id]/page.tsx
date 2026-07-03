@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Clock,
 } from "lucide-react"
+import { slotTime } from "@/lib/transport-slots"
 
 const CITY_LABELS: Record<string, string> = {
   SANTIAGO: "Santiago de Chile",
@@ -156,7 +157,7 @@ function HotelDetailContent() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#0B1F3A" }}>
+    <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
       <div className="w-full max-w-[1200px] flex flex-col" style={{ backgroundColor: "#ffffff" }}>
         <SiteNavbar />
 
@@ -304,7 +305,7 @@ function HotelDetailContent() {
                   )}
 
                   {/* 4. Conditions */}
-                  {hotel && (hotel.policies?.length > 0 || hotel.checkinTime || hotel.checkoutTime) && (
+                  {hotel && (hotel.policies?.length > 0 || (!transportParam && (hotel.checkinTime || hotel.checkoutTime))) && (
                     <div className="order-4 lg:order-3 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                       <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>Condiciones del Hotel</h2>
                       {hotel.policies?.length > 0 && (
@@ -317,7 +318,7 @@ function HotelDetailContent() {
                           ))}
                         </ul>
                       )}
-                      {(hotel.checkinTime || hotel.checkoutTime) && (
+                      {!transportParam && (hotel.checkinTime || hotel.checkoutTime) && (
                         <div className="flex gap-4 pt-4 border-t" style={{ borderColor: "#E5E7EB" }}>
                           {hotel.checkinTime && (
                             <div className="flex items-center gap-2">
@@ -342,8 +343,58 @@ function HotelDetailContent() {
                     </div>
                   )}
 
-                  {/* 5. Reservation Summary */}
-                  <div className="order-5 lg:order-4 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                  {/* 5. Transport Schedules (only when needsTransport) */}
+                  {transportParam && hotel?.transport && (
+                    hotel.transport.departureSlots.length > 0 || hotel.transport.returnSlots.length > 0
+                  ) && (
+                    <div className="order-5 lg:order-4 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                      <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>
+                        Horarios disponibles para el transporte de tu mascota
+                      </h2>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        {hotel.transport.departureSlots.length > 0 && (
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Ida</p>
+                            <div className="flex flex-col gap-2">
+                              {hotel.transport.departureSlots.map((slot) => (
+                                <div
+                                  key={`dep-${slot}`}
+                                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm"
+                                  style={{ borderColor: "#E5E7EB", color: "#0A1830", backgroundColor: "#fff" }}
+                                >
+                                  <Clock size={14} style={{ color: "#0A1830", flexShrink: 0 }} />
+                                  {slotTime(slot)}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {hotel.transport.returnSlots.length > 0 && (
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Regreso</p>
+                            <div className="flex flex-col gap-2">
+                              {hotel.transport.returnSlots.map((slot) => (
+                                <div
+                                  key={`ret-${slot}`}
+                                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm"
+                                  style={{ borderColor: "#E5E7EB", color: "#0A1830", backgroundColor: "#fff" }}
+                                >
+                                  <Clock size={14} style={{ color: "#0A1830", flexShrink: 0 }} />
+                                  {slotTime(slot)}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-4 text-sm" style={{ color: "#6B7280" }}>
+                        Podrás seleccionar el horario de tu reserva en el siguiente paso.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 6. Reservation Summary */}
+                  <div className="order-6 lg:order-5 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                       <div>
                         <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>Resumen de Reserva</h2>
