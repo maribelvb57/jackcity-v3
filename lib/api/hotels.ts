@@ -1,4 +1,5 @@
 import { API_BASE } from "./config"
+import { getTrackingHeaders } from "@/lib/tracking"
 
 export type PetSize = "SMALL" | "MEDIUM" | "LARGE" | "EXTRA_LARGE"
 
@@ -76,6 +77,7 @@ export async function searchHotels(params: {
   endDate: Date
   needTransport: boolean
   transportCommune?: string
+  userId?: string | null
 }): Promise<SearchResult> {
   const body = {
     city: params.city,
@@ -88,7 +90,10 @@ export async function searchHotels(params: {
 
   const res = await fetch(`${API_BASE}/api/hotels/search`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...getTrackingHeaders(params.userId),
+    },
     body: JSON.stringify(body),
   })
 

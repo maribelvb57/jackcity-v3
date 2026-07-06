@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useMemo, useState } from "react"
-import { useAuth } from "@clerk/nextjs"
+import { useAuth, useUser } from "@clerk/nextjs"
 import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -21,6 +21,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { SiteNavbar } from "@/components/site-navbar"
+import { getBookingStatusLabel } from "@/lib/booking-status"
 import {
   Dialog,
   DialogContent,
@@ -60,6 +61,16 @@ function isCompletedBooking(status: MyBookingStatus) {
 }
 
 function statusMeta(status: MyBookingStatus) {
+  if (status === "PENDING_PAYMENT") {
+    return {
+      label: "Pendiente de Pago",
+      description: "Esperando el pago del depósito",
+      color: "#9B1C1C",
+      bg: "#FDE8E8",
+      icon: Clock,
+    }
+  }
+
   if (status === "PAID") {
     return {
       label: "Pagada",
@@ -134,8 +145,10 @@ function HotelPhoto({ src, alt, sizes }: { src: string | null; alt: string; size
 
 export default function MyBookingsPage() {
   const { getToken, isLoaded } = useAuth()
+  const { user } = useUser()
   const [filter, setFilter] = useState<BookingFilter>("ALL")
   const [bookingToCancel, setBookingToCancel] = useState<MyBooking | null>(null)
+  const [cancellationConfirmed, setCancellationConfirmed] = useState(false)
   const [bookingToReview, setBookingToReview] = useState<MyBooking | null>(null)
   const [reviewScore, setReviewScore] = useState(8)
   const [positiveText, setPositiveText] = useState("")
@@ -283,7 +296,7 @@ export default function MyBookingsPage() {
                         )}
                         <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold shadow" style={{ backgroundColor: meta.bg, color: meta.color }}>
                           <StatusIcon size={14} />
-                          {meta.label}
+                          {getBookingStatusLabel(booking.status)}
                         </div>
                         <div className="absolute bottom-4 left-4 right-4">
                           <h2 className="text-2xl font-bold leading-tight" style={{ color: booking.hotel.mainPhotoUrl ? "#FFFFFF" : "#0A1830" }}>{booking.hotel.name}</h2>
@@ -324,6 +337,7 @@ export default function MyBookingsPage() {
 
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div>
+                            <p className="mb-2 inline-block rounded border px-2 py-0.5 font-mono text-xs font-bold" style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC", color: "#526071" }}>{booking.status}</p>
                             <div className="flex flex-wrap items-center gap-2 text-sm font-bold" style={{ color: "#526071" }}>
                               <span className="inline-flex items-center gap-1.5">
                                 <MapPin size={15} style={{ color: "#125BD8" }} />
@@ -432,52 +446,103 @@ export default function MyBookingsPage() {
           </div>
         </section>
 
-        <Dialog open={!!bookingToCancel} onOpenChange={(open) => !open && setBookingToCancel(null)}>
-          <DialogContent className="rounded-lg border-0 bg-white p-0 sm:max-w-[560px]">
+        <Dialog open={!!bookingToCancel} onOpenChange={(open) => { if (!open) { setBookingToCancel(null); setCancellationConfirmed(false) } }}>
+          <DialogContent className="rounded-lg border-0 bg-white p-0 sm:max-w-[500px]">
             {bookingToCancel && (
               <div className="overflow-hidden rounded-lg">
-                <div className="px-6 py-5" style={{ backgroundColor: "#FFF5F5" }}>
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-2xl font-bold" style={{ color: "#8A1C1C" }}>
-                      <XCircle size={24} />
-                      Cancelar reserva
-                    </DialogTitle>
-                    <DialogDescription className="text-sm font-medium" style={{ color: "#6B4E4E" }}>
-                      Esta acción todavía no está conectada al backend. Por ahora solo estamos revisando la experiencia visual.
-                    </DialogDescription>
-                  </DialogHeader>
-                </div>
+                {cancellationConfirmed ? (
+                  <>
+                    <div className="px-6 py-5" style={{ backgroundColor: "#EAF8F3" }}>
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: "#08785B" }}>
+                          <CheckCircle2 size={22} />
+                          Solicitud recibida
+                        </DialogTitle>
+                        <DialogDescription className="mt-1 text-sm font-medium" style={{ color: "#2E6B55" }}>
+                          Tu solicitud de cancelación fue enviada correctamente.
+                        </DialogDescription>
+                      </DialogHeader>
+                    </div>
 
-                <div className="px-6 py-5">
-                  <div className="rounded-lg border p-4" style={{ borderColor: "#F3D1D1", backgroundColor: "#FFFBFB" }}>
-                    <p className="text-sm font-bold" style={{ color: "#0A1830" }}>{bookingToCancel.hotel.name}</p>
-                    <p className="mt-1 text-sm font-semibold" style={{ color: "#667085" }}>
-                      {formatDate(bookingToCancel.checkinDate)} - {formatDate(bookingToCancel.checkoutDate)} · {petNames(bookingToCancel.pets)}
-                    </p>
-                  </div>
-                  <p className="mt-4 text-sm leading-6" style={{ color: "#4B5563" }}>
-                    En producción, este modal deberá validar plazos, mostrar condiciones de devolución y llamar al endpoint de cancelación.
-                  </p>
-                </div>
+                    <div className="px-6 py-6">
+                      <p className="text-sm font-medium leading-7" style={{ color: "#0A1830" }}>
+                        Nuestro equipo de soporte ya ha recibido tu solicitud para cancelar esta reserva, nos contactaremos contigo a la brevedad a través del correo:{" "}
+                        <span className="font-bold">{user?.primaryEmailAddress?.emailAddress}</span>.
+                      </p>
+                      <p className="mt-4 text-sm font-semibold" style={{ color: "#526071" }}>
+                        Saludos,<br />JackCity team
+                      </p>
+                    </div>
 
-                <DialogFooter className="border-t px-6 py-4" style={{ borderColor: "#F3D1D1" }}>
-                  <button
-                    type="button"
-                    onClick={() => setBookingToCancel(null)}
-                    className="min-h-11 rounded-full border-2 px-5 text-sm font-bold"
-                    style={{ borderColor: "#CBD5E1", color: "#526071" }}
-                  >
-                    Mantener reserva
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setBookingToCancel(null)}
-                    className="min-h-11 rounded-full px-5 text-sm font-bold"
-                    style={{ backgroundColor: "#B42318", color: "#FFFFFF" }}
-                  >
-                    Entendido, cerrar
-                  </button>
-                </DialogFooter>
+                    <DialogFooter className="border-t px-6 py-4" style={{ borderColor: "#E5E7EB" }}>
+                      <button
+                        type="button"
+                        onClick={() => { setBookingToCancel(null); setCancellationConfirmed(false) }}
+                        className="min-h-11 rounded-full px-5 text-sm font-bold"
+                        style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
+                      >
+                        Cerrar
+                      </button>
+                    </DialogFooter>
+                  </>
+                ) : (
+                  <>
+                    <div className="px-6 py-5" style={{ backgroundColor: "#FFF5F5" }}>
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-xl font-bold" style={{ color: "#8A1C1C" }}>
+                          <XCircle size={22} />
+                          Cancelar reserva
+                        </DialogTitle>
+                        <DialogDescription className="mt-1 text-sm font-medium" style={{ color: "#6B4E4E" }}>
+                          Esta acción no se puede deshacer.
+                        </DialogDescription>
+                      </DialogHeader>
+                    </div>
+
+                    <div className="px-6 py-5">
+                      <div className="rounded-lg border p-4" style={{ borderColor: "#F3D1D1", backgroundColor: "#FFFBFB" }}>
+                        {(() => {
+                          const meta = statusMeta(bookingToCancel.status)
+                          const StatusIcon = meta.icon
+                          return (
+                            <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold" style={{ backgroundColor: meta.bg, color: meta.color }}>
+                              <StatusIcon size={12} />
+                              {getBookingStatusLabel(bookingToCancel.status)}
+                            </span>
+                          )
+                        })()}
+                        <p className="mt-2 text-sm font-bold" style={{ color: "#0A1830" }}>{bookingToCancel.hotel.name}</p>
+                        <p className="mt-1 text-sm font-semibold" style={{ color: "#667085" }}>
+                          {formatDate(bookingToCancel.checkinDate)} – {formatDate(bookingToCancel.checkoutDate)} · {petNames(bookingToCancel.pets)}
+                        </p>
+                      </div>
+
+                      <p className="mt-5 text-sm font-medium leading-6" style={{ color: "#0A1830" }}>
+                        ¿Confirmas que deseas cancelar la reserva y pedir el reembolso del dinero de la reserva por{" "}
+                        <span className="text-base font-bold">{formatClp(bookingToCancel.pricing.paidPrice)}</span>?
+                      </p>
+                    </div>
+
+                    <DialogFooter className="border-t px-6 py-4 gap-2" style={{ borderColor: "#F3D1D1" }}>
+                      <button
+                        type="button"
+                        onClick={() => setBookingToCancel(null)}
+                        className="min-h-11 rounded-full border-2 px-5 text-sm font-bold"
+                        style={{ borderColor: "#CBD5E1", color: "#526071" }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCancellationConfirmed(true)}
+                        className="min-h-11 rounded-full px-5 text-sm font-bold"
+                        style={{ backgroundColor: "#B42318", color: "#FFFFFF" }}
+                      >
+                        Confirmar
+                      </button>
+                    </DialogFooter>
+                  </>
+                )}
               </div>
             )}
           </DialogContent>

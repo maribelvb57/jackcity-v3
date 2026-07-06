@@ -765,7 +765,7 @@ function ConfirmationContent() {
 
         <SearchSummaryBar
           data={summaryData}
-          onChangeClick={() => router.back()}
+          onChangeClick={() => router.push("/")}
         />
 
         {isLoading && (
