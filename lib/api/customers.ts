@@ -1,4 +1,5 @@
 import { API_BASE } from "./config"
+import type { ApiFetch } from "@/lib/api/types"
 
 export type ValidateEmailStatus = "AVAILABLE" | "GUESS_EXISTS" | "ACCOUNT_EXISTS"
 
@@ -59,17 +60,8 @@ export type UpdateMeResult = {
   identification: string
 }
 
-export async function updateMe(params: UpdateMeParams, token: string): Promise<UpdateMeResult> {
-  const res = await fetch(`${API_BASE}/api/me`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify(params),
-  })
-  if (!res.ok) throw new Error(`Update me failed: ${res.status}`)
-  return res.json()
+export async function updateMe(params: UpdateMeParams, apiFetch: ApiFetch): Promise<UpdateMeResult> {
+  return apiFetch("/api/me", { method: "PUT", body: JSON.stringify(params) })
 }
 
 export async function validateEmail(email: string): Promise<ValidateEmailStatus> {

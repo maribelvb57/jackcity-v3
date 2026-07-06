@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Image from "next/image"
 import { useQuery } from "@tanstack/react-query"
@@ -53,16 +53,24 @@ function BookingConfirmationSuccessContent() {
   const searchParams = useSearchParams()
   const buyOrder = searchParams.get("orderId")
 
+  const [voucherToken, setVoucherToken] = useState<string | null>(null)
+  const [tokenReady, setTokenReady] = useState(false)
+
+  useEffect(() => {
+    setVoucherToken(sessionStorage.getItem("jc_voucher_token"))
+    setTokenReady(true)
+  }, [])
+
   const { data: voucher, isLoading: isVoucherLoading, isError: isVoucherError } = useQuery({
-    queryKey: ["webpay-voucher", buyOrder],
-    queryFn: () => getWebpayVoucherByBuyOrder(buyOrder!),
-    enabled: !!buyOrder,
+    queryKey: ["webpay-voucher", buyOrder, voucherToken],
+    queryFn: () => getWebpayVoucherByBuyOrder(buyOrder!, voucherToken ?? undefined),
+    enabled: !!buyOrder && tokenReady,
   })
 
   const { data: booking, isLoading: isBookingLoading, isError: isBookingError } = useQuery({
-    queryKey: ["booking", voucher?.bookingId],
-    queryFn: () => getBooking(voucher!.bookingId),
-    enabled: !!voucher?.authorized && !!voucher?.bookingId,
+    queryKey: ["booking", voucher?.bookingId, voucherToken],
+    queryFn: () => getBooking(voucher!.bookingId, voucherToken ?? undefined),
+    enabled: !!voucher?.authorized && !!voucher?.bookingId && tokenReady,
   })
 
   if (!buyOrder || isVoucherError) {
@@ -105,7 +113,7 @@ function BookingConfirmationSuccessContent() {
     : "—"
 
   const handleDownloadVoucher = () => {
-    window.open(getWebpayVoucherPdfUrl(voucher.buyOrder), "_blank")
+    window.open(getWebpayVoucherPdfUrl(voucher.buyOrder, voucherToken ?? undefined), "_blank")
   }
 
   return (

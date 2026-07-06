@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth, useUser } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
+import { useApiClient, type ApiFetch } from "@/hooks/use-api-client"
 import { SiteNavbar } from "@/components/site-navbar"
 import { getCustomerProfile, updateMe, type CustomerProfile } from "@/lib/api/customers"
 import { createAddress, deleteAddress, type AddressResult } from "@/lib/api/addresses"
@@ -183,17 +184,16 @@ type PetRecord = CustomerProfile["pets"][number]
 
 interface EditPetModalProps {
   pet: PetRecord
-  getToken: () => Promise<string | null>
+  apiFetch: ApiFetch
   onSave: (updated: PetRecord) => void
   onClose: () => void
 }
 
-// thin wrapper so EditPetModal can be used without prop drilling token
 function EditPetModalWrapper(props: EditPetModalProps) {
   return <EditPetModal {...props} />
 }
 
-function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
+function EditPetModal({ pet, apiFetch, onSave, onClose }: EditPetModalProps) {
   const [name, setName] = useState(pet.name)
   const [breed, setBreed] = useState(pet.breed ?? "")
   // size stored as display label ("Pequeño", etc.) internally, converted to code on save
@@ -223,8 +223,6 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
     setIsSaving(true)
     setError("")
     try {
-      const token = await getToken()
-      if (!token) throw new Error("No token")
       const sizeCode = PET_SIZE_MAP[sizeLabel] ?? sizeLabel
       const weightParsed = parseFloat(weight)
       await updatePet(pet.id, {
@@ -235,7 +233,7 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
         ...(isNaN(weightParsed) ? {} : { weight: weightParsed }),
         ...(color && { color }),
         ...(age > 0 && { age }),
-      }, token)
+      }, apiFetch)
       onSave({
         ...pet,
         name, breed,
@@ -401,12 +399,12 @@ function EditPetModal({ pet, getToken, onSave, onClose }: EditPetModalProps) {
 // ─── Add pet modal ────────────────────────────────────────────────────────────
 
 interface AddPetModalProps {
-  getToken: () => Promise<string | null>
+  apiFetch: ApiFetch
   onSave: (pet: PetRecord) => void
   onClose: () => void
 }
 
-function AddPetModal({ getToken, onSave, onClose }: AddPetModalProps) {
+function AddPetModal({ apiFetch, onSave, onClose }: AddPetModalProps) {
   const [name, setName] = useState("")
   const [breed, setBreed] = useState("")
   const [sizeLabel, setSizeLabel] = useState("")
@@ -429,8 +427,6 @@ function AddPetModal({ getToken, onSave, onClose }: AddPetModalProps) {
     setIsSaving(true)
     setError("")
     try {
-      const token = await getToken()
-      if (!token) throw new Error("No token")
       const sizeCode = PET_SIZE_MAP[sizeLabel] ?? sizeLabel
       const weightParsed = parseFloat(weight)
       const result = await createPet({
@@ -440,7 +436,7 @@ function AddPetModal({ getToken, onSave, onClose }: AddPetModalProps) {
         ...(isNaN(weightParsed) ? {} : { weight: weightParsed }),
         ...(color && { color }),
         ...(age > 0 && { age }),
-      }, token)
+      }, apiFetch)
       onSave({
         id: result.id,
         name, breed,
@@ -607,12 +603,12 @@ function AddPetModal({ getToken, onSave, onClose }: AddPetModalProps) {
 // ─── Add address modal ────────────────────────────────────────────────────────
 
 interface AddAddressModalProps {
-  getToken: () => Promise<string | null>
+  apiFetch: ApiFetch
   onSave: (addr: AddressResult) => void
   onClose: () => void
 }
 
-function AddAddressModal({ getToken, onSave, onClose }: AddAddressModalProps) {
+function AddAddressModal({ apiFetch, onSave, onClose }: AddAddressModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
       <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl">
@@ -623,7 +619,7 @@ function AddAddressModal({ getToken, onSave, onClose }: AddAddressModalProps) {
           </button>
         </div>
         <div className="px-5 pb-5">
-          <AddressForm getToken={getToken} onSave={onSave} onCancel={onClose} />
+          <AddressForm apiFetch={apiFetch} onSave={onSave} onCancel={onClose} />
         </div>
       </div>
     </div>
@@ -633,12 +629,12 @@ function AddAddressModal({ getToken, onSave, onClose }: AddAddressModalProps) {
 // ─── New address form (sub-component to keep the main component cleaner) ──────
 
 interface AddressFormProps {
-  getToken: () => Promise<string | null>
+  apiFetch: ApiFetch
   onSave: (addr: AddressResult) => void
   onCancel: () => void
 }
 
-function AddressForm({ getToken, onSave, onCancel }: AddressFormProps) {
+function AddressForm({ apiFetch, onSave, onCancel }: AddressFormProps) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [address, setAddress] = useState("")
   const [streetName, setStreetName] = useState("")
@@ -700,15 +696,13 @@ function AddressForm({ getToken, onSave, onCancel }: AddressFormProps) {
     setIsSaving(true)
     setSaveError("")
     try {
-      const token = await getToken()
-      if (!token) throw new Error("No token")
       const result = await createAddress({
         street: streetName || address,
         ...(streetNumber && { number: streetNumber }),
         ...(apartment.trim() && { apartment: apartment.trim() }),
         commune, city, country,
         ...(reference.trim() && { reference: reference.trim() }),
-      }, token)
+      }, apiFetch)
       onSave(result)
     } catch {
       setSaveError("No se pudo guardar la dirección. Intenta nuevamente.")
@@ -785,7 +779,7 @@ function AddressForm({ getToken, onSave, onCancel }: AddressFormProps) {
 
 function MiCuentaContent() {
   const router = useRouter()
-  const { getToken } = useAuth()
+  const { apiFetch } = useApiClient()
   const { user: clerkUser, isSignedIn, isLoaded } = useUser()
 
   const [isLoadingProfile, setIsLoadingProfile] = useState(true)
@@ -845,13 +839,11 @@ function MiCuentaContent() {
     if (!confirmDelete) return
     setIsDeleting(true)
     try {
-      const token = await getToken()
-      if (!token) throw new Error("No token")
       if (confirmDelete.type === "pet") {
-        await deletePet(confirmDelete.id, token)
+        await deletePet(confirmDelete.id, apiFetch)
         setPets(prev => prev.filter(p => String(p.id) !== confirmDelete.id))
       } else {
-        await deleteAddress(confirmDelete.id, token)
+        await deleteAddress(confirmDelete.id, apiFetch)
         setAddresses(prev => prev.filter(a => String(a.id) !== confirmDelete.id))
       }
       setConfirmDelete(null)
@@ -874,14 +866,12 @@ function MiCuentaContent() {
     setIsSavingPersonal(true)
     setSavePersonalError("")
     try {
-      const token = await getToken()
-      if (!token) throw new Error("No token")
       const result = await updateMe({
         firstName,
         lastName,
         phone: `${countryCode}${phone}`,
         identification: rut,
-      }, token)
+      }, apiFetch)
       // update originals so cancel works correctly after save
       setOrigFirst(result.firstName); setOrigLast(result.lastName)
       const match = COUNTRY_CODES.find(cc => result.phone.startsWith(cc.code))
@@ -1188,7 +1178,7 @@ function MiCuentaContent() {
       {editingPet && (
         <EditPetModalWrapper
           pet={editingPet}
-          getToken={getToken}
+          apiFetch={apiFetch}
           onSave={(updated) => {
             setPets(prev => prev.map(p => p.id === updated.id ? updated : p))
             setEditingPet(null)
@@ -1199,7 +1189,7 @@ function MiCuentaContent() {
 
       {showAddPetModal && (
         <AddPetModal
-          getToken={getToken}
+          apiFetch={apiFetch}
           onSave={(newPet) => {
             setPets(prev => [...prev, newPet])
             setShowAddPetModal(false)
@@ -1219,7 +1209,7 @@ function MiCuentaContent() {
 
       {showAddAddressModal && (
         <AddAddressModal
-          getToken={getToken}
+          apiFetch={apiFetch}
           onSave={(newAddr) => {
             setAddresses(prev => [...prev, newAddr])
             setShowAddAddressModal(false)

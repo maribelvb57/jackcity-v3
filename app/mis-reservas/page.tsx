@@ -2,7 +2,8 @@
 
 import Image from "next/image"
 import { useMemo, useState } from "react"
-import { useAuth, useUser } from "@clerk/nextjs"
+import { useAuth } from "@clerk/nextjs"
+import { useApiClient } from "@/hooks/use-api-client"
 import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -144,8 +145,8 @@ function HotelPhoto({ src, alt, sizes }: { src: string | null; alt: string; size
 }
 
 export default function MyBookingsPage() {
-  const { getToken, isLoaded } = useAuth()
-  const { user } = useUser()
+  const { isLoaded } = useAuth()
+  const { apiFetch } = useApiClient()
   const [filter, setFilter] = useState<BookingFilter>("ALL")
   const [bookingToCancel, setBookingToCancel] = useState<MyBooking | null>(null)
   const [cancellationConfirmed, setCancellationConfirmed] = useState(false)
@@ -157,10 +158,7 @@ export default function MyBookingsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["my-bookings"],
     enabled: isLoaded,
-    queryFn: async () => {
-      const token = await getToken()
-      return getMyBookings(token ?? undefined)
-    },
+    queryFn: () => getMyBookings(apiFetch),
   })
 
   const bookings = data?.bookings ?? []

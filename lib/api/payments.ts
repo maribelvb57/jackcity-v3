@@ -42,12 +42,16 @@ export type WebpayVoucher = {
   cardLastFourDigits: string | null
 }
 
-export async function getWebpayVoucherByBuyOrder(buyOrder: string): Promise<WebpayVoucher> {
-  const res = await fetch(`${API_BASE}/api/payments/webpay/by-buy-order/${buyOrder}`)
+export async function getWebpayVoucherByBuyOrder(buyOrder: string, voucherToken?: string): Promise<WebpayVoucher> {
+  const url = new URL(`${API_BASE}/api/payments/webpay/by-buy-order/${buyOrder}`)
+  if (voucherToken) url.searchParams.set("voucherToken", voucherToken)
+  const res = await fetch(url.toString())
   if (!res.ok) throw new Error(`Get webpay voucher failed: ${res.status}`)
   return res.json()
 }
 
-export function getWebpayVoucherPdfUrl(buyOrder: string): string {
-  return `${API_BASE}/api/payments/webpay/by-buy-order/${buyOrder}/voucher`
+export function getWebpayVoucherPdfUrl(buyOrder: string, voucherToken?: string): string {
+  const url = new URL(`${API_BASE}/api/payments/webpay/by-buy-order/${buyOrder}/voucher`)
+  if (voucherToken) url.searchParams.set("voucherToken", voucherToken)
+  return url.toString()
 }

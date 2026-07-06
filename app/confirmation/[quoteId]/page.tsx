@@ -671,7 +671,7 @@ function ConfirmationContent() {
       }
       console.log("confirmBooking payload:", JSON.stringify(payload, null, 2))
 
-      const { bookingId } = await confirmBooking({
+      const { bookingId, voucherToken } = await confirmBooking({
         quoteId: quote.quoteId,
         user: {
           userId: null,
@@ -709,6 +709,7 @@ function ConfirmationContent() {
         }),
       })
 
+      sessionStorage.setItem("jc_voucher_token", voucherToken)
       const { token, url } = await createWebpayPayment(bookingId)
       redirectToWebpay(url, token)
     } catch (error) {

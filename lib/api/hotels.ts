@@ -1,5 +1,5 @@
 import { API_BASE } from "./config"
-import { getTrackingHeaders } from "@/lib/tracking"
+import type { ApiFetch } from "@/lib/api/types"
 
 export type PetSize = "SMALL" | "MEDIUM" | "LARGE" | "EXTRA_LARGE"
 
@@ -77,7 +77,7 @@ export async function searchHotels(params: {
   endDate: Date
   needTransport: boolean
   transportCommune?: string
-  token?: string | null
+  apiFetch: ApiFetch
 }): Promise<SearchResult> {
   const body = {
     city: params.city,
@@ -88,19 +88,8 @@ export async function searchHotels(params: {
     ...(params.needTransport && params.transportCommune && { transportCommune: params.transportCommune }),
   }
 
-  const res = await fetch(`${API_BASE}/api/hotels/search`, {
+  return params.apiFetch("/api/hotels/search", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getTrackingHeaders(),
-      ...(params.token && { "Authorization": `Bearer ${params.token}` }),
-    },
     body: JSON.stringify(body),
   })
-
-  if (!res.ok) {
-    throw new Error(`Search failed: ${res.status}`)
-  }
-
-  return res.json()
 }

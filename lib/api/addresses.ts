@@ -1,4 +1,4 @@
-import { API_BASE } from "./config"
+import type { ApiFetch } from "@/lib/api/types"
 
 export type AddressPayload = {
   street: string
@@ -23,23 +23,10 @@ export type AddressResult = {
   isDefault?: boolean
 }
 
-export async function deleteAddress(id: string, token: string): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/me/addresses/${id}`, {
-    method: "DELETE",
-    headers: { "Authorization": `Bearer ${token}` },
-  })
-  if (!res.ok) throw new Error(`Delete address failed: ${res.status}`)
+export async function deleteAddress(id: string, apiFetch: ApiFetch): Promise<void> {
+  await apiFetch(`/api/me/addresses/${id}`, { method: "DELETE" })
 }
 
-export async function createAddress(data: AddressPayload, token: string): Promise<AddressResult> {
-  const res = await fetch(`${API_BASE}/api/me/addresses`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  })
-  if (!res.ok) throw new Error(`Create address failed: ${res.status}`)
-  return res.json()
+export async function createAddress(data: AddressPayload, apiFetch: ApiFetch): Promise<AddressResult> {
+  return apiFetch("/api/me/addresses", { method: "POST", body: JSON.stringify(data) })
 }

@@ -1,4 +1,5 @@
 import { API_BASE } from "./config"
+import type { ApiFetch } from "@/lib/api/types"
 
 export type ConfirmBookingParams = {
   quoteId: string
@@ -37,6 +38,7 @@ export type ConfirmBookingParams = {
 
 export type ConfirmBookingResult = {
   bookingId: string
+  voucherToken: string
 }
 
 export type BookingDetail = {
@@ -113,18 +115,16 @@ export type MyBookingsResponse = {
   bookings: MyBooking[]
 }
 
-export async function getBooking(bookingId: string): Promise<BookingDetail> {
-  const res = await fetch(`${API_BASE}/api/bookings/${bookingId}`)
+export async function getBooking(bookingId: string, voucherToken?: string): Promise<BookingDetail> {
+  const url = new URL(`${API_BASE}/api/bookings/${bookingId}`)
+  if (voucherToken) url.searchParams.set("voucherToken", voucherToken)
+  const res = await fetch(url.toString())
   if (!res.ok) throw new Error(`Get booking failed: ${res.status}`)
   return res.json()
 }
 
-export async function getMyBookings(token?: string): Promise<MyBookingsResponse> {
-  const res = await fetch(`${API_BASE}/api/me/bookings`, {
-    headers: token ? { "Authorization": `Bearer ${token}` } : undefined,
-  })
-  if (!res.ok) throw new Error(`Get my bookings failed: ${res.status}`)
-  return res.json()
+export async function getMyBookings(apiFetch: ApiFetch): Promise<MyBookingsResponse> {
+  return apiFetch("/api/me/bookings")
 }
 
 export async function confirmBooking(params: ConfirmBookingParams): Promise<ConfirmBookingResult> {
