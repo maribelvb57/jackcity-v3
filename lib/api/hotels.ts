@@ -77,7 +77,7 @@ export async function searchHotels(params: {
   endDate: Date
   needTransport: boolean
   transportCommune?: string
-  userId?: string | null
+  token?: string | null
 }): Promise<SearchResult> {
   const body = {
     city: params.city,
@@ -92,7 +92,8 @@ export async function searchHotels(params: {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getTrackingHeaders(params.userId),
+      ...getTrackingHeaders(),
+      ...(params.token && { "Authorization": `Bearer ${params.token}` }),
     },
     body: JSON.stringify(body),
   })

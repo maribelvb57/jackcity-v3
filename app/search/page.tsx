@@ -11,7 +11,7 @@ import { ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown, ChevronDown,
 import { ResultCard, type ResultCardData } from "@/components/result-card"
 import { SearchFilters } from "@/components/search-filters"
 import { SearchBenefitsBanner } from "@/components/search-benefits-banner"
-import { useUser } from "@clerk/nextjs"
+import { useAuth } from "@clerk/nextjs"
 import { useSearchStore } from "@/providers/search-store-provider"
 import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL, type SearchResult } from "@/lib/api/hotels"
 import { parsePetBreedsParam, parsePetIdsParam } from "@/lib/search-pets"
@@ -98,7 +98,7 @@ const CITY_LABELS: Record<string, string> = {
 function SearchPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user } = useUser()
+  const { getToken } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [mobileOrdenar, setMobileOrdenar] = useState("Recomendados de Jack")
@@ -154,9 +154,10 @@ function SearchPageContent() {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["search-results", cityParam, fromParam, toParam, petsParam, breedsParam, transportParam, communeCodeParam, user?.id ?? null],
+    queryKey: ["search-results", cityParam, fromParam, toParam, petsParam, breedsParam, transportParam, communeCodeParam],
     queryFn: async (): Promise<SearchResult> => {
       if (!startDate || !endDate) return { searchId: "", hotels: [] }
+      const token = await getToken()
       return searchHotels({
         city: cityParam,
         mascotas: petSizes.map((s) => ({ tamano: PET_SIZE_LABEL[s] ?? "" })),
@@ -164,7 +165,7 @@ function SearchPageContent() {
         endDate,
         needTransport: transportParam,
         transportCommune: transportParam ? communeCodeParam : undefined,
-        userId: user?.id ?? null,
+        token,
       })
     },
   })

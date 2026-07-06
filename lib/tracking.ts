@@ -16,13 +16,9 @@ function getSessionId(): string {
   return sessionId
 }
 
-export function getTrackingHeaders(userId?: string | null): Record<string, string> {
-  const headers: Record<string, string> = {
+export function getTrackingHeaders(): Record<string, string> {
+  return {
     "X-Visitor-Id": getVisitorId(),
     "X-Session-Id": getSessionId(),
   }
-  if (userId) {
-    headers["X-User-Id"] = userId
-  }
-  return headers
 }
