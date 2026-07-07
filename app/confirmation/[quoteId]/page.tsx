@@ -14,7 +14,8 @@ import { getQuote } from "@/lib/api/quotes"
 import { confirmBooking } from "@/lib/api/bookings"
 import { BookingExpiredError, createWebpayPayment } from "@/lib/api/payments"
 import { redirectToWebpay } from "@/lib/webpay"
-import { validateEmail, getCustomerProfile, type CustomerProfile } from "@/lib/api/customers"
+import { validateEmail, getMyProfile, type CustomerProfile } from "@/lib/api/customers"
+import { useApiClient } from "@/hooks/use-api-client"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
 import { getTransportCommuneByCode } from "@/config/transport-communes"
 import {
@@ -303,6 +304,7 @@ function ConfirmationContent() {
   const { quoteId } = useParams<{ quoteId: string }>()
   const { openSignIn } = useClerk()
   const { user: clerkUser, isSignedIn } = useUser()
+  const { apiFetch } = useApiClient()
   const addressInputRef = useRef<HTMLInputElement | null>(null)
 
   const { data: quote, isLoading, isError } = useQuery({
@@ -360,7 +362,7 @@ function ConfirmationContent() {
   // Pre-fill personal data and load saved addresses when user logs in
   useEffect(() => {
     if (!isSignedIn || !clerkUser?.id) return
-    getCustomerProfile(clerkUser.id).then((profile) => {
+    getMyProfile(apiFetch).then((profile) => {
       const { firstName: fn, lastName: ln, email: em, phone: ph, rut: rt } = profile.user
       if (fn) setFirstName(fn)
       if (ln) setLastName(ln)

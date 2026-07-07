@@ -4,11 +4,12 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  User,
   Building2,
   Tag,
   CalendarDays,
   PauseCircle,
+  Car,
+  ClipboardList,
   ChevronLeft,
   ChevronRight,
   Menu,
@@ -33,34 +34,40 @@ export function ManagerSidebar({ hotelId }: ManagerSidebarProps) {
 
   const menuItems: MenuItem[] = [
     {
-      id: "mis-datos",
-      label: "Mis Datos",
-      href: `/manager/${hotelId}/profile`,
-      icon: <User size={20} />,
+      id: "reservas",
+      label: "Reservas",
+      href: `/hotel/bookings/${hotelId}`,
+      icon: <ClipboardList size={20} />,
     },
     {
       id: "datos-hotel",
       label: "Datos del Hotel",
-      href: `/manager/${hotelId}/hotel`,
+      href: `/hotel/info/${hotelId}`,
       icon: <Building2 size={20} />,
     },
     {
       id: "precios",
       label: "Configurar precios y descuentos",
-      href: `/manager/${hotelId}/pricing`,
+      href: `/hotel/prices/${hotelId}`,
       icon: <Tag size={20} />,
     },
     {
       id: "disponibilidad",
       label: "Configurar disponibilidad",
-      href: `/availability/${hotelId}`,
+      href: `/hotel/availability/${hotelId}`,
       icon: <CalendarDays size={20} />,
     },
     {
-      id: "pausar",
-      label: "Pausar/Activar reservas",
-      href: `/manager/${hotelId}/status`,
+      id: "servicios",
+      label: "Servicios del Hotel",
+      href: `/hotel/services/${hotelId}`,
       icon: <PauseCircle size={20} />,
+    },
+    {
+      id: "transporte",
+      label: "Transporte",
+      href: `/hotel/transport/${hotelId}`,
+      icon: <Car size={20} />,
     },
   ]
 
@@ -163,17 +170,8 @@ export function ManagerSidebar({ hotelId }: ManagerSidebarProps) {
           </ul>
         </nav>
 
-        {/* Footer */}
-        <div
-          className="px-4 py-3 border-t"
-          style={{ borderColor: "rgba(255,255,255,0.1)" }}
-        >
-          {!isCollapsed && (
-            <p className="text-xs text-white/50 truncate">
-              Hotel ID: {hotelId}
-            </p>
-          )}
-        </div>
+        {/* Footer — espacio visual */}
+        <div className="px-4 py-6" />
       </aside>
     </>
   )

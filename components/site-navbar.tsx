@@ -4,11 +4,25 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Menu, User, X } from "lucide-react"
 import { useClerk, useUser, UserButton } from "@clerk/nextjs"
+import { useQuery } from "@tanstack/react-query"
 import { ContactModal } from "@/components/contact-modal"
+import { useApiClient } from "@/hooks/use-api-client"
+import { getMyProfile } from "@/lib/api/customers"
 
 export function SiteNavbar() {
   const { openSignIn } = useClerk()
   const { isSignedIn } = useUser()
+  const { apiFetch } = useApiClient()
+
+  const { data: profile } = useQuery({
+    queryKey: ["myProfile"],
+    queryFn: () => getMyProfile(apiFetch),
+    enabled: !!isSignedIn,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const isHotelMgr = profile?.user?.role === "HOTEL_MGR"
+  const hotelId = profile?.user?.hotelId
   const [homeHref, setHomeHref] = useState("/")
   const [contactOpen, setContactOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -63,6 +77,15 @@ export function SiteNavbar() {
               >
                 Mis Reservas
               </Link>
+              {isHotelMgr && hotelId && (
+                <Link
+                  href={`/hotel/availability/${hotelId}`}
+                  className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-white/10"
+                  style={{ color: "#FFC43D" }}
+                >
+                  Mi Hotel
+                </Link>
+              )}
             </>
           )}
 
@@ -126,6 +149,16 @@ export function SiteNavbar() {
                 >
                   Mis Reservas
                 </Link>
+                {isHotelMgr && hotelId && (
+                  <Link
+                    href={`/hotel/availability/${hotelId}`}
+                    onClick={closeMobile}
+                    className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-semibold transition-colors hover:bg-white/10"
+                    style={{ color: "#FFC43D" }}
+                  >
+                    Mi Hotel
+                  </Link>
+                )}
               </>
             )}
 

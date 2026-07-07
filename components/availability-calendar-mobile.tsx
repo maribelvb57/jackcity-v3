@@ -79,11 +79,11 @@ function MobileDayCard({ day, data, onCapacityChange, isPast }: MobileDayCardPro
           </span>
         ) : (
           <input
-            type="number"
-            min={0}
-            max={99}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={data?.capacity ?? ""}
-            onChange={(e) => onCapacityChange(day, e.target.value)}
+            onChange={(e) => onCapacityChange(day, e.target.value.replace(/\D/g, ""))}
             className="w-12 text-center text-sm font-bold border border-gray-400 rounded focus:outline-none focus:ring-1"
             style={{
               color: "#0D2B45",
@@ -197,11 +197,11 @@ export function AvailabilityCalendarMobile({
         </span>
         <div className="flex gap-2">
           <input
-            type="number"
-            min={0}
-            max={99}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={bulkCapacity}
-            onChange={(e) => onBulkCapacityChange(e.target.value)}
+            onChange={(e) => onBulkCapacityChange(e.target.value.replace(/\D/g, ""))}
             className="flex-1 text-center text-sm font-bold border-2 border-gray-400 rounded focus:outline-none focus:ring-2 py-2"
             style={{ color: "#0D2B45", ringColor: "#FFC43D" }}
             aria-label="Capacidad masiva"

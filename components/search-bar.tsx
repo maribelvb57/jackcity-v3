@@ -11,7 +11,8 @@ import { useSearchStore } from "@/providers/search-store-provider"
 import { defaultMascota, type Mascota } from "@/stores/search-store"
 import { PET_SIZE_LABEL, PET_SIZE_MAP, type PetSize } from "@/lib/api/hotels"
 import { encodePetBreeds, parsePetBreedsParam, encodePetIds, parsePetIdsParam } from "@/lib/search-pets"
-import { getCustomerProfile } from "@/lib/api/customers"
+import { getMyProfile } from "@/lib/api/customers"
+import { useApiClient } from "@/hooks/use-api-client"
 import { TRANSPORT_COMMUNES, getTransportCommuneByCode } from "@/config/transport-communes"
 import "react-day-picker/style.css"
 
@@ -83,11 +84,12 @@ export function SearchBar() {
   const setMascotas = useSearchStore((state) => state.setMascotas)
 
   const { user: clerkUser, isSignedIn } = useUser()
+  const { apiFetch } = useApiClient()
   const [savedPets, setSavedPets] = useState<Array<{ id: string; name: string; breed: string; size: string }>>([])
 
   useEffect(() => {
     if (!isSignedIn || !clerkUser?.id) return
-    getCustomerProfile(clerkUser.id)
+    getMyProfile(apiFetch)
       .then(data => setSavedPets(data.pets.filter(p => p.active).map(p => ({ id: String(p.id), name: p.name, breed: p.breed, size: p.size }))))
       .catch(() => {})
   }, [isSignedIn, clerkUser?.id])

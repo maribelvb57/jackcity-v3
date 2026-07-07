@@ -11,6 +11,8 @@ export type CustomerProfile = {
     email: string
     phone: string
     rut: string
+    role: "OWNER" | "HOTEL_MGR" | "ADMIN"
+    hotelId: string | null   // solo para role=HOTEL_MGR; null en el resto
   }
   addresses: {
     id: string
@@ -37,10 +39,10 @@ export type CustomerProfile = {
   }[]
 }
 
-export async function getCustomerProfile(userId: string): Promise<CustomerProfile> {
-  const res = await fetch(`${API_BASE}/api/customers/${userId}/profile`)
-  if (!res.ok) throw new Error(`Get customer profile failed: ${res.status}`)
-  return res.json()
+// Perfil del usuario logueado. Resuelve la identidad desde el JWT (vía apiFetch), no desde un
+// userId en la URL — por eso NO es vulnerable a IDOR. Reemplaza al viejo getCustomerProfile(userId).
+export async function getMyProfile(apiFetch: ApiFetch): Promise<CustomerProfile> {
+  return apiFetch("/api/me/profile")
 }
 
 export type UpdateMeParams = {

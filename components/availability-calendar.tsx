@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { ChevronLeft, ChevronRight, X } from "lucide-react"
 import { AvailabilityCalendarMobile } from "./availability-calendar-mobile"
+import { useApiClient } from "@/hooks/use-api-client"
 
 // ─── Change Info Type ─────────────────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ interface DateAvailability {
 interface HotelAvailability {
   hotelId: number
   monthId: string
-  dates: Record<number, DateAvailability>
+  dates: Record<string, DateAvailability>  // keys: "2026-07-01", "2026-07-02", …
 }
 
 interface DayData {
@@ -60,8 +61,8 @@ function daysInMonth(year: number, month: number): number {
 /** Convert API response to DayData format */
 function apiToDayData(apiData: HotelAvailability): Record<number, DayData> {
   const data: Record<number, DayData> = {}
-  for (const [dayStr, dateInfo] of Object.entries(apiData.dates)) {
-    const day = parseInt(dayStr, 10)
+  for (const [dateStr, dateInfo] of Object.entries(apiData.dates)) {
+    const day = parseInt(dateStr.split("-")[2], 10)  // "2026-07-01" → 1
     data[day] = {
       date: day,
       booked: dateInfo.bookings,
@@ -134,11 +135,11 @@ function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
           </span>
         ) : (
           <input
-            type="number"
-            min={0}
-            max={99}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={data?.capacity ?? ""}
-            onChange={(e) => onCapacityChange(day, e.target.value)}
+            onChange={(e) => onCapacityChange(day, e.target.value.replace(/\D/g, ""))}
             className="w-9 text-center text-sm font-bold border border-gray-400 rounded focus:outline-none focus:ring-1"
             style={{
               color: "#0D2B45",
@@ -171,30 +172,31 @@ interface AvailabilityCalendarProps {
 
 export function AvailabilityCalendar({ hotelId }: AvailabilityCalendarProps) {
   const today = new Date()
+  const { apiFetch } = useApiClient()
   const [cal, setCal] = useState<CalendarState>({ year: today.getFullYear(), month: today.getMonth() })
   const [dayData, setDayData] = useState<Record<number, DayData>>({})
   const [originalData, setOriginalData] = useState<Record<number, DayData>>({})
   const [bulkCapacity, setBulkCapacity] = useState<string>("10")
   const [loading, setLoading] = useState(true)
   const [showSaveModal, setShowSaveModal] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // Fetch availability data from API
   const fetchAvailability = useCallback(async (year: number, month: number) => {
     setLoading(true)
     try {
       const monthId = formatMonthId(year, month)
-      const res = await fetch(`/api/availability/${hotelId}/${monthId}`)
-      if (!res.ok) throw new Error("Failed to fetch")
-      const data: HotelAvailability = await res.json()
+      const data = await apiFetch<HotelAvailability>(`/api/hotel/availability/${hotelId}/${monthId}`)
       const converted = apiToDayData(data)
       setDayData(converted)
       setOriginalData(converted)
     } catch (error) {
-      console.error("[v0] Error fetching availability:", error)
+      console.error("Error fetching availability:", error)
     } finally {
       setLoading(false)
     }
-  }, [hotelId])
+  }, [hotelId, apiFetch])
 
   // Fetch on mount and when month changes
   useEffect(() => {
@@ -245,21 +247,21 @@ export function AvailabilityCalendar({ hotelId }: AvailabilityCalendarProps) {
   // Bulk update
   function handleBulkUpdate() {
     const newCap = parseInt(bulkCapacity, 10)
-    if (isNaN(newCap)) return
+    if (isNaN(newCap) || bulkCapacity === "") return
     const todayDate = today.getDate()
     const isCurrentMonth = cal.year === today.getFullYear() && cal.month === today.getMonth()
     setDayData((prev) => {
       const updated = { ...prev }
-      Object.keys(updated).forEach((k) => {
-        const d = parseInt(k, 10)
-        if (!isCurrentMonth || d >= todayDate) {
-          updated[d] = {
-            ...updated[d],
-            capacity: newCap,
-            dispo: newCap - updated[d].booked,
-          }
+      for (let d = 1; d <= totalDays; d++) {
+        if (isCurrentMonth && d < todayDate) continue
+        const booked = updated[d]?.booked ?? 0
+        updated[d] = {
+          date: d,
+          booked,
+          capacity: newCap,
+          dispo: newCap - booked,
         }
-      })
+      }
       return updated
     })
   }
@@ -271,10 +273,10 @@ export function AvailabilityCalendar({ hotelId }: AvailabilityCalendarProps) {
       const day = parseInt(dayStr, 10)
       const current = dayData[day]
       const original = originalData[day]
-      if (current && original && current.capacity !== original.capacity) {
+      if (current && (!original || current.capacity !== original.capacity)) {
         changes.push({
           day,
-          oldCapacity: original.capacity,
+          oldCapacity: original?.capacity ?? 0,
           newCapacity: current.capacity,
         })
       }
@@ -284,18 +286,44 @@ export function AvailabilityCalendar({ hotelId }: AvailabilityCalendarProps) {
 
   // Handle save button click
   function handleSaveClick() {
+    setSaveError(null)
     setShowSaveModal(true)
   }
 
   // Handle confirm save
-  function handleConfirmSave() {
-    // TODO: Call API to save changes
-    setOriginalData({ ...dayData })
-    setShowSaveModal(false)
+  async function handleConfirmSave() {
+    const changes = getChangedDays()
+    if (changes.length === 0) return
+
+    const monthId = formatMonthId(cal.year, cal.month)
+    const dates: Record<string, { capacity: number }> = {}
+    for (const { day, newCapacity } of changes) {
+      if (isPastDay(day)) continue
+      const dateKey = `${monthId}-${String(day).padStart(2, "0")}`
+      dates[dateKey] = { capacity: newCapacity }
+    }
+
+    if (Object.keys(dates).length === 0) return
+
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await apiFetch(`/api/hotel/availability/${hotelId}/${monthId}`, {
+        method: "PUT",
+        body: JSON.stringify({ hotelId, monthId, dates }),
+      })
+      setOriginalData({ ...dayData })
+      setShowSaveModal(false)
+    } catch {
+      setSaveError("No se pudieron guardar los cambios. Intenta nuevamente.")
+    } finally {
+      setSaving(false)
+    }
   }
 
   // Handle cancel save
   function handleCancelSave() {
+    if (saving) return
     setShowSaveModal(false)
   }
 
@@ -415,11 +443,11 @@ export function AvailabilityCalendar({ hotelId }: AvailabilityCalendarProps) {
             Actualizar todas las disponibilidades futuras a
           </span>
           <input
-            type="number"
-            min={0}
-            max={99}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={bulkCapacity}
-            onChange={(e) => setBulkCapacity(e.target.value)}
+            onChange={(e) => setBulkCapacity(e.target.value.replace(/\D/g, ""))}
             className="w-16 text-center text-sm font-bold border-2 border-gray-400 rounded focus:outline-none focus:ring-2 py-1"
             style={{ color: "#0D2B45", ringColor: "#FFC43D" }}
             aria-label="Capacidad masiva"
@@ -528,21 +556,27 @@ export function AvailabilityCalendar({ hotelId }: AvailabilityCalendarProps) {
                 ¿Desea guardar estos cambios de disponibilidad para el mes de{" "}
                 <span className="font-bold">{MONTH_NAMES_ES[cal.month]} {cal.year}</span>?
               </p>
+              {saveError && (
+                <p className="text-sm mb-3 font-medium" style={{ color: "#9B1C1C" }}>
+                  {saveError}
+                </p>
+              )}
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={handleCancelSave}
-                  className="px-6 py-2 rounded text-sm font-bold border-2 transition-colors hover:bg-gray-100"
+                  disabled={saving}
+                  className="px-6 py-2 rounded text-sm font-bold border-2 transition-colors hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ borderColor: "#9CA3AF", color: "#4B5563" }}
                 >
                   Cancelar
                 </button>
                 <button
                   onClick={handleConfirmSave}
-                  disabled={getChangedDays().length === 0}
+                  disabled={getChangedDays().length === 0 || saving}
                   className="px-6 py-2 rounded text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ backgroundColor: "#1a3a5c", color: "#ffffff" }}
                 >
-                  Guardar
+                  {saving ? "Guardando..." : "Guardar"}
                 </button>
               </div>
             </div>

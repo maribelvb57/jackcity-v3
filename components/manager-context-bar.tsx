@@ -1,7 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useUser } from "@clerk/nextjs"
+import { useQuery } from "@tanstack/react-query"
 import { Building2, UserCircle, CalendarDays } from "lucide-react"
+import { useApiClient } from "@/hooks/use-api-client"
+import { getMyProfile } from "@/lib/api/customers"
+import { getHotelInfo } from "@/lib/api/hotel-info"
 
 interface ManagerContextBarProps {
   hotelId: string
@@ -13,12 +18,28 @@ const MONTH_NAMES = [
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 ]
 
-// Mock data – replace with real session/hotel data
-const MOCK_HOTEL_NAME = "Hotel Jackciti Boutique"
-const MOCK_MANAGER_NAME = "María Isabel V."
-
 export function ManagerContextBar({ hotelId }: ManagerContextBarProps) {
   const [dateLabel, setDateLabel] = useState<string>("")
+  const { isSignedIn } = useUser()
+  const { apiFetch } = useApiClient()
+
+  const { data: profile } = useQuery({
+    queryKey: ["myProfile"],
+    queryFn: () => getMyProfile(apiFetch),
+    enabled: !!isSignedIn,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: hotelInfo } = useQuery({
+    queryKey: ["hotel-info", hotelId],
+    queryFn: () => getHotelInfo(hotelId),
+    enabled: !!hotelId,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const managerName = profile?.user
+    ? [profile.user.firstName, profile.user.lastName].filter(Boolean).join(" ")
+    : null
 
   useEffect(() => {
     const now = new Date()
@@ -44,13 +65,7 @@ export function ManagerContextBar({ hotelId }: ManagerContextBarProps) {
           className="text-lg font-bold tracking-tight"
           style={{ color: "#1a3a5c" }}
         >
-          {MOCK_HOTEL_NAME}
-        </span>
-        <span
-          className="text-xs font-normal px-2 py-0.5 rounded-full ml-1"
-          style={{ backgroundColor: "#F3F4F6", color: "#6B7280" }}
-        >
-          ID {hotelId}
+          {hotelInfo?.hotel.name ?? "—"}
         </span>
       </div>
 
@@ -71,7 +86,7 @@ export function ManagerContextBar({ hotelId }: ManagerContextBarProps) {
         <div className="flex items-center gap-1.5">
           <UserCircle size={18} style={{ color: "#1a3a5c" }} />
           <span className="text-sm font-semibold" style={{ color: "#1a3a5c" }}>
-            {MOCK_MANAGER_NAME}
+            {managerName ?? "—"}
           </span>
         </div>
       </div>

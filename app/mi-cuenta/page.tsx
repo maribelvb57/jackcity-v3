@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import { useApiClient, type ApiFetch } from "@/hooks/use-api-client"
 import { SiteNavbar } from "@/components/site-navbar"
-import { getCustomerProfile, updateMe, type CustomerProfile } from "@/lib/api/customers"
+import { getMyProfile, updateMe, type CustomerProfile } from "@/lib/api/customers"
 import { createAddress, deleteAddress, type AddressResult } from "@/lib/api/addresses"
 import { createPet, updatePet, deletePet } from "@/lib/api/pets"
 import { PET_SIZE_LABEL, PET_SIZE_MAP, type PetSize } from "@/lib/api/hotels"
@@ -816,7 +816,7 @@ function MiCuentaContent() {
     if (!isLoaded) return
     if (!isSignedIn) { router.push("/"); return }
     if (!clerkUser?.id) return
-    getCustomerProfile(clerkUser.id)
+    getMyProfile(apiFetch)
       .then((data) => {
         setEmail(data.user.email)
         setFirstName(data.user.firstName); setOrigFirst(data.user.firstName)
