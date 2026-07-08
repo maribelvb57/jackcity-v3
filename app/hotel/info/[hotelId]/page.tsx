@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode } from "react"
+import { use, type ReactNode } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { ManagerLayout } from "@/components/manager-layout"
 import { formatClp } from "@/lib/format"
@@ -366,8 +366,8 @@ interface PageProps {
   params: Promise<{ hotelId: string }>
 }
 
-export default async function HotelInfoPage({ params }: PageProps) {
-  const { hotelId } = await params
+export default function HotelInfoPage({ params }: PageProps) {
+  const { hotelId } = use(params)
 
   return (
     <ManagerLayout hotelId={hotelId}>

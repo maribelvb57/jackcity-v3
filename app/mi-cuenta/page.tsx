@@ -62,8 +62,8 @@ const RAZAS_TAMANOS: Record<string, string> = {
 }
 const RAZAS = Object.keys(RAZAS_TAMANOS)
 
-function cleanRut(value: string) {
-  return value.replace(/[^0-9kK]/g, "").toUpperCase()
+function cleanRut(value: string | null | undefined) {
+  return (value ?? "").replace(/[^0-9kK]/g, "").toUpperCase()
 }
 function isValidChileRut(value: string) {
   const cleaned = cleanRut(value)
@@ -79,9 +79,9 @@ function isValidChileRut(value: string) {
   const rem = 11 - (sum % 11)
   return verifier === (rem === 11 ? "0" : rem === 10 ? "K" : String(rem))
 }
-function formatChileRut(value: string) {
+function formatChileRut(value: string | null | undefined) {
   const cleaned = cleanRut(value)
-  if (cleaned.length < 2) return value
+  if (cleaned.length < 2) return value ?? ""
   const body = cleaned.slice(0, -1)
   const verifier = cleaned.slice(-1)
   return `${body.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}-${verifier}`
@@ -224,21 +224,25 @@ function EditPetModal({ pet, apiFetch, onSave, onClose }: EditPetModalProps) {
     setError("")
     try {
       const sizeCode = PET_SIZE_MAP[sizeLabel] ?? sizeLabel
+      const genderCode = GENDER_MAP[gender] ?? gender
       const weightParsed = parseFloat(weight)
+      // El backend hace update parcial: solo mandamos los campos con valor para no pisar
+      // datos existentes con vacíos cuando el usuario edita únicamente el nombre.
       await updatePet(pet.id, {
         name,
-        breed,
-        size: sizeCode,
-        gender: GENDER_MAP[gender] ?? gender,
+        ...(breed && { breed }),
+        ...(sizeCode && { size: sizeCode }),
+        ...(genderCode && { gender: genderCode }),
         ...(isNaN(weightParsed) ? {} : { weight: weightParsed }),
         ...(color && { color }),
         ...(age > 0 && { age }),
       }, apiFetch)
       onSave({
         ...pet,
-        name, breed,
-        size: sizeCode,
-        gender: GENDER_MAP[gender] ?? gender,
+        name,
+        breed: breed || pet.breed,
+        size: sizeCode || pet.size,
+        gender: genderCode || pet.gender,
         weight: isNaN(weightParsed) ? null : weightParsed,
         color: color || null,
         age: age || null,
@@ -250,7 +254,20 @@ function EditPetModal({ pet, apiFetch, onSave, onClose }: EditPetModalProps) {
     }
   }
 
-  const canSave = !!name && !!breed && !!sizeLabel && !!gender
+  // Valores iniciales para detectar cambios reales (el botón dice "Guardar cambios")
+  const initialGender = pet.gender === "MALE" ? "Macho" : pet.gender === "FEMALE" ? "Hembra" : ""
+  const initialSizeLabel = PET_SIZE_LABEL[pet.size as PetSize] ?? ""
+  const hasChanges =
+    name !== pet.name ||
+    breed !== (pet.breed ?? "") ||
+    sizeLabel !== initialSizeLabel ||
+    gender !== initialGender ||
+    weight !== (pet.weight?.toString() ?? "") ||
+    color !== (pet.color ?? "") ||
+    age !== (pet.age ?? 0)
+
+  // El nombre es obligatorio; el resto puede venir incompleto desde el perfil y no debe bloquear
+  const canSave = name.trim().length > 0 && hasChanges
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>

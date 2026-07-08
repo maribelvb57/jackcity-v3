@@ -2,9 +2,9 @@ import type { ApiFetch } from "@/lib/api/types"
 
 export type PetPayload = {
   name: string
-  breed: string
-  size: string
-  gender: string
+  breed?: string
+  size?: string
+  gender?: string
   weight?: number
   color?: string
   age?: number

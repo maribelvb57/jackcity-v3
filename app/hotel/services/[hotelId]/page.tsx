@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { use, useState, useEffect } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ManagerLayout } from "@/components/manager-layout"
 import { useApiClient } from "@/hooks/use-api-client"
@@ -327,8 +327,8 @@ interface PageProps {
   params: Promise<{ hotelId: string }>
 }
 
-export default async function HotelServicesPage({ params }: PageProps) {
-  const { hotelId } = await params
+export default function HotelServicesPage({ params }: PageProps) {
+  const { hotelId } = use(params)
   return (
     <ManagerLayout hotelId={hotelId}>
       <HotelServicesContent hotelId={hotelId} />

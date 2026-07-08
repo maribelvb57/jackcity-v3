@@ -1,4 +1,4 @@
-import { API_BASE } from "./config"
+import type { ApiFetch } from "@/lib/api/types"
 
 export type HotelSettingsDto = {
   hotelId: string
@@ -6,20 +6,29 @@ export type HotelSettingsDto = {
   offersTransport: boolean
 }
 
-type ApiFetch = (path: string, init?: RequestInit) => Promise<Response>
+// apiFetch (useApiClient) ya antepone API_BASE, agrega headers, parsea el JSON y
+// lanza si la respuesta no es ok — por eso acá se usa path relativo y se retorna directo.
 
 export async function updateHotelStatus(
   hotelId: string,
   status: "ACTIVE" | "PAUSED",
   apiFetch: ApiFetch
 ): Promise<HotelSettingsDto> {
-  const res = await apiFetch(`${API_BASE}/api/hotel/settings/${hotelId}/status`, {
+  return apiFetch<HotelSettingsDto>(`/api/hotel/settings/${hotelId}/status`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
   })
-  if (!res.ok) throw new Error(`updateHotelStatus failed: ${res.status}`)
-  return res.json()
+}
+
+export async function updateHotelTransport(
+  hotelId: string,
+  offersTransport: boolean,
+  apiFetch: ApiFetch
+): Promise<HotelSettingsDto> {
+  return apiFetch<HotelSettingsDto>(`/api/hotel/settings/${hotelId}/transport`, {
+    method: "PATCH",
+    body: JSON.stringify({ offersTransport }),
+  })
 }
 
 export async function updateHotelPricing(
@@ -28,11 +37,10 @@ export async function updateHotelPricing(
   pricePerNight: number,
   apiFetch: ApiFetch
 ): Promise<void> {
-  const res = await apiFetch(
-    `${API_BASE}/api/hotels/${hotelId}/pricing/${size}/${pricePerNight}`,
+  await apiFetch<void>(
+    `/api/hotels/${hotelId}/pricing/${size}/${pricePerNight}`,
     { method: "PUT" }
   )
-  if (!res.ok) throw new Error(`updateHotelPricing failed: ${res.status}`)
 }
 
 // minNights pendiente: GET /api/hotel/info debe exponer minNights por regla de descuento
@@ -42,23 +50,8 @@ export async function updateHotelDiscountRule(
   discountPct: number,
   apiFetch: ApiFetch
 ): Promise<void> {
-  const res = await apiFetch(
-    `${API_BASE}/api/hotels/${hotelId}/discount-rules/${minNights}/${discountPct}`,
+  await apiFetch<void>(
+    `/api/hotels/${hotelId}/discount-rules/${minNights}/${discountPct}`,
     { method: "PUT" }
   )
-  if (!res.ok) throw new Error(`updateHotelDiscountRule failed: ${res.status}`)
-}
-
-export async function updateHotelTransport(
-  hotelId: string,
-  offersTransport: boolean,
-  apiFetch: ApiFetch
-): Promise<HotelSettingsDto> {
-  const res = await apiFetch(`${API_BASE}/api/hotel/settings/${hotelId}/transport`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ offersTransport }),
-  })
-  if (!res.ok) throw new Error(`updateHotelTransport failed: ${res.status}`)
-  return res.json()
 }

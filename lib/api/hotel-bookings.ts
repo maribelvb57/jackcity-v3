@@ -1,6 +1,15 @@
 import type { ApiFetch } from "@/hooks/use-api-client"
 
-export type HotelBookingStatus = "PENDING_PAYMENT" | "PAID" | "CONFIRMED" | "COMPLETED" | "CANCELLED"
+export type HotelBookingStatus =
+  | "PENDING_PAYMENT"
+  | "PAID"
+  | "CONFIRMED"
+  | "INITIATED"
+  | "COMPLETED"
+  | "CLOSED"
+  | "EXPIRED"
+  | "CANCELLED"
+  | "NO_SHOW"
 
 export type TransportSlot = "AM" | "MD" | "PM"
 
@@ -54,4 +63,54 @@ export async function getHotelBookings(
   apiFetch: ApiFetch
 ): Promise<HotelBookingsResponse> {
   return apiFetch<HotelBookingsResponse>(`/api/hotel/bookings/${hotelId}`)
+}
+
+// Respuesta genérica de las transiciones de estado desde el panel del hotel.
+export interface HotelBookingStatusResponse {
+  bookingId: string
+  status: HotelBookingStatus
+}
+
+// HOTEL_MGR/ADMIN confirma una reserva pagada: PAID → CONFIRMED. Sin request body.
+export async function confirmHotelBooking(
+  bookingId: string,
+  apiFetch: ApiFetch
+): Promise<HotelBookingStatusResponse> {
+  return apiFetch<HotelBookingStatusResponse>(
+    `/api/hotel/bookings/${bookingId}/confirm`,
+    { method: "POST" }
+  )
+}
+
+// HOTEL_MGR/ADMIN hace el check-in de una reserva confirmada: CONFIRMED → INITIATED. Sin request body.
+export async function checkInHotelBooking(
+  bookingId: string,
+  apiFetch: ApiFetch
+): Promise<HotelBookingStatusResponse> {
+  return apiFetch<HotelBookingStatusResponse>(
+    `/api/hotel/bookings/${bookingId}/checkin`,
+    { method: "POST" }
+  )
+}
+
+// HOTEL_MGR/ADMIN hace el check-out de una reserva en curso: INITIATED → COMPLETED. Sin request body.
+export async function checkOutHotelBooking(
+  bookingId: string,
+  apiFetch: ApiFetch
+): Promise<HotelBookingStatusResponse> {
+  return apiFetch<HotelBookingStatusResponse>(
+    `/api/hotel/bookings/${bookingId}/checkout`,
+    { method: "POST" }
+  )
+}
+
+// HOTEL_MGR/ADMIN marca que el huésped no se presentó: CONFIRMED → NO_SHOW. Sin request body.
+export async function markNoShowHotelBooking(
+  bookingId: string,
+  apiFetch: ApiFetch
+): Promise<HotelBookingStatusResponse> {
+  return apiFetch<HotelBookingStatusResponse>(
+    `/api/hotel/bookings/${bookingId}/no-show`,
+    { method: "POST" }
+  )
 }

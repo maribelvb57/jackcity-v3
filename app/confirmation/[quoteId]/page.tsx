@@ -447,6 +447,20 @@ function ConfirmationContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(false)
 
+  // Validación al intentar pagar: refs de campos + flags de error mostrado
+  const rutFieldRef = useRef<HTMLInputElement | null>(null)
+  const emailFieldRef = useRef<HTMLInputElement | null>(null)
+  const petsSectionRef = useRef<HTMLDivElement | null>(null)
+  const addressSectionRef = useRef<HTMLDivElement | null>(null)
+  const transportSectionRef = useRef<HTMLDivElement | null>(null)
+  const conditionsSectionRef = useRef<HTMLDivElement | null>(null)
+  const [rutErrorShown, setRutErrorShown] = useState(false)
+  const [emailErrorShown, setEmailErrorShown] = useState(false)
+  const [petsErrorShown, setPetsErrorShown] = useState(false)
+  const [addressErrorShown, setAddressErrorShown] = useState(false)
+  const [transportErrorShown, setTransportErrorShown] = useState(false)
+  const [conditionsErrorShown, setConditionsErrorShown] = useState(false)
+
   // Derived values from quote
   const includeTransport = quote?.needsTransport ?? false
   const quotedTransportCommune = getTransportCommuneByCode(quote?.transportCommune ?? "")?.commune ?? quote?.transportCommune ?? ""
@@ -477,6 +491,12 @@ function ConfirmationContent() {
 
   const rutHasValue = cleanRut(rut).length > 0
   const rutIsValid = rutHasValue && isValidChileRut(rut)
+  // Error rojo cuando el usuario intentó pagar sin un RUT válido; aviso ámbar si escribió uno inválido
+  const showRutError = rutErrorShown && !rutIsValid
+  const showRutWarning = !showRutError && rutHasValue && !rutIsValid
+  const rutErrorMessage = !rutHasValue
+    ? "Debes ingresar tu RUT para continuar."
+    : "Ingresa un RUT chileno válido."
   const emailHasValue = email.trim().length > 0
   const emailIsValid = emailHasValue && isValidEmail(email)
   const transportSlotsSelected = !includeTransport || (!!selectedDeparture && !!selectedReturn)
@@ -533,7 +553,27 @@ function ConfirmationContent() {
     return JSON.stringify(Object.entries(selCount).sort()) === JSON.stringify(Object.entries(reqCount).sort())
   })()
 
-  const canPay = allConditionsAccepted() && hasCompleteAddress && selectedAddressCommuneMatchesQuote && rutIsValid && emailIsValid && !emailAccountExists && transportSlotsSelected && petsMatchQuote
+  // Validez por campo/sección (para resaltar al intentar pagar)
+  const emailFieldValid = emailIsValid && !emailAccountExists
+  const addressSectionValid = hasCompleteAddress && selectedAddressCommuneMatchesQuote
+  const transportSectionValid = transportSlotsSelected
+  const petsSectionValid = petsMatchQuote
+  const conditionsSectionValid = vaccinesUpToDate && isCastrated && notInHeat
+
+  // Flags de error en rojo (solo tras intentar pagar)
+  const showEmailError = emailErrorShown && !emailFieldValid
+  const emailErrorMessage = !emailHasValue
+    ? "Debes ingresar tu email para continuar."
+    : !emailIsValid
+      ? "Ingresa un email válido."
+      : "Este correo ya tiene cuenta. Inicia sesión o usa otro."
+  const showAddressError = addressErrorShown && !addressSectionValid
+  const addressErrorMessage = !hasCompleteAddress
+    ? "Completa tu dirección para continuar."
+    : "La dirección debe estar en la comuna usada para cotizar el transporte."
+  const showTransportError = transportErrorShown && !transportSectionValid
+  const showPetsError = petsErrorShown && !petsSectionValid
+  const showConditionsError = conditionsErrorShown && !conditionsSectionValid
 
   function allConditionsAccepted() {
     return vaccinesUpToDate && isCastrated && notInHeat
@@ -623,8 +663,31 @@ function ConfirmationContent() {
     }
   }
 
+  const scrollToField = (el: HTMLElement | null) => {
+    el?.scrollIntoView({ behavior: "smooth", block: "center" })
+    el?.focus?.({ preventScroll: true })
+  }
+
   const handleConfirm = async () => {
     if (!quote) return
+
+    // Validación en el click: recorremos los campos en orden visual y, al primero
+    // que falte, mostramos su error en rojo y hacemos scroll automático hasta él.
+    const validationSteps: { valid: boolean; ref: React.RefObject<HTMLElement | null>; show: () => void }[] = [
+      { valid: emailFieldValid, ref: emailFieldRef, show: () => setEmailErrorShown(true) },
+      { valid: rutIsValid, ref: rutFieldRef, show: () => setRutErrorShown(true) },
+      { valid: petsSectionValid, ref: petsSectionRef, show: () => setPetsErrorShown(true) },
+      { valid: addressSectionValid, ref: addressSectionRef, show: () => setAddressErrorShown(true) },
+      { valid: transportSectionValid, ref: transportSectionRef, show: () => setTransportErrorShown(true) },
+      { valid: conditionsSectionValid, ref: conditionsSectionRef, show: () => setConditionsErrorShown(true) },
+    ]
+    const firstInvalid = validationSteps.find((step) => !step.valid)
+    if (firstInvalid) {
+      firstInvalid.show()
+      scrollToField(firstInvalid.ref.current)
+      return
+    }
+
     setIsSubmitting(true)
     setSubmitError(false)
     try {
@@ -905,16 +968,18 @@ function ConfirmationContent() {
                       <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Email</label>
                       <div className="relative">
                         <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
-                        <input type="email" value={email}
+                        <input type="email" value={email} ref={emailFieldRef}
                           onChange={(e) => { setEmail(e.target.value); setEmailAccountExists(false) }}
                           onBlur={handleEmailBlur}
                           className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                          style={{ borderColor: (emailHasValue && !emailIsValid) || emailAccountExists ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                          style={{ borderColor: showEmailError ? "#DC2626" : (emailHasValue && !emailIsValid) || emailAccountExists ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
                           placeholder="correo@ejemplo.com" />
                       </div>
-                      {emailHasValue && !emailIsValid && (
+                      {showEmailError ? (
+                        <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>{emailErrorMessage}</p>
+                      ) : emailHasValue && !emailIsValid ? (
                         <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>Ingresa un email válido.</p>
-                      )}
+                      ) : null}
                       {isValidatingEmail && (
                         <p className="mt-1.5 text-xs" style={{ color: "#6B7280" }}>Verificando correo...</p>
                       )}
@@ -951,28 +1016,35 @@ function ConfirmationContent() {
                       </div>
                       <div className="flex-1">
                         <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>RUT</label>
-                        <input type="text" value={rut}
+                        <input type="text" value={rut} ref={rutFieldRef}
                           onChange={(e) => setRut(e.target.value)}
                           onBlur={() => { if (rutHasValue) setRut(formatChileRut(rut)) }}
                           className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                          style={{ borderColor: rutHasValue && !rutIsValid ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                          style={{ borderColor: showRutError ? "#DC2626" : showRutWarning ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
                           placeholder="12.345.678-9" inputMode="text" />
-                        {rutHasValue && !rutIsValid && (
+                        {showRutError ? (
+                          <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>{rutErrorMessage}</p>
+                        ) : showRutWarning ? (
                           <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>Ingresa un RUT chileno válido.</p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Pets */}
-                <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                <div ref={petsSectionRef} className="bg-white rounded-2xl p-5 border" style={{ borderColor: showPetsError ? "#DC2626" : "#E5E7EB" }}>
                   <div className="flex items-center justify-between mb-1">
                     <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
                       <PawPrint size={20} style={{ color: "#0A1830" }} />
                       Mi(s) Mascota(s)
                     </h2>
                   </div>
+                  {showPetsError && (
+                    <p className="mt-2 text-xs" style={{ color: "#DC2626" }}>
+                      {petSelectionErrorMsg ?? "Selecciona tus mascotas para completar la reserva."}
+                    </p>
+                  )}
 
                   {anyPetHasId ? (
                     // Cases 2 & 4: some/all pets identified → cards + optional forms
@@ -1161,7 +1233,7 @@ function ConfirmationContent() {
                 </div>
 
                 {/* Address */}
-                <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                <div ref={addressSectionRef} className="bg-white rounded-2xl p-5 border" style={{ borderColor: showAddressError ? "#DC2626" : "#E5E7EB" }}>
                   <div className="flex items-center justify-between mb-1">
                     <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
                       <MapPin size={20} style={{ color: "#0A1830" }} />
@@ -1365,6 +1437,9 @@ function ConfirmationContent() {
                       </div>
                     </div>
                   )}
+                  {showAddressError && (
+                    <p className="mt-3 text-xs" style={{ color: "#DC2626" }}>{addressErrorMessage}</p>
+                  )}
                 </div>
 
                 {/* Save data */}
@@ -1381,7 +1456,7 @@ function ConfirmationContent() {
 
                 {/* Transport schedules */}
                 {includeTransport && (
-                  <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                  <div ref={transportSectionRef} className="bg-white rounded-2xl p-5 border" style={{ borderColor: showTransportError ? "#DC2626" : "#E5E7EB" }}>
                     <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>
                       Horarios de Transporte de tu mascota
                     </h2>
@@ -1427,11 +1502,14 @@ function ConfirmationContent() {
                         </div>
                       </div>
                     </div>
+                    {showTransportError && (
+                      <p className="mt-3 text-xs" style={{ color: "#DC2626" }}>Selecciona un horario de ida y uno de regreso.</p>
+                    )}
                   </div>
                 )}
 
                 {/* Confirm conditions */}
-                <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                <div ref={conditionsSectionRef} className="bg-white rounded-2xl p-5 border" style={{ borderColor: showConditionsError ? "#DC2626" : "#E5E7EB" }}>
                   <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>Confirmar Condiciones</h2>
                   <div className="flex flex-col gap-3">
                     {[
@@ -1451,6 +1529,9 @@ function ConfirmationContent() {
                       </label>
                     ))}
                   </div>
+                  {showConditionsError && (
+                    <p className="mt-3 text-xs" style={{ color: "#DC2626" }}>Debes aceptar todas las condiciones para continuar.</p>
+                  )}
                 </div>
 
                 {/* Reservation summary + pay */}
@@ -1596,36 +1677,13 @@ function ConfirmationContent() {
                     <p className="flex-shrink-0 text-3xl font-bold" style={{ color: "#08785B" }}>{formatClp(payAtHotelPrice)}</p>
                   </div>
 
-                  <div className="mt-6 rounded-2xl border p-4 sm:p-5" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="flex min-w-0 items-center gap-4">
-                        <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#EAF2FF" }}>
-                          <ShieldCheck size={30} style={{ color: "#125BD8" }} />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-lg font-bold" style={{ color: "#0A1830" }}>Pago seguro y protegido</p>
-                          <p className="mt-1 text-sm leading-relaxed" style={{ color: "#0A1830" }}>
-                            Serás redirigido a Webpay para realizar el pago de forma segura.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3 text-sm font-bold">
-                        <span style={{ color: "#E91E63" }}>transbank.</span>
-                        <span style={{ color: "#1A4BA3" }}>VISA</span>
-                        <span style={{ color: "#E11D48" }}>Mastercard</span>
-                        <span style={{ color: "#1777B8" }}>AMEX</span>
-                        <span style={{ color: "#0A1830" }}>Redcompra</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex flex-col gap-3">
+                  <div className="mt-6 flex flex-col gap-3">
                     {submitError && (
                       <p className="text-center text-sm text-red-600">{submitError}</p>
                     )}
                     <button
                       onClick={handleConfirm}
-                      disabled={!canPay || isSubmitting}
+                      disabled={isSubmitting}
                       className="w-full rounded-xl px-6 py-4 text-lg font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 hover:opacity-90"
                       style={{ backgroundColor: "#FFB200", color: "#0A1830" }}
                     >
@@ -1637,6 +1695,29 @@ function ConfirmationContent() {
                     <p className="text-center text-sm" style={{ color: "#667085" }}>
                       Al continuar, aceptas los términos y condiciones de JackCity.
                     </p>
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border p-4 sm:p-5" style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}>
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#F3F4F6" }}>
+                          <ShieldCheck size={26} style={{ color: "#98A2B3" }} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-base font-semibold" style={{ color: "#667085" }}>Pago seguro y protegido</p>
+                          <p className="mt-1 text-sm leading-relaxed" style={{ color: "#98A2B3" }}>
+                            Serás redirigido a Webpay para realizar el pago de forma segura.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3 text-sm font-semibold" style={{ color: "#98A2B3" }}>
+                        <span>transbank.</span>
+                        <span>VISA</span>
+                        <span>Mastercard</span>
+                        <span>AMEX</span>
+                        <span>Redcompra</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
