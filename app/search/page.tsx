@@ -379,7 +379,7 @@ function SearchPageContent() {
 
             {isLoading && (
               <div className="rounded-2xl border px-5 py-6 text-sm font-medium" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9E0EA", color: "#0A1830" }}>
-                Cargando resultados...
+                Estamos encontrando los mejores hoteles para tu mascota...
               </div>
             )}
 

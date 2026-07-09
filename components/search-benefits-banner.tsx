@@ -38,7 +38,7 @@ export function SearchBenefitsBanner() {
       </div>
 
       <div
-        className="relative hidden rounded-2xl items-center justify-between gap-6 px-6 py-2.5 overflow-visible md:flex"
+        className="relative hidden rounded-2xl items-center justify-between gap-6 px-6 py-2 overflow-visible md:flex"
         style={{ backgroundColor: BG_CREAM, marginBottom: "4px" }}
       >
         {/* Decorative shine element */}
@@ -54,7 +54,7 @@ export function SearchBenefitsBanner() {
           {BENEFITS.map((b, i) => (
             <div key={i} className="flex items-center gap-3 flex-shrink-0">
               <div
-                className="flex items-center justify-center w-12 h-12 rounded-full flex-shrink-0 shadow-sm"
+                className="flex items-center justify-center w-11 h-11 rounded-full flex-shrink-0 shadow-sm"
                 style={{ backgroundColor: AMBER }}
               >
                 {b.icon}
@@ -74,7 +74,7 @@ export function SearchBenefitsBanner() {
           <img
             src="/images/dog-banner.png"
             alt="Jack el perro"
-            className="w-24 h-24 object-contain flex-shrink-0"
+            className="w-20 h-20 object-contain flex-shrink-0"
           />
 
           <div
