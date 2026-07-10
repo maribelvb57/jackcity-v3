@@ -57,8 +57,8 @@ export function PromoSection() {
                 style={{ borderColor: "rgba(255, 255, 255, 0.12)" }}
               >
                 <Image
-                  src="/images/dog-banner.png"
-                  alt="JackCity recomienda los mejores hoteles y cuidados para tu perro"
+                  src="/images/promo-1.jpg"
+                  alt="Perros felices descansando en el hotel Jackcity"
                   width={1751}
                   height={833}
                   className="h-auto w-full object-cover"

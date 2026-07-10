@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
 import { useApiClient, type ApiFetch } from "@/hooks/use-api-client"
 import { SiteNavbar } from "@/components/site-navbar"
+import { AccountSidebar } from "@/components/account-sidebar"
 import { getMyProfile, updateMe, type CustomerProfile } from "@/lib/api/customers"
 import { createAddress, deleteAddress, type AddressResult } from "@/lib/api/addresses"
 import { createPet, updatePet, deletePet } from "@/lib/api/pets"
@@ -910,7 +911,7 @@ function MiCuentaContent() {
   if (!isLoaded || isLoadingProfile) {
     return (
       <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
-        <div className="w-full max-w-[1200px] flex flex-col bg-white min-h-screen">
+        <div className="w-full max-w-[1400px] flex flex-col bg-white min-h-screen">
           <SiteNavbar />
           <div className="px-6 py-10 text-sm font-medium" style={{ color: "#0A1830" }}>Cargando tu perfil...</div>
         </div>
@@ -920,15 +921,18 @@ function MiCuentaContent() {
 
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
-      <div className="w-full max-w-[1200px] flex flex-col" style={{ backgroundColor: "#ffffff" }}>
+      <div className="w-full max-w-[1400px] flex flex-col" style={{ backgroundColor: "#ffffff" }}>
         <SiteNavbar />
 
-        <div className="w-full px-4 pb-10 md:px-6 pt-6 max-w-3xl mx-auto flex flex-col gap-6">
+        <div className="flex flex-1">
+          <AccountSidebar />
+
+          <div className="flex-1 min-w-0 px-4 pb-10 md:px-8 pt-6 flex flex-col gap-6 max-w-3xl">
 
           <h1 className="text-2xl md:text-3xl font-bold" style={{ color: "#0A1830" }}>Mi Cuenta</h1>
 
           {/* ── Datos personales ─────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+          <div id="datos" className="scroll-mt-20 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
                 <User size={20} style={{ color: "#0A1830" }} />
@@ -1049,7 +1053,7 @@ function MiCuentaContent() {
           </div>
 
           {/* ── Mis mascotas ──────────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+          <div id="mascotas" className="scroll-mt-20 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
                 <PawPrint size={20} style={{ color: "#0A1830" }} />
@@ -1131,7 +1135,7 @@ function MiCuentaContent() {
           </div>
 
           {/* ── Mis direcciones ───────────────────────────────────────────── */}
-          <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+          <div id="direcciones" className="scroll-mt-20 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
                 <MapPin size={20} style={{ color: "#0A1830" }} />
@@ -1189,6 +1193,7 @@ function MiCuentaContent() {
 
           </div>
 
+          </div>
         </div>
       </div>
 

@@ -25,8 +25,8 @@ const BENEFITS = [
 export function SearchBenefitsBanner() {
   return (
     <>
-      <div className="md:hidden px-4 pb-2">
-        <div className="overflow-hidden rounded-2xl shadow-sm">
+      <div className="md:hidden">
+        <div className="overflow-hidden">
           <Image
             src="/images/dog-bennefits-banner.png"
             alt="Los mejores hoteles y cuidados, recomendados por Jack"

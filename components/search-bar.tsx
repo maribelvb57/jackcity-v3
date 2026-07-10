@@ -44,6 +44,17 @@ const RAZAS = ["Sin especificar", ...Object.keys(RAZAS_TAMANOS)]
 
 const TAMANOS = ["Pequeño", "Mediano", "Grande", "Extra Grande"]
 
+// Normaliza el `size` de una mascota guardada a su label ("Mediano", etc.).
+// Acepta el código del enum en cualquier caja (SMALL/small), o un label ya
+// formateado ("Mediano"). Devuelve "" si no reconoce el valor.
+function petSizeToLabel(size: string): string {
+  if (!size) return ""
+  const code = size.toUpperCase() as PetSize
+  if (PET_SIZE_LABEL[code]) return PET_SIZE_LABEL[code]
+  if (PET_SIZE_MAP[size]) return size
+  return ""
+}
+
 const CITIES = [
   { code: "SANTIAGO", label: "Santiago de Chile" },
   { code: "CON", label: "Concepción (próximamente)" },
@@ -111,14 +122,33 @@ export function SearchBar() {
     if (alreadyIn >= 0) {
       setMascotas(prev => prev.filter((_, i) => i !== alreadyIn))
     } else {
-      setMascotas(prev => [...prev, { raza: pet.breed, tamano: PET_SIZE_LABEL[pet.size as PetSize] ?? "", petId: pet.id }])
+      setMascotas(prev => [...prev, { raza: pet.breed, tamano: petSizeToLabel(pet.size), petId: pet.id }])
     }
   }
 
+  // Las mascotas registradas (con petId) ya vienen validadas desde la BD; solo
+  // exigimos raza/tamaño a las mascotas anónimas que el usuario configura a mano.
   const allPetsValid = effectiveMascotas.length > 0 && effectiveMascotas.every(
-    (m) => m.raza !== "Sin especificar" && (m.raza !== "Otra Raza o mestizo" || !!m.tamano)
+    (m) => !!m.petId || (m.raza !== "Sin especificar" && (m.raza !== "Otra Raza o mestizo" || !!m.tamano))
   )
   const isSearchEnabled = !!(dateRange?.from && dateRange?.to) && allPetsValid
+
+  // Motivo concreto por el que "Buscar hotel" está deshabilitado, para no dejar
+  // al usuario con el botón gris sin saber qué campo falta.
+  const searchDisabledReason = (() => {
+    if (isSearchEnabled) return null
+    if (!dateRange?.from || !dateRange?.to) return "Selecciona las fechas de tu estadía."
+    if (effectiveMascotas.length === 0) return "Agrega al menos una mascota."
+    const invalid = effectiveMascotas.find(
+      (m) => !m.petId && (m.raza === "Sin especificar" || (m.raza === "Otra Raza o mestizo" && !m.tamano))
+    )
+    if (invalid) {
+      return invalid.raza === "Sin especificar"
+        ? "Indica la raza de tu mascota."
+        : "Indica el tamaño de tu mascota mestiza."
+    }
+    return null
+  })()
 
   const cityRef = useRef<HTMLDivElement>(null)
   const calendarRef = useRef<HTMLDivElement>(null)
@@ -395,7 +425,7 @@ export function SearchBar() {
                         {/* Saved pets checkboxes */}
                         {savedPets.map(pet => {
                           const isChecked = mascotas.some(m => m.petId === pet.id)
-                          const sizeLabel = PET_SIZE_LABEL[pet.size as PetSize] ?? pet.size
+                          const sizeLabel = petSizeToLabel(pet.size) || pet.size
                           return (
                             <button
                               key={pet.id}
@@ -586,6 +616,12 @@ export function SearchBar() {
                 </button>
               </div>
             </div>
+
+            {searchDisabledReason && (
+              <p className="mt-2 text-sm font-medium md:text-right" style={{ color: "#8A1C1C" }}>
+                {searchDisabledReason}
+              </p>
+            )}
 
             {/* Transport checkbox */}
             <div className="mt-3 pt-3 border-t flex flex-col gap-3 md:flex-row md:items-center md:gap-4" style={{ borderColor: "rgba(10, 24, 48, 0.18)" }}>

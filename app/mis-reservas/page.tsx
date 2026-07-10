@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useMemo, useState } from "react"
-import { useAuth } from "@clerk/nextjs"
+import { useAuth, useUser } from "@clerk/nextjs"
 import { useApiClient } from "@/hooks/use-api-client"
 import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
@@ -22,6 +22,7 @@ import {
   XCircle,
 } from "lucide-react"
 import { SiteNavbar } from "@/components/site-navbar"
+import { AccountSidebar } from "@/components/account-sidebar"
 import { getBookingStatusLabel } from "@/lib/booking-status"
 import {
   Dialog,
@@ -146,6 +147,7 @@ function HotelPhoto({ src, alt, sizes }: { src: string | null; alt: string; size
 
 export default function MyBookingsPage() {
   const { isLoaded } = useAuth()
+  const { user } = useUser()
   const { apiFetch } = useApiClient()
   const [filter, setFilter] = useState<BookingFilter>("ALL")
   const [bookingToCancel, setBookingToCancel] = useState<MyBooking | null>(null)
@@ -181,9 +183,13 @@ export default function MyBookingsPage() {
 
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
-      <div className="w-full max-w-[1200px] min-h-screen flex flex-col" style={{ backgroundColor: "#F8FAFC" }}>
+      <div className="w-full max-w-[1400px] min-h-screen flex flex-col" style={{ backgroundColor: "#F8FAFC" }}>
         <SiteNavbar />
 
+        <div className="flex flex-1">
+          <AccountSidebar />
+
+          <div className="flex-1 min-w-0">
         <section className="px-4 py-8 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-[1100px]">
             <div className="grid gap-5 border-b pb-6 lg:grid-cols-[1fr_320px] lg:items-end" style={{ borderColor: "#E5E7EB" }}>
@@ -443,6 +449,8 @@ export default function MyBookingsPage() {
             </div>
           </div>
         </section>
+          </div>
+        </div>
 
         <Dialog open={!!bookingToCancel} onOpenChange={(open) => { if (!open) { setBookingToCancel(null); setCancellationConfirmed(false) } }}>
           <DialogContent className="rounded-lg border-0 bg-white p-0 sm:max-w-[500px]">

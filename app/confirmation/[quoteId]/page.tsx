@@ -772,7 +772,7 @@ function ConfirmationContent() {
             returnSlot: selectedReturn,
           },
         }),
-      })
+      }, apiFetch)
 
       sessionStorage.setItem("jc_voucher_token", voucherToken)
       const { token, url } = await createWebpayPayment(bookingId)
@@ -1664,7 +1664,7 @@ function ConfirmationContent() {
                     </div>
                   </div>
 
-                  <div className="mt-5 flex items-center justify-between gap-4 rounded-2xl px-5 py-4" style={{ backgroundColor: "#EEF8F2" }}>
+                  <div className="mt-5 flex flex-col gap-4 rounded-2xl px-5 py-4 sm:flex-row sm:items-center sm:justify-between" style={{ backgroundColor: "#EEF8F2" }}>
                     <div className="flex min-w-0 items-center gap-4">
                       <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#D5F1E2" }}>
                         <Building2 size={30} style={{ color: "#08785B" }} />
@@ -1674,7 +1674,7 @@ function ConfirmationContent() {
                         <p className="mt-1 text-base" style={{ color: "#0A1830" }}>70% restante del alojamiento</p>
                       </div>
                     </div>
-                    <p className="flex-shrink-0 text-3xl font-bold" style={{ color: "#08785B" }}>{formatClp(payAtHotelPrice)}</p>
+                    <p className="flex-shrink-0 text-2xl font-bold sm:text-right sm:text-3xl" style={{ color: "#08785B" }}>{formatClp(payAtHotelPrice)}</p>
                   </div>
 
                   <div className="mt-6 flex flex-col gap-3">

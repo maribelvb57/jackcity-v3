@@ -127,13 +127,9 @@ export async function getMyBookings(apiFetch: ApiFetch): Promise<MyBookingsRespo
   return apiFetch("/api/me/bookings")
 }
 
-export async function confirmBooking(params: ConfirmBookingParams): Promise<ConfirmBookingResult> {
-  const res = await fetch(`${API_BASE}/api/bookings/confirm`, {
+export async function confirmBooking(params: ConfirmBookingParams, apiFetch: ApiFetch): Promise<ConfirmBookingResult> {
+  return apiFetch("/api/bookings/confirm", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   })
-
-  if (!res.ok) throw new Error(`Confirm booking failed: ${res.status}`)
-  return res.json()
 }
