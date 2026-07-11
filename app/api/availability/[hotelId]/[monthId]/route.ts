@@ -20,7 +20,7 @@ function generateMockAvailability(hotelId: number, monthId: string): HotelAvaila
   const dates: Record<number, DateAvailability> = {}
 
   for (let day = 1; day <= daysInMonth; day++) {
-    // Deterministic values based on day to avoid randomness otro commit
+    // Deterministic values based on day to avoid randomness otro commit mmmmppp
     const bookings = (day + month) % 10
     const capacity = 10 + (day % 5)
     const available = capacity - bookings
