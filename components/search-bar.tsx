@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { MapPin, CalendarDays, Dog, Truck, Search, ChevronDown, Plus, X, Check } from "lucide-react"
+import { MapPin, CalendarDays, Dog, Search, ChevronDown, Plus, X, Check } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
 import { DayPicker, DateRange } from "react-day-picker"
 import { format } from "date-fns"
@@ -132,6 +132,10 @@ export function SearchBar() {
     (m) => !!m.petId || (m.raza !== "Sin especificar" && (m.raza !== "Otra Raza o mestizo" || !!m.tamano))
   )
   const isSearchEnabled = !!(dateRange?.from && dateRange?.to) && allPetsValid
+
+  // Solo mostramos el motivo del botón deshabilitado después de que el usuario
+  // intentó buscar; nunca al entrar por primera vez sin haber hecho nada.
+  const [attemptedSearch, setAttemptedSearch] = useState(false)
 
   // Motivo concreto por el que "Buscar hotel" está deshabilitado, para no dejar
   // al usuario con el botón gris sin saber qué campo falta.
@@ -584,9 +588,12 @@ export function SearchBar() {
                 </label>
                 <button
                   type="button"
-                  disabled={!isSearchEnabled}
+                  aria-disabled={!isSearchEnabled}
                   onClick={() => {
-                    if (!isSearchEnabled || !dateRange?.from || !dateRange?.to) return
+                    if (!isSearchEnabled || !dateRange?.from || !dateRange?.to) {
+                      setAttemptedSearch(true)
+                      return
+                    }
                     const params = new URLSearchParams({
                       city,
                       checkin: format(dateRange.from, "yyyy-MM-dd"),
@@ -602,10 +609,10 @@ export function SearchBar() {
                     })
                     router.push(`/search?${params.toString()}`)
                   }}
-                  className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${isSearchEnabled ? "shadow-md hover:shadow-lg active:scale-95" : "cursor-not-allowed opacity-50"}`}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${isSearchEnabled ? "shadow-md hover:shadow-lg active:scale-95" : "cursor-not-allowed"}`}
                   style={{
-                    backgroundColor: isSearchEnabled ? accentColor : "#6B7280",
-                    color: "#fff",
+                    backgroundColor: isSearchEnabled ? accentColor : "#9CA3AF",
+                    color: isSearchEnabled ? "#fff" : "#F3F4F6",
                     boxShadow: isSearchEnabled ? "0 10px 24px rgba(217, 114, 48, 0.35)" : "none",
                   }}
                   onMouseEnter={(e) => { if (isSearchEnabled) (e.currentTarget.style.backgroundColor = accentHover) }}
@@ -617,7 +624,7 @@ export function SearchBar() {
               </div>
             </div>
 
-            {searchDisabledReason && (
+            {attemptedSearch && searchDisabledReason && (
               <p className="mt-2 text-sm font-medium md:text-right" style={{ color: "#8A1C1C" }}>
                 {searchDisabledReason}
               </p>
@@ -625,7 +632,7 @@ export function SearchBar() {
 
             {/* Transport checkbox */}
             <div className="mt-3 pt-3 border-t flex flex-col gap-3 md:flex-row md:items-center md:gap-4" style={{ borderColor: "rgba(10, 24, 48, 0.18)" }}>
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2.5 pl-2 md:pl-3">
                 <button
                   type="button"
                   role="checkbox"
@@ -643,8 +650,8 @@ export function SearchBar() {
                     </svg>
                   )}
                 </button>
-                <Truck size={15} style={{ color: "#0A1830", flexShrink: 0 }} />
-                <span className="text-sm" style={{ color: helperColor }}>
+                <span className="text-xl leading-none flex-shrink-0" aria-hidden="true">🚘</span>
+                <span className="text-base font-medium" style={{ color: helperColor }}>
                   Necesito transporte para mi mascota
                 </span>
               </div>
