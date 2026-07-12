@@ -123,7 +123,7 @@ export function PricingAndDiscounts({ hotelId }: { hotelId: string }) {
 
   const { data: hotelInfo, isLoading, isError } = useQuery({
     queryKey: ["hotel-info", hotelId],
-    queryFn: () => getHotelInfo(hotelId),
+    queryFn: () => getHotelInfo(hotelId, apiFetch),
     enabled: !!hotelId,
     staleTime: 5 * 60 * 1000,
   })

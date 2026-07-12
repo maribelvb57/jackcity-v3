@@ -1,4 +1,4 @@
-import { API_BASE } from "./config"
+import type { ApiFetch } from "@/lib/api/types"
 
 export type HotelInfoPolicy = {
   description: string
@@ -39,8 +39,6 @@ export type HotelInfoResponse = {
   usuarios: HotelInfoUser[]
 }
 
-export async function getHotelInfo(hotelId: string): Promise<HotelInfoResponse> {
-  const res = await fetch(`${API_BASE}/api/hotel/info/${hotelId}`)
-  if (!res.ok) throw new Error(`Hotel info failed: ${res.status}`)
-  return res.json()
+export async function getHotelInfo(hotelId: string, apiFetch: ApiFetch): Promise<HotelInfoResponse> {
+  return apiFetch(`/api/hotel/info/${hotelId}`)
 }
