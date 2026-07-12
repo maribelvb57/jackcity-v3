@@ -7,6 +7,7 @@ import { formatClp } from "@/lib/format"
 import { getCommuneNameByCode } from "@/config/communes"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
 import { getHotelInfo } from "@/lib/api/hotel-info"
+import { useApiClient } from "@/hooks/use-api-client"
 import {
   MapPin,
   Clock,
@@ -52,9 +53,10 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
 }
 
 function HotelInfoContent({ hotelId }: { hotelId: string }) {
+  const { apiFetch } = useApiClient()
   const { data, isLoading, isError } = useQuery({
     queryKey: ["hotel-info", hotelId],
-    queryFn: () => getHotelInfo(hotelId),
+    queryFn: () => getHotelInfo(hotelId, apiFetch),
     enabled: !!hotelId,
   })
 
