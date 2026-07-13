@@ -1,6 +1,6 @@
 export const ZONE_COMMUNES: Record<string, string[]> = {
-  "Santiago Oriente": ["LRE", "LCO", "LBA", "NUN", "PEN", "PRO", "MAC", "VIT"],
-  "Norte de Santiago": ["CHI", "HUE", "REC"],
-  "Santiago Poniente": ["SAN"],
-  "Sur de Santiago":   ["LFL", "SJO", "SMI"],
+  "Santiago Oriente": ["LA_REINA", "LAS_CONDES", "LO_BARNECHEA", "NUNOA", "PENALOLEN", "PROVIDENCIA", "MACUL", "VITACURA"],
+  "Norte de Santiago": ["CHICUREO", "HUECHURABA", "RECOLETA"],
+  "Santiago Poniente": ["SANTIAGO"],
+  "Sur de Santiago":   ["LA_FLORIDA", "SAN_JOAQUIN", "SAN_MIGUEL"],
 }
