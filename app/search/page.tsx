@@ -78,7 +78,7 @@ function hotelToCardData(
     scoreLabel: hotel.avgRating != null ? getScoreLabel(hotel.avgRating) : CARD_DEFAULTS.scoreLabel,
     reviewCount: hotel.reviewsCount ?? CARD_DEFAULTS.reviewCount,
     address: [hotel.addressStreet, hotel.commune].filter(Boolean).join(", ") || CARD_DEFAULTS.address,
-    features: hotel.mainBenefits.map((b) => b.name),
+    features: (hotel.mainBenefits ?? []).map((b) => b.name),
     petCount,
     nights,
     price: hotel.pricing?.totalPrice ?? CARD_DEFAULTS.price,
@@ -193,7 +193,7 @@ function SearchPageContent() {
     .map((h, originalIndex) => ({ hotel: h, originalIndex }))
     .filter(({ hotel: h }) => !allowedCommunes || allowedCommunes.includes(h.communeCode ?? ""))
     .filter(({ hotel: h }) => presupuesto === 0 || (h.pricing?.totalPrice ?? 0) <= presupuesto)
-    .filter(({ hotel: h }) => selectedBenefits.length === 0 || selectedBenefits.every((code) => h.benefits.some((b) => b.code === code)))
+    .filter(({ hotel: h }) => selectedBenefits.length === 0 || selectedBenefits.every((code) => (h.benefits ?? []).some((b) => b.code === code)))
     .filter(({ hotel: h }) => (h.avgRating ?? 0) >= puntuacionMin)
     .sort((a, b) => {
       if (ordenarPor === "Precio menor a mayor") return (a.hotel.pricing?.totalPrice ?? 0) - (b.hotel.pricing?.totalPrice ?? 0)
