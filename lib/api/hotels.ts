@@ -70,9 +70,18 @@ export type SearchResult = {
   hotels: Hotel[]
 }
 
+// Mascota para la búsqueda (shape del contrato /api/hotels/search):
+// id = petId cuando lo conocemos (usuario logueado con mascota guardada), null si no.
+// breed = code de la raza (null si no se especificó). size = enum de tamaño.
+export type SearchPet = {
+  id: string | null
+  breed: string | null
+  size: PetSize
+}
+
 export async function searchHotels(params: {
   city: string
-  mascotas: { tamano: string }[]
+  pets: SearchPet[]
   startDate: Date
   endDate: Date
   needTransport: boolean
@@ -81,7 +90,7 @@ export async function searchHotels(params: {
 }): Promise<SearchResult> {
   const body = {
     city: params.city,
-    pets: params.mascotas.map((m) => ({ size: PET_SIZE_MAP[m.tamano] ?? "SMALL" })),
+    pets: params.pets.map((p) => ({ id: p.id ?? null, breed: p.breed ?? null, size: p.size })),
     checkinDate: formatDate(params.startDate),
     checkoutDate: formatDate(params.endDate),
     needsTransport: params.needTransport,

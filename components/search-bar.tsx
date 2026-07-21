@@ -10,37 +10,19 @@ import { es } from "date-fns/locale"
 import { useSearchStore } from "@/providers/search-store-provider"
 import { defaultMascota, type Mascota } from "@/stores/search-store"
 import { PET_SIZE_LABEL, PET_SIZE_MAP, type PetSize } from "@/lib/api/hotels"
+import { DOG_BREEDS, breedDisplayLabel, getBreedByCode, getBreedSizeByCode, resolveBreedCode, OTHER_BREED_CODE } from "@/lib/dog-breeds"
 import { encodePetBreeds, parsePetBreedsParam, encodePetIds, parsePetIdsParam } from "@/lib/search-pets"
 import { getMyProfile } from "@/lib/api/customers"
 import { useApiClient } from "@/hooks/use-api-client"
 import { TRANSPORT_COMMUNES, getTransportCommuneByCode } from "@/config/transport-communes"
 import "react-day-picker/style.css"
 
-const RAZAS_TAMANOS: Record<string, string> = {
-  "Akita Inu": "Grande",
-  "Beagle": "Mediano",
-  "Border Collie": "Mediano",
-  "Boxer": "Grande",
-  "Bulldog Francés": "Pequeño",
-  "Chihuahua": "Pequeño",
-  "Cocker Spaniel": "Mediano",
-  "Dachshund": "Pequeño",
-  "Golden Retriever": "Grande",
-  "Husky Siberiano": "Grande",
-  "Labrador Retriever": "Grande",
-  "Maltés": "Pequeño",
-  "Pastor Alemán": "Grande",
-  "Pitbull Terrier Americano": "Mediano",
-  "Poodle": "Pequeño",
-  "Pug": "Pequeño",
-  "Rottweiler": "Extra Grande",
-  "Schnauzer": "Pequeño",
-  "Shih Tzu": "Pequeño",
-  "Yorkshire Terrier": "Pequeño",
-  "Otra Raza o mestizo": "",
-}
-
-const RAZAS = ["Sin especificar", ...Object.keys(RAZAS_TAMANOS)]
+// Opciones del combobox de raza: value = code (lo que manejamos internamente), label = texto al usuario.
+// "Sin especificar" es el centinela de "sin elegir" (se filtra antes de enviar).
+const RAZA_OPTIONS = [
+  { value: "Sin especificar", label: "Sin especificar" },
+  ...DOG_BREEDS.map((b) => ({ value: b.code, label: breedDisplayLabel(b) })),
+]
 
 const TAMANOS = ["Pequeño", "Mediano", "Grande", "Extra Grande"]
 
@@ -101,7 +83,7 @@ export function SearchBar() {
   useEffect(() => {
     if (!isSignedIn || !clerkUser?.id) return
     getMyProfile(apiFetch)
-      .then(data => setSavedPets(data.pets.filter(p => p.active).map(p => ({ id: String(p.id), name: p.name, breed: p.breed, size: p.size }))))
+      .then(data => setSavedPets(data.pets.filter(p => p.active).map(p => ({ id: String(p.id), name: p.name, breed: resolveBreedCode(p.breed), size: p.size }))))
       .catch(() => {})
   }, [isSignedIn, clerkUser?.id])
 
@@ -129,7 +111,7 @@ export function SearchBar() {
   // Las mascotas registradas (con petId) ya vienen validadas desde la BD; solo
   // exigimos raza/tamaño a las mascotas anónimas que el usuario configura a mano.
   const allPetsValid = effectiveMascotas.length > 0 && effectiveMascotas.every(
-    (m) => !!m.petId || (m.raza !== "Sin especificar" && (m.raza !== "Otra Raza o mestizo" || !!m.tamano))
+    (m) => !!m.petId || (m.raza !== "Sin especificar" && (m.raza !== OTHER_BREED_CODE || !!m.tamano))
   )
   const isSearchEnabled = !!(dateRange?.from && dateRange?.to) && allPetsValid
 
@@ -144,7 +126,7 @@ export function SearchBar() {
     if (!dateRange?.from || !dateRange?.to) return "Selecciona las fechas de tu estadía."
     if (effectiveMascotas.length === 0) return "Agrega al menos una mascota."
     const invalid = effectiveMascotas.find(
-      (m) => !m.petId && (m.raza === "Sin especificar" || (m.raza === "Otra Raza o mestizo" && !m.tamano))
+      (m) => !m.petId && (m.raza === "Sin especificar" || (m.raza === OTHER_BREED_CODE && !m.tamano))
     )
     if (invalid) {
       return invalid.raza === "Sin especificar"
@@ -205,7 +187,10 @@ export function SearchBar() {
         Array.from({ length: petCount }, (_, index) => {
           const raza = petBreeds[index] ?? "Sin especificar"
           const sizeCode = petSizes[index] as PetSize | undefined
-          const tamano = sizeCode ? PET_SIZE_LABEL[sizeCode] ?? "" : RAZAS_TAMANOS[raza] ?? ""
+          const inferredSize = getBreedSizeByCode(raza)
+          const tamano = sizeCode
+            ? PET_SIZE_LABEL[sizeCode] ?? ""
+            : inferredSize ? PET_SIZE_LABEL[inferredSize] : ""
           return { raza, tamano, petId: petIds[index] ?? null }
         })
       )
@@ -223,8 +208,11 @@ export function SearchBar() {
       prev.map((m: Mascota, i: number) => {
         if (i !== index) return m
         if (field === "raza") {
-          const autoTamano = RAZAS_TAMANOS[value] ?? ""
-          return { ...m, raza: value, tamano: autoTamano }
+          const inferredSize = getBreedSizeByCode(value)
+          const autoTamano = inferredSize ? PET_SIZE_LABEL[inferredSize] : ""
+          // Cambiar la raza a mano significa que ya no es la mascota guardada:
+          // limpiamos petId para no enviar un id que no corresponde a esta raza.
+          return { ...m, raza: value, tamano: autoTamano, petId: null }
         }
         return { ...m, [field]: value }
       })
@@ -443,7 +431,7 @@ export function SearchBar() {
                               </div>
                               <span className="text-sm" style={{ color: "#0A1830" }}>
                                 {pet.name}{" "}
-                                <span style={{ color: helperColor }}>({pet.breed} / {sizeLabel})</span>
+                                <span style={{ color: helperColor }}>({getBreedByCode(pet.breed)?.label ?? pet.breed} / {sizeLabel})</span>
                               </span>
                             </button>
                           )
@@ -468,13 +456,13 @@ export function SearchBar() {
                                   <select value={mascota.raza} onChange={(e) => updateMascota(globalIdx, "raza", e.target.value)}
                                     className="w-full appearance-none px-3 py-1.5 pr-8 rounded-lg border text-sm"
                                     style={{ backgroundColor: "#fff", borderColor: inputBorder, color: "#0A1830" }}>
-                                    {RAZAS.map(r => <option key={r} value={r}>{r}</option>)}
+                                    {RAZA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                   </select>
                                   <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: fieldIconColor }} />
                                 </div>
                               </div>
                               {(() => {
-                                const isOtraRaza = mascota.raza === "Otra Raza o mestizo"
+                                const isOtraRaza = mascota.raza === OTHER_BREED_CODE
                                 const isDisabled = !isOtraRaza
                                 return (
                                   <div className="flex items-center gap-3">
@@ -527,13 +515,13 @@ export function SearchBar() {
                                 <select value={mascota.raza} onChange={(e) => updateMascota(index, "raza", e.target.value)}
                                   className="w-full appearance-none px-3 py-1.5 pr-8 rounded-lg border text-sm"
                                   style={{ backgroundColor: "#fff", borderColor: inputBorder, color: "#0A1830" }}>
-                                  {RAZAS.map(r => <option key={r} value={r}>{r}</option>)}
+                                  {RAZA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                                 </select>
                                 <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: fieldIconColor }} />
                               </div>
                             </div>
                             {(() => {
-                              const isOtraRaza = mascota.raza === "Otra Raza o mestizo"
+                              const isOtraRaza = mascota.raza === OTHER_BREED_CODE
                               const isDisabled = !isOtraRaza
                               return (
                                 <div className="flex items-center gap-3">
@@ -600,7 +588,9 @@ export function SearchBar() {
                       checkout: format(dateRange.to, "yyyy-MM-dd"),
                       pets: effectiveMascotas.map((m) => PET_SIZE_MAP[m.tamano] ?? "SMALL").join(","),
                       breeds: encodePetBreeds(effectiveMascotas.map((m) => m.raza)),
-                      petIds: encodePetIds(effectiveMascotas.map((m) => m.petId ?? null)),
+                      // Un invitado no tiene mascotas guardadas: forzamos petId=null para no arrastrar
+                      // un id viejo de una búsqueda previa (logueada).
+                      petIds: encodePetIds(effectiveMascotas.map((m) => (isSignedIn ? (m.petId ?? null) : null))),
                       transport: String(needsTransport),
                       ...(needsTransport && {
                         communeCode: transportCommuneCode,

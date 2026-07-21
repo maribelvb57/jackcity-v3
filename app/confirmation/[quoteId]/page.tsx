@@ -309,7 +309,7 @@ function ConfirmationContent() {
 
   const { data: quote, isLoading, isError } = useQuery({
     queryKey: ["quote", quoteId],
-    queryFn: () => getQuote(quoteId),
+    queryFn: () => getQuote(quoteId, apiFetch),
     enabled: !!quoteId,
   })
 

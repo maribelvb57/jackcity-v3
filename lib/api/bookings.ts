@@ -133,3 +133,137 @@ export async function confirmBooking(params: ConfirmBookingParams, apiFetch: Api
     body: JSON.stringify(params),
   })
 }
+
+// Paso 1 del flujo por secciones: guarda los datos del tutor ("Mis datos").
+// address es opcional: por ahora la sección 1 no captura dirección (ver /booking/confirmation).
+export type SaveBookingUserParams = {
+  quoteId: string
+  user: {
+    firstName: string
+    lastName: string
+    email: string
+    phone: string
+    rut: string
+    saveUserData: boolean
+    address?: {
+      street: string
+      number?: string
+      apartment?: string
+      commune: string
+      city: string
+      country: string
+      reference?: string
+    }
+  }
+}
+
+export type SaveBookingUserResult = {
+  userId: string | null
+  // bookingId de la reserva creada en este paso; requerido para encadenar /savepets.
+  bookingId: string
+}
+
+export async function saveBookingUser(params: SaveBookingUserParams, apiFetch: ApiFetch): Promise<SaveBookingUserResult> {
+  return apiFetch("/api/bookings/confirm/saveuser", {
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+}
+
+// Paso 2 del flujo por secciones: guarda las mascotas ("Mis mascotas").
+// pet.id va en null cuando el usuario no está logueado (se crean nuevas mascotas).
+export type SaveBookingPetsParams = {
+  quoteId: string
+  userId: string | null
+  // bookingId devuelto por /saveuser; requerido para asociar las mascotas a la reserva.
+  bookingId: string
+  pets: {
+    id: string | null
+    breed: string
+    size: string
+    name: string
+    gender: string
+    weight?: number
+    color?: string
+    age?: number
+  }[]
+}
+
+export type SaveBookingPetsResult = {
+  petIds: string[]
+}
+
+export async function saveBookingPets(params: SaveBookingPetsParams, apiFetch: ApiFetch): Promise<SaveBookingPetsResult> {
+  return apiFetch("/api/bookings/confirm/savepets", {
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+}
+
+// Paso 3 del flujo por secciones: trae los requisitos del hotel para pintar la sección.
+// El backend responde por requisito (cada request con su pets[] anidado). El frontend
+// pivotea a "por mascota" para el render; los textos no se duplican en el payload.
+export type GetBookingRequestsParams = {
+  bookingId: string
+}
+
+export type BookingRequestPet = {
+  petId: string
+  petName: string
+  // breed llega como breed-code; usar getBreedByCode para el nombre visible.
+  breed: string
+  gender: string
+  foundValidFile: boolean
+  petDocumentId: string | null
+  validUntil: string | null
+}
+
+export type BookingRequest = {
+  id: number
+  title: string
+  description: string | null
+  status: string
+  documentType: string | null
+  fileText: string | null
+  fileTypes: string[] | null
+  maxFileSize: number | null
+  // "FILE" (UploadCloud) | "PHOTO" (Camera) | otros → fallback a UploadCloud
+  icon: string | null
+  reviewerText: string | null
+  fileRequired: boolean
+  // El backend puede omitir pets (o mandarlo null) en requisitos de nivel reserva.
+  pets: BookingRequestPet[] | null
+}
+
+export type GetBookingRequestsResult = {
+  bookingId: string
+  checkOut: string
+  requests: BookingRequest[]
+}
+
+export async function getBookingRequests(params: GetBookingRequestsParams, apiFetch: ApiFetch): Promise<GetBookingRequestsResult> {
+  return apiFetch("/api/bookings/confirm/getrequests", {
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+}
+
+// Paso 4 del flujo por secciones: crea la reserva y devuelve lo mismo que el viejo /confirm
+// (bookingId + voucherToken), para continuar con el pago Webpay.
+// transport es opcional y por ahora se omite (se sumará más adelante).
+export type GoToPayParams = {
+  quoteId: string
+  // bookingId devuelto por /saveuser; requerido para finalizar la reserva y pasar al pago.
+  bookingId: string
+  transport?: {
+    departureSlot: string
+    returnSlot: string
+  }
+}
+
+export async function gotoPay(params: GoToPayParams, apiFetch: ApiFetch): Promise<ConfirmBookingResult> {
+  return apiFetch("/api/bookings/confirm/gotopay", {
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+}

@@ -1,5 +1,5 @@
 import type { PetPayload } from "./hotel-detail"
-import { API_BASE } from "./config"
+import type { ApiFetch } from "@/lib/api/types"
 
 export type QuoteHotel = {
   id: string
@@ -42,6 +42,7 @@ export async function createQuote(params: {
   transportCommune?: string
   searchId: string
   listIndex: number
+  apiFetch: ApiFetch
 }): Promise<Quote> {
   const body: Record<string, unknown> = {
     hotelId: params.hotelId,
@@ -56,18 +57,14 @@ export async function createQuote(params: {
     pets: params.pets,
   }
 
-  const res = await fetch(`${API_BASE}/api/quotes`, {
+  // apiFetch agrega Authorization (bearer si hay sesión) + X-Visitor-Id / X-Session-Id.
+  return params.apiFetch("/api/quotes", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   })
-
-  if (!res.ok) throw new Error(`Create quote failed: ${res.status}`)
-  return res.json()
 }
 
-export async function getQuote(quoteId: string): Promise<Quote> {
-  const res = await fetch(`${API_BASE}/api/quotes/${quoteId}`)
-  if (!res.ok) throw new Error(`Get quote failed: ${res.status}`)
-  return res.json()
+// apiFetch agrega Authorization (bearer si hay sesión) + X-Visitor-Id / X-Session-Id.
+export async function getQuote(quoteId: string, apiFetch: ApiFetch): Promise<Quote> {
+  return apiFetch(`/api/quotes/${quoteId}`)
 }

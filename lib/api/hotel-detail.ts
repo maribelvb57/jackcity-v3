@@ -1,4 +1,4 @@
-import { API_BASE } from "./config"
+import type { ApiFetch } from "@/lib/api/types"
 
 export type HotelDetailBenefit = {
   name: string
@@ -53,6 +53,7 @@ export async function getHotelBookingDetail(params: {
   transportCommune?: string
   searchId: string
   listIndex: number
+  apiFetch: ApiFetch
 }): Promise<HotelDetail> {
   const body: Record<string, unknown> = {
     hotelId: params.hotelId,
@@ -67,17 +68,12 @@ export async function getHotelBookingDetail(params: {
     pets: params.pets,
   }
 
-  const res = await fetch(`${API_BASE}/api/hotels/booking-detail`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
+  // apiFetch agrega Authorization (bearer si hay sesión) + X-Visitor-Id / X-Session-Id.
+  const data = await params.apiFetch<{ hotel: HotelDetail; transport?: HotelDetailTransport | null; pricing?: HotelDetail["pricing"] }>(
+    "/api/hotels/booking-detail",
+    { method: "POST", body: JSON.stringify(body) }
+  )
 
-  if (!res.ok) {
-    throw new Error(`Hotel detail failed: ${res.status}`)
-  }
-
-  const data = await res.json()
   return {
     ...data.hotel,
     transport: data.transport ?? null,

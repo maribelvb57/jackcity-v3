@@ -61,7 +61,7 @@ export function PrivacidadDatosContent() {
         <ul className="flex flex-col gap-1.5 pl-5 list-disc">
           <li>Procesar cotizaciones, reservas y pagos.</li>
           <li>Confirmar disponibilidad con hoteles asociados.</li>
-          <li>Coordinar estadías y transporte de mascotas.</li>
+          <li>Coordinar estadías y el servicio de transporte prestado por los hoteles asociados.</li>
           <li>Enviar confirmaciones, recordatorios y comunicaciones relacionadas con la reserva.</li>
           <li>Crear o administrar cuentas de usuario, cuando corresponda.</li>
           <li>Guardar datos de usuarios y mascotas si el usuario decide hacerlo.</li>
@@ -79,8 +79,10 @@ export function PrivacidadDatosContent() {
         <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>4. Con quién compartimos datos</h3>
         <p>JackCity podrá compartir datos necesarios con:</p>
         <ul className="flex flex-col gap-1.5 pl-5 list-disc">
-          <li>Hoteles o prestadores asociados, para gestionar la estadía de la mascota.</li>
-          <li>Proveedores de transporte, si el usuario contrata este servicio.</li>
+          <li>
+            Hoteles o prestadores asociados, para gestionar la estadía de la mascota y, cuando
+            corresponda, el transporte contratado.
+          </li>
           <li>Proveedores de pago, como Transbank u otros procesadores.</li>
           <li>
             Proveedores tecnológicos, hosting, autenticación, correo, analítica, almacenamiento
@@ -89,6 +91,12 @@ export function PrivacidadDatosContent() {
           <li>Autoridades públicas, cuando exista obligación legal.</li>
         </ul>
         <p>Solo compartimos la información necesaria para cumplir la finalidad correspondiente.</p>
+        <p>
+          Los hoteles asociados solo pueden usar los datos personales recibidos a través de la
+          plataforma para gestionar las reservas correspondientes, conforme a la legislación
+          chilena de protección de datos personales, y no están autorizados a usarlos para otros
+          fines ni a compartirlos con terceros.
+        </p>
       </section>
 
       <section className="flex flex-col gap-2">
@@ -98,8 +106,8 @@ export function PrivacidadDatosContent() {
         </p>
         <p>
           El usuario entiende que ciertos datos de la mascota deberán ser compartidos con el
-          hotel seleccionado y, si corresponde, con el equipo de transporte, para poder prestar
-          correctamente el servicio.
+          hotel seleccionado para poder prestar correctamente el servicio de alojamiento y, si
+          corresponde, de transporte.
         </p>
       </section>
 
@@ -133,7 +141,8 @@ export function PrivacidadDatosContent() {
         <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>8. Derechos del usuario</h3>
         <p>
           El usuario podrá solicitar acceso, rectificación, actualización o eliminación de sus
-          datos personales, cuando corresponda conforme a la legislación aplicable.
+          datos personales, cuando corresponda conforme a la legislación chilena de protección de
+          datos personales.
         </p>
         <p>Para ejercer estos derechos, podrá escribir a:</p>
         <p className="font-semibold" style={{ color: "#0A1830" }}>contacto@jackcity.cl</p>

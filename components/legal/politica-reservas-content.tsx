@@ -21,6 +21,10 @@ export function PoliticaReservasContent() {
           Mientras el pago no haya sido aprobado, la reserva no se entenderá confirmada y la
           disponibilidad del hotel podría cambiar.
         </p>
+        <p>
+          Al momento de reservar, la plataforma informará al usuario la fecha y hora exacta hasta
+          la cual podrá cancelar gratuitamente su reserva.
+        </p>
       </section>
 
       <section className="flex flex-col gap-2">
@@ -36,19 +40,24 @@ export function PoliticaReservasContent() {
         </p>
         <p>
           JackCity actúa como intermediario tecnológico para facilitar la búsqueda, selección,
-          pago inicial y confirmación de la reserva.
+          pago inicial y confirmación de la reserva. El hotel es responsable de emitir la boleta o
+          factura correspondiente por el valor total de los servicios prestados.
         </p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>3. Transporte JackCity</h3>
+        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>3. Servicio de transporte</h3>
         <p>
-          En caso de que el usuario seleccione el servicio de transporte para su mascota, dicho
-          servicio deberá ser pagado en un 100% al momento de confirmar la reserva.
+          Algunos hoteles ofrecen servicio de transporte para las mascotas, el cual puede ser
+          contratado a través de la plataforma junto con la reserva de alojamiento.
         </p>
         <p>
-          El transporte está sujeto a disponibilidad por fecha, comuna, zona de cobertura y
-          franja horaria seleccionada.
+          En caso de que el usuario seleccione el servicio de transporte, dicho servicio deberá
+          ser pagado en un 100% al momento de confirmar la reserva.
+        </p>
+        <p>
+          El transporte es prestado por el hotel correspondiente y está sujeto a disponibilidad
+          por fecha, comuna, zona de cobertura y franja horaria seleccionada.
         </p>
         <p>
           La contratación del transporte es opcional y se mostrará separada del valor del
@@ -110,25 +119,27 @@ export function PoliticaReservasContent() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>Cancelaciones y devoluciones</h3>
+        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>8. Cancelaciones y devoluciones</h3>
         <p>
           El usuario podrá cancelar su reserva conforme a la Política de cancelación y
           devoluciones vigente en JackCity.
         </p>
         <p>
-          Como regla general, las reservas canceladas hasta <strong>48 horas antes del
-          check-in</strong> tendrán devolución del <strong>100% de lo pagado</strong> al momento
-          de reservar.
+          Como regla general, las reservas canceladas hasta las{" "}
+          <strong>17:00 horas (hora de Chile) de dos días antes de la fecha de check-in</strong>{" "}
+          tendrán devolución del <strong>100% de lo pagado</strong> al momento de reservar. La
+          plataforma informará al usuario el plazo exacto al momento de reservar.
         </p>
         <p>
-          Las cancelaciones realizadas con <strong>menos de 48 horas de anticipación</strong> no
-          tendrán devolución del anticipo de alojamiento, correspondiente al <strong>30% del
-          valor total del alojamiento</strong>.
+          Adicionalmente, toda reserva podrá cancelarse con devolución total dentro de las{" "}
+          <strong>2 horas siguientes a su creación</strong>, cualquiera sea la fecha de check-in.
         </p>
         <p>
-          Si el usuario contrató transporte, JackCity devolverá el <strong>100% del valor pagado
-          por transporte</strong>, según las condiciones indicadas en la Política de cancelación
-          y devoluciones.
+          Las cancelaciones realizadas <strong>después del plazo de cancelación gratuita</strong>{" "}
+          no tendrán devolución del anticipo de alojamiento, correspondiente al <strong>30% del
+          valor total del alojamiento</strong>. Si el usuario contrató transporte, se devolverá el{" "}
+          <strong>50% del valor pagado por dicho servicio</strong>, conforme a la Política de
+          cancelación y devoluciones.
         </p>
       </section>
     </div>

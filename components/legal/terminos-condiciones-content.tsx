@@ -18,25 +18,33 @@ export function TerminosCondicionesContent() {
           prestadores asociados.
         </p>
         <p>
-          JackCity también podrá ofrecer servicios complementarios, como transporte de mascotas,
-          comunicaciones, recordatorios, beneficios, promociones u otros servicios relacionados.
+          A través de JackCity también podrán contratarse servicios complementarios ofrecidos por
+          los hoteles asociados, como transporte de mascotas, además de comunicaciones,
+          recordatorios, beneficios, promociones u otros servicios relacionados.
         </p>
       </section>
 
       <section className="flex flex-col gap-2">
         <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>2. Rol de JackCity</h3>
         <p>
-          JackCity actúa como intermediario tecnológico entre usuarios y hoteles de mascotas.
+          JackCity actúa como intermediario tecnológico y comercial entre usuarios y hoteles de
+          mascotas.
         </p>
         <p>
-          Los servicios de alojamiento son prestados directamente por cada hotel o prestador
-          asociado, quienes son responsables de las condiciones, infraestructura, cuidado, manejo
-          y atención de las mascotas durante la estadía.
+          Los servicios de alojamiento y transporte son prestados directamente por cada hotel o
+          prestador asociado, quienes son responsables de las condiciones, infraestructura,
+          cuidado, manejo y atención de las mascotas durante toda la estadía, incluido el
+          transporte cuando corresponda.
         </p>
         <p>
-          JackCity facilita la búsqueda, disponibilidad, reserva, pago inicial y comunicación
-          entre las partes, pero no reemplaza la responsabilidad operacional del hotel respecto
-          del servicio contratado.
+          JackCity facilita la búsqueda, disponibilidad, reserva, cobro de los montos pagados en
+          la plataforma y comunicación entre las partes, pero no reemplaza la responsabilidad
+          operacional del hotel respecto del servicio contratado.
+        </p>
+        <p>
+          El hotel o prestador es responsable de emitir al usuario la boleta o factura
+          correspondiente por el valor total de los servicios de alojamiento y transporte
+          prestados.
         </p>
       </section>
 
@@ -74,9 +82,9 @@ export function TerminosCondicionesContent() {
           informado durante el proceso de reserva.
         </p>
         <p>
-          Para el modelo inicial de JackCity, el pago online corresponde al <strong>30%</strong>{" "}
+          Para el modelo actual de JackCity, el pago online corresponde al <strong>30%</strong>{" "}
           del valor total del alojamiento. El saldo restante, equivalente al <strong>70%</strong>,
-          será pagado directamente al hotel.
+          será pagado por el usuario directamente al hotel.
         </p>
         <p>
           Si el usuario contrata transporte, este servicio se pagará en un <strong>100%</strong>{" "}
@@ -87,6 +95,10 @@ export function TerminosCondicionesContent() {
           alojamiento, anticipo, saldo pendiente, transporte si aplica, impuestos o cargos que
           correspondan.
         </p>
+        <p>
+          Al momento de reservar, la plataforma informará al usuario la fecha y hora exacta hasta
+          la cual podrá cancelar gratuitamente.
+        </p>
       </section>
 
       <section className="flex flex-col gap-2">
@@ -95,19 +107,30 @@ export function TerminosCondicionesContent() {
           Las cancelaciones y devoluciones se regirán por la Política de cancelación y
           devoluciones publicada en JackCity.
         </p>
-        <p>
-          El usuario declara conocer y aceptar que, como regla general, podrá recibir devolución
-          total de lo pagado si cancela hasta <strong>48 horas antes del check-in</strong>.
-        </p>
-        <p>
-          Si cancela con <strong>menos de 48 horas de anticipación</strong>, JackCity podrá
-          retener el anticipo pagado por alojamiento, correspondiente al <strong>30% del valor
-          total del alojamiento</strong>.
-        </p>
-        <p>
-          El valor pagado por transporte será devuelto en un <strong>100%</strong> en caso de
-          cancelación, salvo que el servicio ya haya sido efectivamente prestado.
-        </p>
+        <p>El usuario declara conocer y aceptar que, como regla general:</p>
+        <ul className="flex flex-col gap-2 pl-5 list-disc">
+          <li>
+            Podrá recibir devolución total de lo pagado si cancela hasta las{" "}
+            <strong>17:00 horas (hora de Chile) de dos días antes de la fecha de check-in</strong>.
+          </li>
+          <li>
+            Toda reserva podrá cancelarse con devolución total dentro de las{" "}
+            <strong>2 horas siguientes a su creación</strong>, cualquiera sea la fecha de check-in.
+          </li>
+          <li>
+            Las reservas creadas después del plazo de cancelación gratuita no son reembolsables,
+            salvo la ventana de gracia de 2 horas.
+          </li>
+          <li>
+            Si cancela después del plazo de cancelación gratuita, o no se presenta (no-show),
+            JackCity retendrá el anticipo pagado por alojamiento, correspondiente al{" "}
+            <strong>30% del valor total del alojamiento</strong>.
+          </li>
+          <li>
+            Del valor pagado por transporte, en caso de cancelación fuera de plazo o no-show, se
+            devolverá el <strong>50%</strong> al usuario.
+          </li>
+        </ul>
       </section>
 
       <section className="flex flex-col gap-2">
@@ -120,6 +143,11 @@ export function TerminosCondicionesContent() {
         <p>
           JackCity hace esfuerzos razonables para mantener la información actualizada, pero la
           confirmación definitiva dependerá de la disponibilidad vigente al momento del pago.
+        </p>
+        <p>
+          Los hoteles asociados se obligan a respetar los precios y condiciones publicados en la
+          plataforma, de modo que el usuario no deberá pagar al hotel montos mayores a los
+          informados por el mismo servicio.
         </p>
       </section>
 

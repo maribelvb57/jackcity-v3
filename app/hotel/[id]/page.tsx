@@ -13,6 +13,7 @@ import { getHotelBookingDetail } from "@/lib/api/hotel-detail"
 import { createQuote } from "@/lib/api/quotes"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
 import { parsePetBreedsParam, parsePetIdsParam } from "@/lib/search-pets"
+import { useApiClient } from "@/hooks/use-api-client"
 import {
   MapPin,
   ChevronLeft,
@@ -46,6 +47,7 @@ function HotelDetailContent() {
   const router = useRouter()
   const { id: hotelId } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
+  const { apiFetch } = useApiClient()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isCreatingQuote, setIsCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState(false)
@@ -99,6 +101,7 @@ function HotelDetailContent() {
       transportCommune: transportParam ? communeCodeParam : undefined,
       searchId: searchIdParam,
       listIndex: listIndexParam,
+      apiFetch,
     }),
     enabled: !!hotelId && !!checkinParam && !!checkoutParam && !!searchIdParam,
   })
@@ -148,8 +151,9 @@ function HotelDetailContent() {
         transportCommune: transportParam ? communeCodeParam : undefined,
         searchId: searchIdParam,
         listIndex: listIndexParam,
+        apiFetch,
       })
-      router.push(`/confirmation/${quote.quoteId}`)
+      router.push(`/booking/confirmation/${quote.quoteId}`)
     } catch {
       setQuoteError(true)
       setIsCreatingQuote(false)

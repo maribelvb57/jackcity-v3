@@ -116,6 +116,7 @@ function SearchPageContent() {
   const breedsParam = searchParams.get("breeds") ?? ""
   const petBreeds = parsePetBreedsParam(breedsParam)
   const petIdsParam = searchParams.get("petIds") ?? ""
+  const petIds = parsePetIdsParam(petIdsParam)
   const transportParam = searchParams.get("transport") === "true"
   const communeCodeParam = searchParams.get("communeCode") ?? ""
   const selectedTransportCommune = communeCodeParam ? getTransportCommuneByCode(communeCodeParam) : undefined
@@ -154,12 +155,16 @@ function SearchPageContent() {
     isLoading,
     isError,
   } = useQuery({
-    queryKey: ["search-results", cityParam, fromParam, toParam, petsParam, breedsParam, transportParam, communeCodeParam],
+    queryKey: ["search-results", cityParam, fromParam, toParam, petsParam, breedsParam, petIdsParam, transportParam, communeCodeParam],
     queryFn: async (): Promise<SearchResult> => {
       if (!startDate || !endDate) return { searchId: "", hotels: [] }
       return searchHotels({
         city: cityParam,
-        mascotas: petSizes.map((s) => ({ tamano: PET_SIZE_LABEL[s] ?? "" })),
+        pets: petSizes.map((size, i) => ({
+          id: petIds[i] ?? null,
+          breed: petBreeds[i] ?? null,
+          size,
+        })),
         startDate,
         endDate,
         needTransport: transportParam,
