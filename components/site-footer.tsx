@@ -181,7 +181,7 @@ export function SiteFooter() {
               &copy; <span suppressHydrationWarning>{currentYear}</span> JackCity. Todos los derechos reservados.
             </p>
             <p className="text-xs" style={{ color: "#7F8897" }}>
-              v 5.9
+              v 5.9999999
             </p>
             <p className="text-xs" style={{ color: "#7F8897" }}>
               Hecho con amor para los perritos de Chile
