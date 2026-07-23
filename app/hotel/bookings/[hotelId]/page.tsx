@@ -1,6 +1,6 @@
 "use client"
 
-import { use, useMemo, useState } from "react"
+import { use, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
@@ -16,16 +16,22 @@ import {
   CreditCard,
   Info,
   X,
+  XCircle,
   LogIn,
   LogOut,
   Ban,
   Lock,
   Hourglass,
+  FileText,
+  Eye,
+  ArrowLeft,
+  Pencil,
 } from "lucide-react"
 import { ManagerLayout } from "@/components/manager-layout"
 import { useApiClient } from "@/hooks/use-api-client"
 import { formatClp } from "@/lib/format"
 import { getHotelBookings, confirmHotelBooking, checkInHotelBooking, checkOutHotelBooking, markNoShowHotelBooking, type HotelBooking, type HotelBookingStatus, type TransportSlot, type BookingPet } from "@/lib/api/hotel-bookings"
+import { getBookingDocuments, getPetDocumentDownloadUrl, approveBookingDocument, rejectBookingDocument, setBookingDocumentValidUntil, setBookingDocumentComments, type BookingDocumentsPet, type BookingDocumentStatus } from "@/lib/api/booking-documents"
 import { getBookingStatusLabel } from "@/lib/booking-status"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -297,6 +303,551 @@ function petNames(pets: HotelBooking["pets"]) {
   return `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`
 }
 
+// ─── Aprobación de documentos ────────────────────────────────────────────────
+// Datos reales desde GET /api/booking-documents/by-booking/{bookingId}.
+// Las acciones Aprobar/Rechazar y "Ver" aún no tienen endpoint (pendiente Maribel):
+// por ahora Aprobar/Rechazar sólo actualizan el estado visual local.
+
+const DOC_STATUS_META: Record<BookingDocumentStatus, { label: string; color: string; bg: string }> = {
+  UPLOADED: { label: "Pendiente", color: "#8A6D1C", bg: "#FEF3C7" },
+  APPROVED: { label: "Aprobado", color: "#08785B", bg: "#EAF8F3" },
+  REJECTED: { label: "Rechazado", color: "#9B1C1C", bg: "#FDE8E8" },
+}
+
+// Etiquetas de tipo de documento. Sólo conozco VACCINATION_CARD del backend; el
+// resto se "humaniza" hasta tener el enum completo (pendiente Maribel).
+const DOCUMENT_TYPE_LABEL: Record<string, string> = {
+  VACCINATION_CARD: "Carnet de Vacunas",
+}
+
+function humanizeEnum(value: string) {
+  return value
+    .toLowerCase()
+    .split("_")
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
+    .join(" ")
+}
+
+function docTypeLabel(type: string) {
+  return DOCUMENT_TYPE_LABEL[type] ?? humanizeEnum(type)
+}
+
+// Modal chico de confirmación para aprobar / rechazar un documento.
+function DocConfirmModal({
+  action,
+  docLabel,
+  petName,
+  isPending = false,
+  errorMessage,
+  onConfirm,
+  onCancel,
+}: {
+  action: "APPROVED" | "REJECTED"
+  docLabel: string
+  petName: string
+  isPending?: boolean
+  errorMessage?: string | null
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  const isApprove = action === "APPROVED"
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: "#1a3a5c" }}>
+          <span className="text-lg font-bold text-white">
+            {isApprove ? "Aprobar documento" : "Rechazar documento"}
+          </span>
+          <button onClick={onCancel} disabled={isPending} className="text-white hover:opacity-70 transition-opacity disabled:opacity-50" aria-label="Cerrar">
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="px-5 py-5">
+          <p className="text-sm font-medium leading-6" style={{ color: "#526071" }}>
+            {isApprove
+              ? "El documento quedará marcado como aprobado."
+              : "El documento quedará marcado como rechazado."}
+          </p>
+          <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}>
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "#9CA3AF" }}>Documento</p>
+            <p className="mt-1 text-sm font-bold" style={{ color: "#0A1830" }}>{docLabel}</p>
+            <p className="mt-0.5 text-xs font-semibold" style={{ color: "#8A94A6" }}>{petName}</p>
+          </div>
+          {errorMessage && (
+            <p className="mt-3 text-xs font-semibold" style={{ color: "#9B1C1C" }}>{errorMessage}</p>
+          )}
+        </div>
+
+        <div className="px-5 py-4 border-t flex justify-end gap-2" style={{ borderColor: "#E5E7EB" }}>
+          <button
+            onClick={onCancel}
+            disabled={isPending}
+            className="px-5 py-2 rounded-lg text-sm font-bold border transition-colors hover:bg-gray-50 disabled:opacity-50"
+            style={{ borderColor: "#E5E7EB", color: "#526071" }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={isPending}
+            className="px-5 py-2 rounded-lg text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ backgroundColor: isApprove ? "#08785B" : "#9B1C1C" }}
+          >
+            {isPending ? "Procesando..." : isApprove ? "Sí, aprobar" : "Sí, rechazar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Modal para editar los comentarios de un documento.
+function DocCommentsModal({
+  docLabel,
+  petName,
+  currentValue,
+  isPending = false,
+  errorMessage,
+  onSave,
+  onCancel,
+}: {
+  docLabel: string
+  petName: string
+  currentValue: string
+  isPending?: boolean
+  errorMessage?: string | null
+  onSave: (value: string) => void
+  onCancel: () => void
+}) {
+  const [value, setValue] = useState(currentValue)
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4" style={{ backgroundColor: "#1a3a5c" }}>
+          <span className="text-lg font-bold text-white">Comentarios</span>
+          <button onClick={onCancel} disabled={isPending} className="text-white hover:opacity-70 transition-opacity disabled:opacity-50" aria-label="Cerrar">
+            <X size={22} />
+          </button>
+        </div>
+
+        <div className="px-5 py-5">
+          <div className="rounded-lg border px-4 py-3" style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}>
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: "#9CA3AF" }}>Documento</p>
+            <p className="mt-1 text-sm font-bold" style={{ color: "#0A1830" }}>{docLabel}</p>
+            <p className="mt-0.5 text-xs font-semibold" style={{ color: "#8A94A6" }}>{petName}</p>
+          </div>
+
+          <div className="mt-4">
+            <label className="text-xs font-bold uppercase tracking-wide" style={{ color: "#9CA3AF" }}>
+              Comentarios
+            </label>
+            <textarea
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              disabled={isPending}
+              rows={4}
+              placeholder="Escribe un comentario…"
+              className="mt-1.5 w-full resize-none rounded-lg border px-3 py-2 text-sm outline-none focus:border-[#125BD8] disabled:opacity-60"
+              style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+            />
+          </div>
+
+          {errorMessage && (
+            <p className="mt-3 text-xs font-semibold" style={{ color: "#9B1C1C" }}>{errorMessage}</p>
+          )}
+        </div>
+
+        <div className="px-5 py-4 border-t flex justify-end gap-2" style={{ borderColor: "#E5E7EB" }}>
+          <button
+            onClick={onCancel}
+            disabled={isPending}
+            className="px-5 py-2 rounded-lg text-sm font-bold border transition-colors hover:bg-gray-50 disabled:opacity-50"
+            style={{ borderColor: "#E5E7EB", color: "#526071" }}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onSave(value)}
+            disabled={isPending}
+            className="px-5 py-2 rounded-lg text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
+          >
+            {isPending ? "Guardando..." : "Guardar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface DocRowState {
+  id: number
+  petDocumentId: string
+  label: string
+  status: BookingDocumentStatus
+  validUntil: string
+  comments: string
+}
+
+function PetDocumentsSection({ pet, bookingId }: { pet: BookingDocumentsPet; bookingId: string }) {
+  const { apiFetch } = useApiClient()
+  const queryClient = useQueryClient()
+  const [docs, setDocs] = useState<DocRowState[]>(() =>
+    pet.documents.map((d) => ({
+      id: d.id,
+      petDocumentId: d.petDocument.id,
+      label: docTypeLabel(d.petDocument.documentType),
+      status: d.status,
+      validUntil: d.petDocument.validUntil ? d.petDocument.validUntil.slice(0, 10) : "",
+      comments: d.comments ?? "",
+    }))
+  )
+
+  // Estado por fila para el botón "Ver": "loading" mientras pide la URL, "error" si falla.
+  const [viewState, setViewState] = useState<Record<number, "loading" | "error" | undefined>>({})
+
+  // Documento pendiente de confirmar aprobación/rechazo en el modal.
+  const [confirmDoc, setConfirmDoc] = useState<{ row: DocRowState; action: "APPROVED" | "REJECTED" } | null>(null)
+
+  // Documento cuyos comentarios se están editando en el modal.
+  const [editComments, setEditComments] = useState<{ row: DocRowState } | null>(null)
+
+  const approveMutation = useMutation({
+    mutationFn: (petDocumentId: string) => approveBookingDocument({ bookingId, petDocumentId }, apiFetch),
+  })
+
+  const rejectMutation = useMutation({
+    mutationFn: (petDocumentId: string) => rejectBookingDocument({ bookingId, petDocumentId }, apiFetch),
+  })
+
+  const validUntilMutation = useMutation({
+    mutationFn: (vars: { petDocumentId: string; validUntil: string }) =>
+      setBookingDocumentValidUntil(vars, apiFetch),
+  })
+
+  const commentsMutation = useMutation({
+    mutationFn: (vars: { petDocumentId: string; comments: string }) =>
+      setBookingDocumentComments({ bookingId, ...vars }, apiFetch),
+  })
+
+  const closeEditComments = () => {
+    setEditComments(null)
+    commentsMutation.reset()
+  }
+
+  const saveComments = (value: string) => {
+    if (!editComments) return
+    const { row } = editComments
+    commentsMutation.mutate(
+      { petDocumentId: row.petDocumentId, comments: value },
+      {
+        onSuccess: () => {
+          setComments(row.id, value)
+          queryClient.invalidateQueries({ queryKey: ["booking-documents", bookingId] })
+          closeEditComments()
+        },
+      }
+    )
+  }
+
+  const closeConfirm = () => {
+    setConfirmDoc(null)
+    approveMutation.reset()
+    rejectMutation.reset()
+  }
+
+  // Guarda la fecha "válido hasta" directamente al elegirla (sin modal). Optimista:
+  // actualiza la fila al instante y revierte si el guardado falla.
+  const [savingDateId, setSavingDateId] = useState<number | null>(null)
+  const saveValidUntil = (row: DocRowState, value: string) => {
+    if (!value || value === row.validUntil) return
+    const prev = row.validUntil
+    setValidUntil(row.id, value)
+    setSavingDateId(row.id)
+    validUntilMutation.mutate(
+      { petDocumentId: row.petDocumentId, validUntil: value },
+      {
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: ["booking-documents", bookingId] }),
+        onError: () => setValidUntil(row.id, prev),
+        onSettled: () => setSavingDateId(null),
+      }
+    )
+  }
+
+  const confirmAction = () => {
+    if (!confirmDoc) return
+    const { row, action } = confirmDoc
+    if (action === "APPROVED") {
+      approveMutation.mutate(row.petDocumentId, {
+        onSuccess: () => {
+          setStatus(row.id, "APPROVED")
+          queryClient.invalidateQueries({ queryKey: ["booking-documents", bookingId] })
+          closeConfirm()
+        },
+      })
+      return
+    }
+    // Rechazar
+    rejectMutation.mutate(row.petDocumentId, {
+      onSuccess: () => {
+        setStatus(row.id, "REJECTED")
+        queryClient.invalidateQueries({ queryKey: ["booking-documents", bookingId] })
+        closeConfirm()
+      },
+    })
+  }
+
+  const handleView = async (row: DocRowState) => {
+    // Abrimos la pestaña sincrónicamente (evita bloqueo de pop-ups) y luego la
+    // redirigimos a la URL presignada una vez resuelta.
+    const win = window.open("", "_blank")
+    setViewState((prev) => ({ ...prev, [row.id]: "loading" }))
+    try {
+      const { url } = await getPetDocumentDownloadUrl(pet.petId, row.petDocumentId, apiFetch)
+      if (win) win.location.href = url
+      else window.open(url, "_blank", "noopener,noreferrer")
+      setViewState((prev) => ({ ...prev, [row.id]: undefined }))
+    } catch {
+      if (win) win.close()
+      setViewState((prev) => ({ ...prev, [row.id]: "error" }))
+    }
+  }
+
+  const pendingCount = docs.filter((d) => d.status === "UPLOADED").length
+
+  const setStatus = (id: number, status: BookingDocumentStatus) =>
+    setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, status } : d)))
+  const setValidUntil = (id: number, validUntil: string) =>
+    setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, validUntil } : d)))
+  const setComments = (id: number, comments: string) =>
+    setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, comments } : d)))
+
+  const headerMeta = [
+    pet.breed ? humanizeEnum(pet.breed) : null,
+    pet.size ? (SIZE_LABEL[pet.size] ?? pet.size) : null,
+    pet.gender ? (GENDER_LABEL[pet.gender] ?? pet.gender) : null,
+  ].filter(Boolean).join(" · ")
+
+  return (
+    <>
+    <div className="overflow-hidden rounded-lg border" style={{ borderColor: "#E5E7EB" }}>
+      {/* Header mascota (primera fila) */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3" style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC" }}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border" style={{ borderColor: "#E5E7EB", backgroundColor: "#FFFFFF" }}>
+            <PawPrint size={20} style={{ color: "#1a3a5c" }} />
+          </div>
+          <div>
+            <p className="text-sm font-bold" style={{ color: "#0A1830" }}>{pet.petName}</p>
+            {headerMeta && (
+              <p className="mt-0.5 text-xs font-semibold" style={{ color: "#8A94A6" }}>{headerMeta}</p>
+            )}
+          </div>
+        </div>
+        <span
+          className="rounded-full px-3 py-1 text-xs font-bold"
+          style={{
+            backgroundColor: pendingCount > 0 ? "#FEF3C7" : "#EAF8F3",
+            color: pendingCount > 0 ? "#8A6D1C" : "#08785B",
+          }}
+        >
+          {pendingCount} pendiente{pendingCount === 1 ? "" : "s"} de {docs.length}
+        </span>
+      </div>
+
+      {/* Tabla de documentos */}
+      <div className="overflow-x-auto">
+        <div style={{ minWidth: 980 }}>
+          {/* Header */}
+          <div className="flex items-center gap-3 border-b px-4 py-2.5" style={{ borderColor: "#E5E7EB", backgroundColor: "#FBFCFD" }}>
+            <div className="flex-1 text-xs font-bold uppercase tracking-wide" style={{ color: "#8A94A6" }}>Documento</div>
+            <div className="w-24 text-xs font-bold uppercase tracking-wide" style={{ color: "#8A94A6" }}>Estado</div>
+            <div className="w-[300px] text-xs font-bold uppercase tracking-wide" style={{ color: "#8A94A6" }}>Acciones</div>
+            <div className="w-40 text-xs font-bold uppercase tracking-wide" style={{ color: "#8A94A6" }}>Válido hasta</div>
+            <div className="w-56 text-xs font-bold uppercase tracking-wide" style={{ color: "#8A94A6" }}>Comentarios</div>
+          </div>
+
+          {docs.length === 0 && (
+            <div className="px-4 py-6 text-center text-sm font-semibold" style={{ color: "#8A94A6" }}>
+              Esta mascota no tiene documentos cargados.
+            </div>
+          )}
+
+          {/* Filas */}
+          {docs.map((doc) => {
+            const sMeta = DOC_STATUS_META[doc.status]
+            const isApproved = doc.status === "APPROVED"
+            const isRejected = doc.status === "REJECTED"
+            return (
+              <div key={doc.id} className="flex items-center gap-3 border-b px-4 py-3 last:border-b-0" style={{ borderColor: "#EEF2F7" }}>
+                <div className="flex flex-1 items-center gap-2">
+                  <FileText size={16} style={{ color: "#8A94A6" }} />
+                  <span className="text-sm font-bold" style={{ color: "#0A1830" }}>{doc.label}</span>
+                </div>
+                <div className="w-24">
+                  <span className="inline-flex rounded-full px-2.5 py-1 text-xs font-bold" style={{ backgroundColor: sMeta.bg, color: sMeta.color }}>
+                    {sMeta.label}
+                  </span>
+                </div>
+                <div className="flex w-[300px] flex-shrink-0 items-center gap-2">
+                  {(() => {
+                    const vs = viewState[doc.id]
+                    const isError = vs === "error"
+                    return (
+                      <button
+                        type="button"
+                        title={isError ? "No se pudo abrir el documento. Reintentar" : "Ver documento"}
+                        disabled={vs === "loading"}
+                        onClick={() => handleView(doc)}
+                        className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors hover:bg-gray-50 disabled:opacity-60 disabled:cursor-not-allowed"
+                        style={{ borderColor: isError ? "#F5C6C6" : "#E5E7EB", color: isError ? "#9B1C1C" : "#526071" }}
+                      >
+                        <Eye size={14} /> {vs === "loading" ? "Abriendo…" : isError ? "Reintentar" : "Ver"}
+                      </button>
+                    )
+                  })()}
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDoc({ row: doc, action: "APPROVED" })}
+                    className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors hover:bg-[#EAF8F3]"
+                    style={{ borderColor: "#B7E4C7", color: "#08785B", backgroundColor: isApproved ? "#EAF8F3" : "#FFFFFF" }}
+                  >
+                    <CheckCircle2 size={14} /> Aprobar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDoc({ row: doc, action: "REJECTED" })}
+                    className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-colors hover:bg-[#FDE8E8]"
+                    style={{ borderColor: "#F5C6C6", color: "#9B1C1C", backgroundColor: isRejected ? "#FDE8E8" : "#FFFFFF" }}
+                  >
+                    <XCircle size={14} /> Rechazar
+                  </button>
+                </div>
+                <div className="w-40 flex-shrink-0">
+                  {isApproved ? (
+                    <input
+                      type="date"
+                      value={doc.validUntil}
+                      disabled={savingDateId === doc.id}
+                      onChange={(e) => saveValidUntil(doc, e.target.value)}
+                      className="w-full rounded-lg border px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-[#125BD8] disabled:opacity-60"
+                      style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                    />
+                  ) : (
+                    <span className="text-xs font-semibold" style={{ color: "#9CA3AF" }}>—</span>
+                  )}
+                </div>
+                <div className="flex w-56 flex-shrink-0 items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    {doc.comments ? (
+                      <p className="text-xs font-semibold leading-snug" style={{ color: "#526071" }} title={doc.comments}>
+                        {doc.comments}
+                      </p>
+                    ) : (
+                      <span className="text-xs font-semibold" style={{ color: "#9CA3AF" }}>—</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditComments({ row: doc })}
+                    title="Editar comentarios"
+                    aria-label="Editar comentarios"
+                    className="flex-shrink-0 rounded p-1 transition-colors hover:bg-gray-100"
+                  >
+                    <Pencil size={14} style={{ color: "#1a3a5c" }} />
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+
+    {confirmDoc && (
+      <DocConfirmModal
+        action={confirmDoc.action}
+        docLabel={confirmDoc.row.label}
+        petName={pet.petName}
+        isPending={confirmDoc.action === "APPROVED" ? approveMutation.isPending : rejectMutation.isPending}
+        errorMessage={
+          confirmDoc.action === "APPROVED"
+            ? approveMutation.isError
+              ? "No se pudo aprobar el documento. Intenta nuevamente."
+              : null
+            : rejectMutation.isError
+              ? "No se pudo rechazar el documento. Intenta nuevamente."
+              : null
+        }
+        onConfirm={confirmAction}
+        onCancel={closeConfirm}
+      />
+    )}
+
+    {editComments && (
+      <DocCommentsModal
+        docLabel={editComments.row.label}
+        petName={pet.petName}
+        currentValue={editComments.row.comments}
+        isPending={commentsMutation.isPending}
+        errorMessage={commentsMutation.isError ? "No se pudieron guardar los comentarios. Intenta nuevamente." : null}
+        onSave={saveComments}
+        onCancel={closeEditComments}
+      />
+    )}
+    </>
+  )
+}
+
+// Carga y renderiza la lista de documentos de un booking (cara trasera de la card).
+function BookingDocumentsFace({ bookingId, enabled }: { bookingId: string; enabled: boolean }) {
+  const { apiFetch } = useApiClient()
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ["booking-documents", bookingId],
+    queryFn: () => getBookingDocuments(bookingId, apiFetch),
+    enabled,
+  })
+
+  if (isLoading) {
+    return (
+      <div className="rounded-lg border px-4 py-8 text-center text-sm font-bold" style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+        Cargando documentos...
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-lg border px-4 py-8 text-center" style={{ borderColor: "#F3D1D1" }}>
+        <p className="text-sm font-bold" style={{ color: "#8A1C1C" }}>No pudimos cargar los documentos</p>
+        <button type="button" onClick={() => refetch()} className="mt-3 rounded-full px-4 py-2 text-xs font-bold" style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}>
+          Reintentar
+        </button>
+      </div>
+    )
+  }
+
+  const pets = data ?? []
+
+  if (pets.length === 0) {
+    return (
+      <div className="rounded-lg border px-4 py-8 text-center text-sm font-semibold" style={{ borderColor: "#E5E7EB", color: "#8A94A6" }}>
+        No hay documentos para esta reserva.
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      {pets.map((pet) => (
+        <PetDocumentsSection key={pet.petId} pet={pet} bookingId={bookingId} />
+      ))}
+    </div>
+  )
+}
+
 // ─── Booking Card ─────────────────────────────────────────────────────────────
 
 const ACTION_ICON: Record<BookingActionKey, typeof LogIn> = {
@@ -323,183 +874,333 @@ function BookingCard({
   const [selectedPet, setSelectedPet] = useState<BookingPet | null>(null)
   const actions = STATUS_ACTIONS[booking.status]
 
+  // Sólo las reservas pagadas pueden voltear a la vista de aprobación de documentos.
+  const canApproveDocs = booking.status === "PAID"
+  const [flipped, setFlipped] = useState(false)
+
+  // Documentos del booking (comparte caché con la cara trasera). Sirve para saber
+  // si ya están todos aprobados y pintar el botón en verde.
+  const { apiFetch } = useApiClient()
+  const { data: docsData } = useQuery({
+    queryKey: ["booking-documents", booking.id],
+    queryFn: () => getBookingDocuments(booking.id, apiFetch),
+    enabled: canApproveDocs,
+  })
+  const allDocsApproved = useMemo(() => {
+    const allDocs = (docsData ?? []).flatMap((p) => p.documents)
+    return allDocs.length > 0 && allDocs.every((d) => d.status === "APPROVED")
+  }, [docsData])
+  const anyDocRejected = useMemo(
+    () => (docsData ?? []).some((p) => p.documents.some((d) => d.status === "REJECTED")),
+    [docsData]
+  )
+
+  // El flip 3D apila ambas caras; medimos la cara activa para que la card
+  // tome la altura correcta (el reverso es más alto que el frente).
+  const frontRef = useRef<HTMLDivElement>(null)
+  const backRef = useRef<HTMLDivElement>(null)
+  const [faceHeight, setFaceHeight] = useState<number | undefined>(undefined)
+
+  useLayoutEffect(() => {
+    if (!canApproveDocs) return
+    const measure = () => {
+      const el = flipped ? backRef.current : frontRef.current
+      if (el) setFaceHeight(el.offsetHeight)
+    }
+    measure()
+    // Observa ambas caras: la altura del reverso cambia al cargar los documentos.
+    const ro = new ResizeObserver(measure)
+    if (frontRef.current) ro.observe(frontRef.current)
+    if (backRef.current) ro.observe(backRef.current)
+    return () => ro.disconnect()
+  }, [flipped, canApproveDocs])
+
+  // Botones de acción de la reserva (confirmar / check-in / etc.), reutilizados
+  // en el pie de ambas caras.
+  const actionButtonsRow = actions.map((action) => {
+    const ActionIcon = ACTION_ICON[action.key]
+    const isDanger = action.variant === "danger"
+    const isConfirm = action.key === "confirm"
+    const isYellow = action.key === "confirm" || action.key === "checkin"
+    return (
+      <button
+        key={action.key}
+        type="button"
+        disabled={actionPending}
+        onClick={() => onAction(booking, action.key)}
+        className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{
+          backgroundColor: isDanger ? "#FDE8E8" : isYellow ? "#FFC43D" : "#0D2B45",
+          color: isDanger ? "#9B1C1C" : isYellow ? "#0D2B45" : "#FFFFFF",
+          border: isDanger ? "1px solid #F5C6C6" : "none",
+        }}
+      >
+        <ActionIcon size={14} />
+        {actionPending && isConfirm ? "Confirmando..." : action.label}
+      </button>
+    )
+  })
+
+  // Pie de card (contacto + acciones). `showApprove` añade el botón que voltea
+  // hacia la vista de aprobación de documentos.
+  const renderBottomBar = ({ showApprove }: { showApprove: boolean }) => (
+    <div className="mt-5 flex flex-wrap items-center justify-between gap-4 border-t pt-4" style={{ borderColor: "#EEF2F7" }}>
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="text-xs font-semibold" style={{ color: "#8A94A6" }}>Contacto:</span>
+        <span className="text-xs font-bold" style={{ color: "#526071" }}>{booking.customer.email}</span>
+        {booking.customer.phone && (
+          <span className="text-xs font-bold" style={{ color: "#526071" }}>{booking.customer.phone}</span>
+        )}
+      </div>
+
+      {(actions.length > 0 || showApprove) && (
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            {showApprove && (
+              anyDocRejected ? (
+                <button
+                  type="button"
+                  onClick={() => setFlipped(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: "#FDE8E8", borderColor: "#F5C6C6", color: "#9B1C1C" }}
+                >
+                  <XCircle size={14} /> Documentos con rechazos
+                </button>
+              ) : allDocsApproved ? (
+                <button
+                  type="button"
+                  onClick={() => setFlipped(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90"
+                  style={{ backgroundColor: "#EAF8F3", borderColor: "#B7E4C7", color: "#08785B" }}
+                >
+                  <CheckCircle2 size={14} /> Documentos aprobados
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setFlipped(true)}
+                  className="inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold transition-colors hover:bg-gray-50"
+                  style={{ borderColor: "#D8DEE7", backgroundColor: "#FFFFFF", color: "#0D2B45" }}
+                >
+                  <FileText size={14} /> Aprobar documentos
+                </button>
+              )
+            )}
+            {actionButtonsRow}
+          </div>
+          {actionError && (
+            <span className="text-xs font-semibold" style={{ color: "#9B1C1C" }}>
+              No se pudo completar la acción. Intenta nuevamente.
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  )
+
+  // Grilla de información de la reserva (cara frontal).
+  const infoGrid = (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+      <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
+        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] mb-2" style={{ color: "#8A94A6" }}>
+          <CalendarDays size={13} />
+          Fechas
+        </p>
+        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
+          {formatDate(booking.checkinDate)} – {formatDate(booking.checkoutDate)}
+        </p>
+        <p className="mt-1 text-xs font-semibold" style={{ color: "#667085" }}>
+          {nights} noche{nights === 1 ? "" : "s"}
+        </p>
+      </div>
+
+      <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
+        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] mb-2" style={{ color: "#8A94A6" }}>
+          <CreditCard size={13} />
+          Precios
+        </p>
+        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
+          {formatClp(booking.pricing.paidPrice)} pagado
+        </p>
+        <p className="mt-1 text-xs font-semibold" style={{ color: "#667085" }}>
+          Total {formatClp(booking.pricing.totalPrice)}
+        </p>
+      </div>
+
+      <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
+        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] mb-2" style={{ color: "#8A94A6" }}>
+          <Car size={13} />
+          Transporte
+        </p>
+        {booking.transport.included ? (
+          <>
+            <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Incluido</p>
+            {booking.transport.pickupCommune && (
+              <p className="mt-1 text-xs font-semibold" style={{ color: "#526071" }}>
+                Recogida: {booking.transport.pickupCommune}
+              </p>
+            )}
+            {booking.transport.departure && (
+              <p className="mt-0.5 text-xs font-semibold" style={{ color: "#526071" }}>
+                Ida: {formatDate(booking.transport.departure.date)} · {SLOT_LABEL[booking.transport.departure.slot]}
+              </p>
+            )}
+            {booking.transport.return && (
+              <p className="mt-0.5 text-xs font-semibold" style={{ color: "#526071" }}>
+                Vuelta: {formatDate(booking.transport.return.date)} · {SLOT_LABEL[booking.transport.return.slot]}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm font-bold" style={{ color: "#8A94A6" }}>No incluido</p>
+        )}
+      </div>
+
+      {/* Mascotas */}
+      <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
+        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] mb-3" style={{ color: "#8A94A6" }}>
+          <PawPrint size={13} />
+          Mascotas
+        </p>
+        <div className="space-y-2.5">
+          {booking.pets.map((pet) => (
+            <div key={pet.id} className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-bold" style={{ color: "#0A1830" }}>{pet.name}</p>
+                <p className="text-xs font-semibold mt-0.5" style={{ color: "#526071" }}>
+                  {[
+                    pet.size ? SIZE_LABEL[pet.size] : null,
+                    pet.gender ? GENDER_LABEL[pet.gender] : null,
+                    pet.birthDate ? calcAge(pet.birthDate) : null,
+                  ].filter(Boolean).join(" · ") || "—"}
+                </p>
+                {(pet.breedName ?? pet.breedId) && (
+                  <p className="text-xs mt-0.5" style={{ color: "#8A94A6" }}>
+                    {pet.breedName ?? `Raza ID ${pet.breedId}`}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => setSelectedPet(pet)}
+                className="flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors"
+                title="Ver ficha completa"
+                aria-label={`Ver ficha de ${pet.name}`}
+              >
+                <Info size={16} style={{ color: "#1a3a5c" }} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+
+  // Cabecera común: estado + cliente + mascotas + id (idéntica en ambas caras).
+  const topRow = (
+    <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <span
+          className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
+          style={{ backgroundColor: meta.bg, color: meta.color }}
+        >
+          <StatusIcon size={13} />
+          {getBookingStatusLabel(booking.status)}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <User size={15} style={{ color: "#8A94A6" }} />
+          <span className="text-sm font-bold" style={{ color: "#0A1830" }}>
+            {customerFullName(booking.customer)}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <PawPrint size={14} style={{ color: "#2E7D32" }} />
+          <span className="text-sm font-medium" style={{ color: "#526071" }}>
+            {petNames(booking.pets)}
+          </span>
+        </div>
+      </div>
+      <span
+        className="rounded border px-2 py-0.5 font-mono text-xs font-bold"
+        style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC", color: "#8A94A6" }}
+      >
+        #{booking.id.slice(0, 8)}
+      </span>
+    </div>
+  )
+
   return (
     <article
       className="overflow-hidden rounded-lg border bg-white shadow-sm"
       style={{ borderColor: "#E5E7EB" }}
     >
       <div className="p-5 sm:p-6">
-        {/* Top row: status + customer + booking id */}
-        <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
-              style={{ backgroundColor: meta.bg, color: meta.color }}
-            >
-              <StatusIcon size={13} />
-              {getBookingStatusLabel(booking.status)}
-            </span>
-            <div className="flex items-center gap-1.5">
-              <User size={15} style={{ color: "#8A94A6" }} />
-              <span className="text-sm font-bold" style={{ color: "#0A1830" }}>
-                {customerFullName(booking.customer)}
-              </span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <PawPrint size={14} style={{ color: "#2E7D32" }} />
-              <span className="text-sm font-medium" style={{ color: "#526071" }}>
-                {petNames(booking.pets)}
-              </span>
-            </div>
-          </div>
-          <span
-            className="rounded border px-2 py-0.5 font-mono text-xs font-bold"
-            style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC", color: "#8A94A6" }}
+        {topRow}
+
+        {canApproveDocs ? (
+          <div
+            style={{ perspective: "2500px", overflow: "hidden", height: faceHeight, transition: "height 0.6s ease" }}
           >
-            #{booking.id.slice(0, 8)}
-          </span>
-        </div>
+            <div
+              style={{
+                display: "grid",
+                alignItems: "start",
+                transformStyle: "preserve-3d",
+                transition: "transform 0.6s ease",
+                transform: flipped ? "rotateX(180deg)" : "rotateX(0deg)",
+              }}
+            >
+              {/* Cara frontal: vista reserva */}
+              <div
+                ref={frontRef}
+                aria-hidden={flipped}
+                style={{ gridArea: "1 / 1 / 2 / 2", alignSelf: "start", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+              >
+                {infoGrid}
+                {renderBottomBar({ showApprove: true })}
+              </div>
 
-        {/* Info grid */}
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
-          <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] mb-2" style={{ color: "#8A94A6" }}>
-              <CalendarDays size={13} />
-              Fechas
-            </p>
-            <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
-              {formatDate(booking.checkinDate)} – {formatDate(booking.checkoutDate)}
-            </p>
-            <p className="mt-1 text-xs font-semibold" style={{ color: "#667085" }}>
-              {nights} noche{nights === 1 ? "" : "s"}
-            </p>
-          </div>
-
-          <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] mb-2" style={{ color: "#8A94A6" }}>
-              <CreditCard size={13} />
-              Precios
-            </p>
-            <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
-              {formatClp(booking.pricing.paidPrice)} pagado
-            </p>
-            <p className="mt-1 text-xs font-semibold" style={{ color: "#667085" }}>
-              Total {formatClp(booking.pricing.totalPrice)}
-            </p>
-          </div>
-
-          <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] mb-2" style={{ color: "#8A94A6" }}>
-              <Car size={13} />
-              Transporte
-            </p>
-            {booking.transport.included ? (
-              <>
-                <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Incluido</p>
-                {booking.transport.pickupCommune && (
-                  <p className="mt-1 text-xs font-semibold" style={{ color: "#526071" }}>
-                    Recogida: {booking.transport.pickupCommune}
-                  </p>
-                )}
-                {booking.transport.departure && (
-                  <p className="mt-0.5 text-xs font-semibold" style={{ color: "#526071" }}>
-                    Ida: {formatDate(booking.transport.departure.date)} · {SLOT_LABEL[booking.transport.departure.slot]}
-                  </p>
-                )}
-                {booking.transport.return && (
-                  <p className="mt-0.5 text-xs font-semibold" style={{ color: "#526071" }}>
-                    Vuelta: {formatDate(booking.transport.return.date)} · {SLOT_LABEL[booking.transport.return.slot]}
-                  </p>
-                )}
-              </>
-            ) : (
-              <p className="text-sm font-bold" style={{ color: "#8A94A6" }}>No incluido</p>
-            )}
-          </div>
-
-          {/* Mascotas */}
-          <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] mb-3" style={{ color: "#8A94A6" }}>
-              <PawPrint size={13} />
-              Mascotas
-            </p>
-            <div className="space-y-2.5">
-              {booking.pets.map((pet) => (
-                <div key={pet.id} className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-bold" style={{ color: "#0A1830" }}>{pet.name}</p>
-                    <p className="text-xs font-semibold mt-0.5" style={{ color: "#526071" }}>
-                      {[
-                        pet.size ? SIZE_LABEL[pet.size] : null,
-                        pet.gender ? GENDER_LABEL[pet.gender] : null,
-                        pet.birthDate ? calcAge(pet.birthDate) : null,
-                      ].filter(Boolean).join(" · ") || "—"}
-                    </p>
-                    {(pet.breedName ?? pet.breedId) && (
-                      <p className="text-xs mt-0.5" style={{ color: "#8A94A6" }}>
-                        {pet.breedName ?? `Raza ID ${pet.breedId}`}
+              {/* Cara trasera: vista aprobación de documentos */}
+              <div
+                ref={backRef}
+                aria-hidden={!flipped}
+                style={{ gridArea: "1 / 1 / 2 / 2", alignSelf: "start", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateX(180deg)" }}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <FileText size={18} style={{ color: "#0A1830" }} className="mt-0.5" />
+                    <div>
+                      <p className="text-base font-bold" style={{ color: "#0A1830" }}>
+                        Documentos pendientes por aprobar
                       </p>
-                    )}
+                      <p className="mt-0.5 text-sm font-medium" style={{ color: "#526071" }}>
+                        Revisa y aprueba los documentos de {petNames(booking.pets)} antes de confirmar la reserva.
+                      </p>
+                    </div>
                   </div>
                   <button
-                    onClick={() => setSelectedPet(pet)}
-                    className="flex-shrink-0 p-1 rounded hover:bg-gray-100 transition-colors"
-                    title="Ver ficha completa"
-                    aria-label={`Ver ficha de ${pet.name}`}
+                    type="button"
+                    onClick={() => setFlipped(false)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-xs font-bold transition-colors hover:bg-gray-50"
+                    style={{ borderColor: "#D8DEE7", backgroundColor: "#FFFFFF", color: "#0D2B45" }}
                   >
-                    <Info size={16} style={{ color: "#1a3a5c" }} />
+                    <ArrowLeft size={14} /> Volver a vista reserva
                   </button>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
 
-        {/* Bottom: contact + actions */}
-        <div className="mt-4 pt-4 border-t flex flex-wrap items-center justify-between gap-4" style={{ borderColor: "#EEF2F7" }}>
-          <div className="flex flex-wrap items-center gap-4">
-            <span className="text-xs font-semibold" style={{ color: "#8A94A6" }}>Contacto:</span>
-            <span className="text-xs font-bold" style={{ color: "#526071" }}>{booking.customer.email}</span>
-            {booking.customer.phone && (
-              <span className="text-xs font-bold" style={{ color: "#526071" }}>{booking.customer.phone}</span>
-            )}
-          </div>
+                <div className="mt-4">
+                  <BookingDocumentsFace bookingId={booking.id} enabled={flipped} />
+                </div>
 
-          {actions.length > 0 && (
-            <div className="flex flex-col items-end gap-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                {actions.map((action) => {
-                  const ActionIcon = ACTION_ICON[action.key]
-                  const isDanger = action.variant === "danger"
-                  const isConfirm = action.key === "confirm"
-                  const isYellow = action.key === "confirm" || action.key === "checkin"
-                  return (
-                    <button
-                      key={action.key}
-                      type="button"
-                      disabled={actionPending}
-                      onClick={() => onAction(booking, action.key)}
-                      className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        backgroundColor: isDanger ? "#FDE8E8" : isYellow ? "#FFC43D" : "#0D2B45",
-                        color: isDanger ? "#9B1C1C" : isYellow ? "#0D2B45" : "#FFFFFF",
-                        border: isDanger ? "1px solid #F5C6C6" : "none",
-                      }}
-                    >
-                      <ActionIcon size={14} />
-                      {actionPending && isConfirm ? "Confirmando..." : action.label}
-                    </button>
-                  )
-                })}
+                {renderBottomBar({ showApprove: false })}
               </div>
-              {actionError && (
-                <span className="text-xs font-semibold" style={{ color: "#9B1C1C" }}>
-                  No se pudo completar la acción. Intenta nuevamente.
-                </span>
-              )}
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            {infoGrid}
+            {renderBottomBar({ showApprove: false })}
+          </>
+        )}
       </div>
 
       {selectedPet && <PetModal pet={selectedPet} onClose={() => setSelectedPet(null)} />}

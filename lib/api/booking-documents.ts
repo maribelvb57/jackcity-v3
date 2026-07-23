@@ -73,3 +73,128 @@ export async function confirmBookingDocument(documentId: string, apiFetch: ApiFe
 export async function deleteBookingDocument(documentId: string, apiFetch: ApiFetch): Promise<void> {
   await apiFetch(`/api/booking-documents/${documentId}`, { method: "DELETE" })
 }
+
+// ─── Aprobación de documentos (vista del hotel) ──────────────────────────────
+// GET /api/booking-documents/by-booking/{bookingId} (spec entregada por Maribel).
+
+// Estado de revisión del documento dentro del booking.
+export type BookingDocumentStatus = "UPLOADED" | "APPROVED" | "REJECTED"
+
+// Archivo subido asociado a la mascota.
+export interface PetDocumentFile {
+  id: string
+  petId: string
+  documentType: string
+  filename: string
+  contentType: string
+  fileSizeBytes: number
+  status: string
+  validUntil: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface BookingDocument {
+  id: number
+  bookingId: string
+  status: BookingDocumentStatus
+  comments: string
+  fileText: string
+  petDocument: PetDocumentFile
+}
+
+export interface BookingDocumentsPet {
+  petId: string
+  petName: string
+  breed: string | null
+  size: string | null
+  gender: string | null
+  documents: BookingDocument[]
+}
+
+export type BookingDocumentsResponse = BookingDocumentsPet[]
+
+// Lista las mascotas de un booking con sus documentos y estado de aprobación.
+export async function getBookingDocuments(
+  bookingId: string,
+  apiFetch: ApiFetch,
+): Promise<BookingDocumentsResponse> {
+  return apiFetch<BookingDocumentsResponse>(`/api/booking-documents/by-booking/${bookingId}`)
+}
+
+// URL temporal (presignada en R2) para visualizar/descargar un documento.
+export interface PetDocumentDownloadUrl {
+  url: string
+  expiresAt: string
+}
+
+// GET /api/pets/{petId}/documents/{documentId}/download-url — `documentId` es el
+// id del petDocument (UUID), no el id numérico del bookingDocument.
+export async function getPetDocumentDownloadUrl(
+  petId: string,
+  documentId: string,
+  apiFetch: ApiFetch,
+): Promise<PetDocumentDownloadUrl> {
+  return apiFetch<PetDocumentDownloadUrl>(`/api/pets/${petId}/documents/${documentId}/download-url`)
+}
+
+// POST /api/booking-documents/approve — aprueba un documento de la reserva.
+export interface ApproveBookingDocumentParams {
+  bookingId: string
+  petDocumentId: string
+}
+
+export async function approveBookingDocument(
+  params: ApproveBookingDocumentParams,
+  apiFetch: ApiFetch,
+): Promise<void> {
+  await apiFetch("/api/booking-documents/approve", {
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+}
+
+// POST /api/booking-documents/reject — rechaza un documento de la reserva.
+// Mismo body que approve: { bookingId, petDocumentId }.
+export async function rejectBookingDocument(
+  params: ApproveBookingDocumentParams,
+  apiFetch: ApiFetch,
+): Promise<void> {
+  await apiFetch("/api/booking-documents/reject", {
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+}
+
+// POST /api/booking-documents/valid-until — actualiza la fecha de validez.
+export interface SetValidUntilParams {
+  petDocumentId: string
+  validUntil: string
+}
+
+export async function setBookingDocumentValidUntil(
+  params: SetValidUntilParams,
+  apiFetch: ApiFetch,
+): Promise<void> {
+  await apiFetch("/api/booking-documents/valid-until", {
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+}
+
+// POST /api/booking-documents/comments — actualiza los comentarios del documento.
+export interface SetCommentsParams {
+  bookingId: string
+  petDocumentId: string
+  comments: string
+}
+
+export async function setBookingDocumentComments(
+  params: SetCommentsParams,
+  apiFetch: ApiFetch,
+): Promise<void> {
+  await apiFetch("/api/booking-documents/comments", {
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+}
