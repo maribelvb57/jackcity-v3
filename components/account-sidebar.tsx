@@ -52,7 +52,7 @@ export function AccountSidebar() {
   return (
     <>
       <aside
-        className="hidden lg:flex w-64 flex-shrink-0 flex-col min-h-[calc(100vh-3.5rem)]"
+        className="hidden lg:flex w-64 flex-shrink-0 flex-col min-h-[calc(100vh-2.75rem)]"
         style={{ backgroundColor: SIDEBAR_BG }}
       >
         {/* Logo */}

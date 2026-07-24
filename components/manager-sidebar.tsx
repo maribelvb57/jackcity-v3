@@ -108,7 +108,7 @@ export function ManagerSidebar({ hotelId }: ManagerSidebarProps) {
           fixed top-0 left-0 h-full z-50 flex flex-col
           transition-all duration-300 ease-in-out
           ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
-          md:translate-x-0 md:relative md:z-auto md:min-h-[calc(100vh-3.5rem)]
+          md:translate-x-0 md:relative md:z-auto md:min-h-[calc(100vh-2.75rem)]
           ${isCollapsed ? "md:w-16" : "md:w-64"}
         `}
         style={{ backgroundColor: SIDEBAR_BG }}

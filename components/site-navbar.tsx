@@ -35,7 +35,7 @@ export function SiteNavbar() {
 
   return (
     <>
-      <nav className="w-full px-4 md:px-6 flex items-center h-14" style={{ backgroundColor: "#0D2B45" }}>
+      <nav className="w-full px-4 md:px-6 flex items-center h-11" style={{ backgroundColor: "#0D2B45" }}>
 
         {/* Logo */}
         <Link href={homeHref} className="flex items-center gap-2.5 flex-shrink-0" onClick={closeMobile}>
@@ -79,7 +79,7 @@ export function SiteNavbar() {
               </Link>
               {isHotelMgr && hotelId && (
                 <Link
-                  href={`/hotel/availability/${hotelId}`}
+                  href={`/hotel/bookings/${hotelId}`}
                   className="px-3 py-1.5 text-sm font-medium rounded-lg transition-colors hover:bg-white/10"
                   style={{ color: "#FFC43D" }}
                 >
@@ -151,7 +151,7 @@ export function SiteNavbar() {
                 </Link>
                 {isHotelMgr && hotelId && (
                   <Link
-                    href={`/hotel/availability/${hotelId}`}
+                    href={`/hotel/bookings/${hotelId}`}
                     onClick={closeMobile}
                     className="flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-semibold transition-colors hover:bg-white/10"
                     style={{ color: "#FFC43D" }}

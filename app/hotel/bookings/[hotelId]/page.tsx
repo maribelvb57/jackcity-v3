@@ -729,9 +729,15 @@ function PetDocumentsSection({ pet, bookingId }: { pet: BookingDocumentsPet; boo
                   {isApproved ? (
                     <input
                       type="date"
-                      value={doc.validUntil}
+                      // No controlado: usar defaultValue + key evita que un re-render
+                      // reinyecte el value y Chrome cierre el calendario nativo al navegar
+                      // los meses. El key resincroniza cuando cambia el valor del servidor.
+                      key={doc.validUntil}
+                      defaultValue={doc.validUntil}
                       disabled={savingDateId === doc.id}
-                      onChange={(e) => saveValidUntil(doc, e.target.value)}
+                      // Guardar al salir del campo (no en cada onChange), para no disparar
+                      // mutaciones/re-renders mientras el calendario está abierto.
+                      onBlur={(e) => saveValidUntil(doc, e.target.value)}
                       className="w-full rounded-lg border px-2.5 py-1.5 text-xs font-semibold outline-none focus:border-[#125BD8] disabled:opacity-60"
                       style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
                     />

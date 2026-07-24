@@ -555,79 +555,87 @@ export default function MyBookingsPage() {
         </Dialog>
 
         <Dialog open={!!bookingToReview} onOpenChange={(open) => !open && setBookingToReview(null)}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto rounded-lg border-0 bg-white p-0 sm:max-w-[680px]">
+          <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-0 bg-white p-0 sm:max-w-[720px]">
             {bookingToReview && (
-              <div className="overflow-hidden rounded-lg">
-                <div className="px-6 py-5" style={{ backgroundColor: "#EAF2F8" }}>
+              <div className="rounded-2xl">
+                <div className="px-6 pt-6 pb-2">
                   <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-2xl font-bold" style={{ color: "#0D2B45" }}>
+                    <DialogTitle className="flex items-center gap-2.5 text-2xl font-bold" style={{ color: "#0D2B45" }}>
                       <Star size={24} fill="currentColor" />
                       Calificar reserva
                     </DialogTitle>
-                    <DialogDescription className="text-sm font-medium" style={{ color: "#526071" }}>
+                    <DialogDescription className="text-sm font-medium" style={{ color: "#667085" }}>
                       Una calificación de 1 a 10 y dos comentarios simples para entender la experiencia.
                     </DialogDescription>
                   </DialogHeader>
                 </div>
 
-                <div className="px-6 py-5">
-                  <div className="flex gap-4 rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
-                    <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-[#EEF2F7]">
-                      <HotelPhoto src={bookingToReview.hotel.mainPhotoUrl} alt={bookingToReview.hotel.name} sizes="80px" />
+                <div className="px-6 py-4">
+                  <div className="flex items-center gap-4 rounded-2xl border p-4" style={{ borderColor: "#E5E7EB" }}>
+                    <div className="relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl bg-[#EEF2F7]">
+                      <HotelPhoto src={bookingToReview.hotel.mainPhotoUrl} alt={bookingToReview.hotel.name} sizes="96px" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold" style={{ color: "#0A1830" }}>{bookingToReview.hotel.name}</p>
-                      <p className="mt-1 text-sm font-semibold" style={{ color: "#667085" }}>
+                      <p className="text-base font-bold" style={{ color: "#0A1830" }}>{bookingToReview.hotel.name}</p>
+                      <p className="mt-1.5 text-sm font-semibold" style={{ color: "#667085" }}>
                         {formatDate(bookingToReview.checkinDate)} - {formatDate(bookingToReview.checkoutDate)}
                       </p>
-                      <p className="mt-1 text-xs font-bold" style={{ color: "#8A94A6" }}>{petNames(bookingToReview.pets)}</p>
+                      <p className="mt-1.5 text-sm font-semibold" style={{ color: "#8A94A6" }}>{petNames(bookingToReview.pets)}</p>
                     </div>
                   </div>
 
-                  <div className="mt-5">
+                  <div className="mt-6">
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Tu nota</p>
-                      <p className="rounded-full px-3 py-1 text-sm font-bold" style={{ backgroundColor: "#FFF8E4", color: "#8A6100" }}>
+                      <p className="rounded-full px-3 py-1 text-sm font-bold" style={{ backgroundColor: "#FDECC8", color: "#8A6100" }}>
                         {reviewScore}/10
                       </p>
                     </div>
 
-                    <div className="mt-3 grid grid-cols-5 gap-2 sm:grid-cols-10">
+                    <div className="mt-3 grid grid-cols-10 gap-1.5 sm:gap-2">
                       {Array.from({ length: 10 }, (_, index) => {
                         const value = index + 1
-                        const selected = value <= reviewScore
+                        const filled = value <= reviewScore
+                        const current = value === reviewScore
                         return (
-                          <button
-                            key={value}
-                            type="button"
-                            onClick={() => setReviewScore(value)}
-                            className="relative flex aspect-square items-center justify-center rounded-md border text-xs font-bold transition-transform hover:-translate-y-0.5"
-                            style={{
-                              backgroundColor: selected ? "#FFF3C4" : "#FFFFFF",
-                              borderColor: selected ? "#F5B000" : "#DDE3EC",
-                              color: selected ? "#7A4F00" : "#8A94A6",
-                            }}
-                            aria-label={`Calificar con ${value} de 10`}
-                          >
-                            <Star size={30} fill={selected ? "#F5B000" : "transparent"} style={{ color: selected ? "#F5B000" : "#CBD5E1" }} />
-                            <span className="absolute inset-0 flex items-center justify-center pt-[1px] text-[11px] font-bold">
-                              {value}
-                            </span>
-                          </button>
+                          <div key={value} className="flex flex-col items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setReviewScore(value)}
+                              className="flex aspect-square w-full items-center justify-center rounded-xl border transition-transform hover:-translate-y-0.5"
+                              style={{
+                                backgroundColor: current ? "#FFC43D" : "#FFFFFF",
+                                borderColor: current ? "#FFC43D" : "#E5E7EB",
+                              }}
+                              aria-label={`Calificar con ${value} de 10`}
+                            >
+                              <Star
+                                size={26}
+                                fill={current ? "#FFFFFF" : filled ? "#F5B000" : "#D6DEE8"}
+                                style={{ color: current ? "#FFFFFF" : filled ? "#F5B000" : "#D6DEE8" }}
+                              />
+                            </button>
+                            <span className="text-xs font-semibold" style={{ color: "#8A94A6" }}>{value}</span>
+                          </div>
                         )
                       })}
                     </div>
+
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-xs font-medium" style={{ color: "#8A94A6" }}>Muy malo</span>
+                      <span className="text-xs font-medium" style={{ color: "#8A94A6" }}>Excelente</span>
+                    </div>
                   </div>
 
-                  <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
                     <label className="block">
                       <span className="text-sm font-bold" style={{ color: "#0A1830" }}>Lo positivo</span>
                       <textarea
                         value={positiveText}
                         onChange={(event) => setPositiveText(event.target.value)}
                         rows={5}
-                        className="mt-2 w-full resize-none rounded-lg border px-4 py-3 text-sm font-medium outline-none focus:border-[#FFC43D]"
-                        style={{ borderColor: "#DDE3EC", color: "#0A1830" }}
+                        className="mt-2 w-full resize-none rounded-xl border px-4 py-3 text-sm font-medium outline-none focus:border-[#FFC43D]"
+                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
                         placeholder="Qué te gustó del hotel, del cuidado o del proceso..."
                       />
                     </label>
@@ -637,19 +645,19 @@ export default function MyBookingsPage() {
                         value={negativeText}
                         onChange={(event) => setNegativeText(event.target.value)}
                         rows={5}
-                        className="mt-2 w-full resize-none rounded-lg border px-4 py-3 text-sm font-medium outline-none focus:border-[#FFC43D]"
-                        style={{ borderColor: "#DDE3EC", color: "#0A1830" }}
+                        className="mt-2 w-full resize-none rounded-xl border px-4 py-3 text-sm font-medium outline-none focus:border-[#FFC43D]"
+                        style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
                         placeholder="Qué podría mejorar para la próxima estadía..."
                       />
                     </label>
                   </div>
                 </div>
 
-                <DialogFooter className="border-t px-6 py-4" style={{ borderColor: "#E5E7EB" }}>
+                <DialogFooter className="border-t px-6 py-4 sm:justify-end" style={{ borderColor: "#E5E7EB" }}>
                   <button
                     type="button"
                     onClick={() => setBookingToReview(null)}
-                    className="min-h-11 rounded-full border-2 px-5 text-sm font-bold"
+                    className="min-h-11 rounded-full border px-6 text-sm font-bold transition-colors hover:bg-gray-50"
                     style={{ borderColor: "#CBD5E1", color: "#526071" }}
                   >
                     Cancelar
@@ -657,7 +665,7 @@ export default function MyBookingsPage() {
                   <button
                     type="button"
                     onClick={() => setBookingToReview(null)}
-                    className="min-h-11 rounded-full px-5 text-sm font-bold"
+                    className="min-h-11 rounded-full px-6 text-sm font-bold transition-opacity hover:opacity-90"
                     style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
                   >
                     Enviar calificación
