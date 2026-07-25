@@ -19,6 +19,7 @@ import { redirectToWebpay } from "@/lib/webpay"
 import { useApiClient } from "@/hooks/use-api-client"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
 import { getBreedByCode, resolveBreedCode } from "@/lib/dog-breeds"
+import { slotTime } from "@/lib/transport-slots"
 import {
   User,
   Mail,
@@ -450,7 +451,12 @@ function ConfirmationContent() {
   const [saveData, setSaveData] = useState(false)
 
   // ─── Navegación por pasos (acordeón) ───────────────────────────────────
-  const TOTAL_STEPS = 4
+  // Si la reserva incluye transporte se intercala un paso extra (selección de
+  // horarios) entre "Requisitos" y "Confirmar y pagar" → 5 pasos en vez de 4.
+  const includeTransport = quote?.needsTransport ?? false
+  const TOTAL_STEPS = includeTransport ? 5 : 4
+  const TRANSPORT_STEP = 4
+  const PAY_STEP = includeTransport ? 5 : 4
   const [currentStep, setCurrentStep] = useState(1)
   const progressPct = Math.round((currentStep / TOTAL_STEPS) * 100)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -465,6 +471,12 @@ function ConfirmationContent() {
   const [step2Error, setStep2Error] = useState(false)
   // ids de las mascotas creadas por savepets; se usarán en los pasos siguientes (requisitos, etc.)
   const [savedPetIds, setSavedPetIds] = useState<string[]>([])
+
+  // ─── Paso Transporte (solo si la reserva incluye transporte) ───────────
+  // Slots de ida/regreso seleccionados; no se envían a backend hasta gotopay.
+  const [selectedDeparture, setSelectedDeparture] = useState<string | null>(null)
+  const [selectedReturn, setSelectedReturn] = useState<string | null>(null)
+  const transportSlotsSelected = !!selectedDeparture && !!selectedReturn
 
   // ─── Sección 2: Mis mascotas ───────────────────────────────────────────
   // Mascotas guardadas del perfil (usuario logueado) + selección para esta reserva.
@@ -758,8 +770,6 @@ function ConfirmationContent() {
   }, [isLoaded, isSignedIn])
 
   // Derived values from quote (resumen de la izquierda)
-  const includeTransport = quote?.needsTransport ?? false
-
   const checkinDate = quote ? new Date(`${quote.checkinDate}T12:00:00`) : null
   const checkoutDate = quote ? new Date(`${quote.checkoutDate}T12:00:00`) : null
   const nights = checkinDate && checkoutDate
@@ -919,15 +929,21 @@ function ConfirmationContent() {
     setCurrentStep(4)
   }
 
-  // Paso 4 — Confirmar y pagar. Crea la reserva vía POST /api/bookings/confirm/gotopay
+  // Paso final — Confirmar y pagar. Crea la reserva vía POST /api/bookings/confirm/gotopay
   // (misma respuesta que el viejo /confirm) y continúa con el pago Webpay.
-  // transport se omite por ahora.
+  // Si la reserva incluye transporte, se envían los slots elegidos en el paso previo.
   const handleConfirmPayment = async () => {
     if (!quote || !savedBookingId) return
     setIsSubmitting(true)
     setSubmitError(false)
     try {
-      const { bookingId, voucherToken } = await gotoPay({ quoteId: quote.quoteId, bookingId: savedBookingId }, apiFetch)
+      const { bookingId, voucherToken } = await gotoPay({
+        quoteId: quote.quoteId,
+        bookingId: savedBookingId,
+        ...(includeTransport && selectedDeparture && selectedReturn && {
+          transport: { departureSlot: selectedDeparture, returnSlot: selectedReturn },
+        }),
+      }, apiFetch)
       sessionStorage.setItem("jc_voucher_token", voucherToken)
       const { token, url } = await createWebpayPayment(bookingId)
       redirectToWebpay(url, token)
@@ -1562,7 +1578,7 @@ function ConfirmationContent() {
                         className="flex items-center gap-2 rounded-xl px-8 py-2.5 text-sm font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50"
                         style={{ backgroundColor: "#125BD8", color: "#ffffff" }}
                       >
-                        {anyDocumentBusy ? "Procesando documentos…" : "Continuar a Confirmar y pagar"}
+                        {anyDocumentBusy ? "Procesando documentos…" : includeTransport ? "Continuar a Transporte" : "Continuar a Confirmar y pagar"}
                         <ArrowRight size={16} />
                       </button>
                     </div>
@@ -1577,11 +1593,101 @@ function ConfirmationContent() {
                   />
                 )}
 
-                {/* Sección 4 — Confirmar y pagar */}
-                {currentStep === 4 ? (
+                {/* Sección 4 — Transporte (solo si la reserva incluye transporte) */}
+                {includeTransport && (
+                  currentStep === TRANSPORT_STEP ? (
+                    <div className="bg-white rounded-2xl p-5 border-2 overflow-hidden" style={{ borderColor: "#125BD8" }}>
+                      <div className="mb-4 flex items-center gap-3">
+                        <SectionNumber n={4} active />
+                        <div>
+                          <h2 className="text-lg font-bold leading-tight flex items-center gap-2" style={{ color: "#0A1830" }}>
+                            <Car size={20} style={{ color: "#0A1830" }} />
+                            Horarios de transporte
+                          </h2>
+                          <p className="text-sm" style={{ color: "#6B7280" }}>Elige el horario de ida y de regreso de tu mascota.</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Ida</p>
+                          <div className="flex flex-col gap-2">
+                            {quote.transport.departureSlots.map((slot) => (
+                              <button key={`dep-${slot}`} type="button" onClick={() => setSelectedDeparture(slot)}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors"
+                                style={{
+                                  backgroundColor: selectedDeparture === slot ? "#FEF3C7" : "#fff",
+                                  borderColor: selectedDeparture === slot ? "#FFC43D" : "#E5E7EB",
+                                  color: "#0A1830",
+                                }}>
+                                <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                                  style={{ borderColor: selectedDeparture === slot ? "#FFC43D" : "#D1D5DB" }}>
+                                  {selectedDeparture === slot && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#FFC43D" }} />}
+                                </div>
+                                {slotTime(slot)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Regreso</p>
+                          <div className="flex flex-col gap-2">
+                            {quote.transport.returnSlots.map((slot) => (
+                              <button key={`ret-${slot}`} type="button" onClick={() => setSelectedReturn(slot)}
+                                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors"
+                                style={{
+                                  backgroundColor: selectedReturn === slot ? "#FEF3C7" : "#fff",
+                                  borderColor: selectedReturn === slot ? "#FFC43D" : "#E5E7EB",
+                                  color: "#0A1830",
+                                }}>
+                                <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center"
+                                  style={{ borderColor: selectedReturn === slot ? "#FFC43D" : "#D1D5DB" }}>
+                                  {selectedReturn === slot && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#FFC43D" }} />}
+                                </div>
+                                {slotTime(slot)}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentStep(3)}
+                          className="text-sm font-semibold transition-opacity hover:opacity-75"
+                          style={{ color: "#6B7280" }}
+                        >
+                          ← Volver
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentStep(PAY_STEP)}
+                          disabled={!transportSlotsSelected}
+                          className="flex items-center gap-2 rounded-xl px-8 py-2.5 text-sm font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:opacity-50"
+                          style={{ backgroundColor: "#125BD8", color: "#ffffff" }}
+                        >
+                          Continuar a Confirmar y pagar
+                          <ArrowRight size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <CollapsedSection
+                      n={4}
+                      title="Horarios de transporte"
+                      subtitle="Elige el horario de ida y de regreso de tu mascota."
+                      completed={currentStep > TRANSPORT_STEP}
+                      onClick={currentStep > TRANSPORT_STEP ? () => setCurrentStep(TRANSPORT_STEP) : undefined}
+                    />
+                  )
+                )}
+
+                {/* Sección final — Confirmar y pagar */}
+                {currentStep === PAY_STEP ? (
                   <div className="bg-white rounded-2xl p-5 border-2 overflow-hidden" style={{ borderColor: "#125BD8" }}>
                     <div className="mb-4 flex items-center gap-3">
-                      <SectionNumber n={4} active />
+                      <SectionNumber n={PAY_STEP} active />
                       <div>
                         <h2 className="text-lg font-bold leading-tight" style={{ color: "#0A1830" }}>Confirmar y pagar</h2>
                         <p className="text-sm" style={{ color: "#6B7280" }}>Revisa tu reserva y realiza el pago seguro.</p>
@@ -1780,7 +1886,7 @@ function ConfirmationContent() {
                     <div className="mt-5">
                       <button
                         type="button"
-                        onClick={() => setCurrentStep(3)}
+                        onClick={() => setCurrentStep(PAY_STEP - 1)}
                         className="text-sm font-semibold transition-opacity hover:opacity-75"
                         style={{ color: "#6B7280" }}
                       >
@@ -1790,11 +1896,11 @@ function ConfirmationContent() {
                   </div>
                 ) : (
                   <CollapsedSection
-                    n={4}
+                    n={PAY_STEP}
                     title="Confirmar y pagar"
                     subtitle="Revisa tu reserva y realiza el pago seguro."
-                    completed={currentStep > 4}
-                    onClick={currentStep > 4 ? () => setCurrentStep(4) : undefined}
+                    completed={currentStep > PAY_STEP}
+                    onClick={currentStep > PAY_STEP ? () => setCurrentStep(PAY_STEP) : undefined}
                   />
                 )}
 

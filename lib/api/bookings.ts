@@ -68,6 +68,7 @@ export type MyBookingStatus =
   | "PAID"
   | "CONFIRMED"
   | "INITIATED"
+  | "PENDING_CANCELLATION"
   | "COMPLETED"
   | "CLOSED"
   | "EXPIRED"
@@ -76,6 +77,8 @@ export type MyBookingStatus =
 
 export type MyBooking = {
   id: string
+  // Número de reserva legible para el usuario (lo entrega GET /api/me/bookings).
+  number: string
   status: MyBookingStatus
   hotel: {
     id: string
@@ -263,6 +266,20 @@ export type GoToPayParams = {
 
 export async function gotoPay(params: GoToPayParams, apiFetch: ApiFetch): Promise<ConfirmBookingResult> {
   return apiFetch("/api/bookings/confirm/gotopay", {
+    method: "POST",
+    body: JSON.stringify(params),
+  })
+}
+
+// Solicitud de cancelación desde /mis-reservas. El usuario confirma la cancelación
+// y opcionalmente incluye un motivo. La respuesta no se usa por ahora.
+export type CancellationRequestParams = {
+  bookingId: string
+  cancellationReason: string
+}
+
+export async function requestBookingCancellation(params: CancellationRequestParams, apiFetch: ApiFetch): Promise<void> {
+  await apiFetch("/api/bookings/cancellation-request", {
     method: "POST",
     body: JSON.stringify(params),
   })

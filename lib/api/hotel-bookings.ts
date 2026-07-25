@@ -5,6 +5,7 @@ export type HotelBookingStatus =
   | "PAID"
   | "CONFIRMED"
   | "INITIATED"
+  | "PENDING_CANCELLATION"
   | "COMPLETED"
   | "CLOSED"
   | "EXPIRED"
@@ -30,6 +31,8 @@ export interface BookingPet {
 
 export interface HotelBooking {
   id: string
+  // Número de reserva legible para el usuario (lo entrega GET /api/hotel/bookings/{hotelId}).
+  number: string
   status: HotelBookingStatus
   customer: {
     firstName: string
@@ -51,7 +54,20 @@ export interface HotelBooking {
     departure?: { date: string; slot: TransportSlot } | null
     return?: { date: string; slot: TransportSlot } | null
   }
+  // Evaluaciones del tutor. Una por sección: alojamiento y/o transporte.
+  // Sin reseñas → array vacío.
+  reviews: BookingReview[]
   createdAt: string
+}
+
+export type BookingReviewType = "HOUSING" | "TRANSPORT"
+
+export interface BookingReview {
+  type: BookingReviewType
+  stars: number
+  goodThings: string | null
+  badThings: string | null
+  reviewDate: string
 }
 
 export interface HotelBookingsResponse {

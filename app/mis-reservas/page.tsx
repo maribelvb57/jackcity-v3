@@ -4,7 +4,7 @@ import Image from "next/image"
 import { useMemo, useState } from "react"
 import { useAuth, useUser } from "@clerk/nextjs"
 import { useApiClient } from "@/hooks/use-api-client"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import {
@@ -39,10 +39,26 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { getCommuneNameByCode } from "@/config/communes"
-import { getMyBookings, type MyBooking, type MyBookingStatus } from "@/lib/api/bookings"
+import { getMyBookings, requestBookingCancellation, type MyBooking, type MyBookingStatus } from "@/lib/api/bookings"
+import { createReview } from "@/lib/api/reviews"
 import { formatClp } from "@/lib/format"
 
-type BookingFilter = "ALL" | "UPCOMING" | "COMPLETED"
+type BookingFilter = "ACTIVE" | "OTHER"
+
+// Estados que el usuario ve como "reservas activas".
+const ACTIVE_STATUSES = new Set<MyBookingStatus>([
+  "PENDING_PAYMENT",
+  "PAID",
+  "CONFIRMED",
+  "INITIATED",
+  "PENDING_CANCELLATION",
+  "COMPLETED",
+])
+
+// Estados que el usuario nunca ve (ni siquiera en "Todas"): borradores del flujo de
+// reserva (NEW, PETS_SAVED, DOCS_SAVED) y las expiradas. El backend no debería
+// devolverlos, pero los filtramos por seguridad.
+const HIDDEN_STATUSES = new Set<string>(["NEW", "PETS_SAVED", "DOCS_SAVED", "EXPIRED"])
 
 function formatDate(date: string) {
   return format(new Date(`${date}T12:00:00`), "d MMM yyyy", { locale: es })
@@ -60,6 +76,17 @@ function isPendingBooking(status: MyBookingStatus) {
 
 function isCompletedBooking(status: MyBookingStatus) {
   return status === "COMPLETED"
+}
+
+// Reserva "activa": las que el usuario ve en el tab "Reservas activas".
+function isActiveBooking(status: MyBookingStatus) {
+  return ACTIVE_STATUSES.has(status)
+}
+
+// Reserva visible para el usuario (aparece en alguna de las dos pestañas). Las
+// no visibles (borradores/expiradas) se descartan de todo, incluidos los contadores.
+function isVisibleBooking(status: MyBookingStatus) {
+  return !HIDDEN_STATUSES.has(status)
 }
 
 function statusMeta(status: MyBookingStatus) {
@@ -93,6 +120,16 @@ function statusMeta(status: MyBookingStatus) {
     }
   }
 
+  if (status === "PENDING_CANCELLATION") {
+    return {
+      label: "Cancelación pendiente",
+      description: "Solicitud de cancelación en revisión",
+      color: "#9A3412",
+      bg: "#FFF7ED",
+      icon: Clock,
+    }
+  }
+
   if (status === "COMPLETED") {
     return {
       label: "Completada",
@@ -120,7 +157,9 @@ function petNames(pets: MyBooking["pets"]) {
 }
 
 function formatCancellationLabel(booking: MyBooking) {
-  return booking.cancellation.label || `Gratis hasta ${formatDate(booking.cancellation.freeCancellationDeadline)}`
+  // Mostramos el día sin el año y con la hora límite fija (17:00) de la política.
+  const deadline = format(new Date(`${booking.cancellation.freeCancellationDeadline}T12:00:00`), "d MMM", { locale: es })
+  return `Gratis hasta ${deadline} a las 5pm`
 }
 
 function HotelPhoto({ src, alt, sizes }: { src: string | null; alt: string; sizes?: string }) {
@@ -145,15 +184,67 @@ function HotelPhoto({ src, alt, sizes }: { src: string | null; alt: string; size
   )
 }
 
+// Selector de nota 1-10 reutilizable (alojamiento y transporte comparten el mismo control).
+function ScoreSelector({ label, score, onChange }: { label: string; score: number; onChange: (value: number) => void }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>{label}</p>
+        <p className="rounded-full px-3 py-1 text-sm font-bold" style={{ backgroundColor: "#FDECC8", color: "#8A6100" }}>
+          {score === 0 ? "—" : score}/10
+        </p>
+      </div>
+
+      <div className="mt-3 grid grid-cols-10 gap-1.5 sm:gap-2">
+        {Array.from({ length: 10 }, (_, index) => {
+          const value = index + 1
+          const filled = value <= score
+          const current = value === score
+          return (
+            <div key={value} className="flex flex-col items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onChange(value)}
+                className="flex aspect-square w-full items-center justify-center rounded-xl border transition-transform hover:-translate-y-0.5"
+                style={{
+                  backgroundColor: current ? "#FFC43D" : "#FFFFFF",
+                  borderColor: current ? "#FFC43D" : "#E5E7EB",
+                }}
+                aria-label={`${label}: calificar con ${value} de 10`}
+              >
+                <Star
+                  size={26}
+                  fill={current ? "#FFFFFF" : filled ? "#F5B000" : "#D6DEE8"}
+                  style={{ color: current ? "#FFFFFF" : filled ? "#F5B000" : "#D6DEE8" }}
+                />
+              </button>
+              <span className="text-xs font-semibold" style={{ color: "#8A94A6" }}>{value}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-xs font-medium" style={{ color: "#8A94A6" }}>Muy malo</span>
+        <span className="text-xs font-medium" style={{ color: "#8A94A6" }}>Excelente</span>
+      </div>
+    </div>
+  )
+}
+
 export default function MyBookingsPage() {
   const { isLoaded } = useAuth()
   const { user } = useUser()
   const { apiFetch } = useApiClient()
-  const [filter, setFilter] = useState<BookingFilter>("ALL")
+  const queryClient = useQueryClient()
+  const [filter, setFilter] = useState<BookingFilter>("ACTIVE")
   const [bookingToCancel, setBookingToCancel] = useState<MyBooking | null>(null)
   const [cancellationConfirmed, setCancellationConfirmed] = useState(false)
+  const [cancellationReason, setCancellationReason] = useState("")
   const [bookingToReview, setBookingToReview] = useState<MyBooking | null>(null)
-  const [reviewScore, setReviewScore] = useState(8)
+  // 0 = sin nota seleccionada (el modal abre sin ninguna estrella marcada)
+  const [reviewScore, setReviewScore] = useState(0)
+  const [transportScore, setTransportScore] = useState(0)
   const [positiveText, setPositiveText] = useState("")
   const [negativeText, setNegativeText] = useState("")
 
@@ -163,23 +254,73 @@ export default function MyBookingsPage() {
     queryFn: () => getMyBookings(apiFetch),
   })
 
-  const bookings = data?.bookings ?? []
+  // Base visible: descartamos los estados que el usuario nunca ve (borradores/expiradas).
+  const bookings = useMemo(
+    () => (data?.bookings ?? []).filter((booking) => isVisibleBooking(booking.status)),
+    [data],
+  )
 
+  // "Todas" en realidad muestra solo las NO activas (CLOSED, CANCELLED, NO_SHOW);
+  // las activas viven en su propia pestaña.
   const filteredBookings = useMemo(() => {
-    if (filter === "UPCOMING") return bookings.filter((booking) => isPendingBooking(booking.status))
-    if (filter === "COMPLETED") return bookings.filter((booking) => isCompletedBooking(booking.status))
-    return bookings
+    if (filter === "ACTIVE") return bookings.filter((booking) => isActiveBooking(booking.status))
+    return bookings.filter((booking) => !isActiveBooking(booking.status))
   }, [bookings, filter])
 
-  const upcomingCount = bookings.filter((booking) => isPendingBooking(booking.status)).length
-  const completedCount = bookings.filter((booking) => isCompletedBooking(booking.status)).length
+  // Contadores excluyentes que suman el total: activas + otras = total visible.
+  const activeCount = bookings.filter((booking) => isActiveBooking(booking.status)).length
+  const otherCount = bookings.filter((booking) => !isActiveBooking(booking.status)).length
 
   const openReviewModal = (booking: MyBooking) => {
     setBookingToReview(booking)
-    setReviewScore(booking.review.score ?? 8)
+    setReviewScore(booking.review.score ?? 0)
+    setTransportScore(0)
     setPositiveText("")
     setNegativeText("")
   }
+
+  const reviewMutation = useMutation({
+    // Housing siempre; si la reserva incluye transporte, se envía además la review TRANSPORT
+    // (segundo llamado, solo con su nota — los comentarios van únicamente en HOUSING).
+    mutationFn: async (booking: MyBooking) => {
+      await createReview(
+        {
+          bookingId: booking.id,
+          type: "HOUSING",
+          stars: reviewScore,
+          goodThings: positiveText.trim() || undefined,
+          badThings: negativeText.trim() || undefined,
+        },
+        apiFetch,
+      )
+      if (booking.transport.included) {
+        await createReview(
+          {
+            bookingId: booking.id,
+            type: "TRANSPORT",
+            stars: transportScore,
+          },
+          apiFetch,
+        )
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] })
+      setBookingToReview(null)
+    },
+  })
+
+  const cancellationMutation = useMutation({
+    mutationFn: (booking: MyBooking) =>
+      requestBookingCancellation(
+        { bookingId: booking.id, cancellationReason: cancellationReason.trim() },
+        apiFetch,
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] })
+      setCancellationConfirmed(true)
+    },
+  })
 
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
@@ -212,24 +353,22 @@ export default function MyBookingsPage() {
                   <p className="mt-1 text-xs font-bold" style={{ color: "#526071" }}>Total</p>
                 </div>
                 <div className="rounded-md p-3 text-center" style={{ backgroundColor: "#F8FAFC" }}>
-                  <p className="text-2xl font-bold" style={{ color: "#08785B" }}>{upcomingCount}</p>
-                  <p className="mt-1 text-xs font-bold" style={{ color: "#526071" }}>Próximas</p>
+                  <p className="text-2xl font-bold" style={{ color: "#08785B" }}>{activeCount}</p>
+                  <p className="mt-1 text-xs font-bold" style={{ color: "#526071" }}>Activas</p>
                 </div>
                 <div className="rounded-md p-3 text-center" style={{ backgroundColor: "#F8FAFC" }}>
-                  <p className="text-2xl font-bold" style={{ color: "#0D2B45" }}>{completedCount}</p>
-                  <p className="mt-1 text-xs font-bold" style={{ color: "#526071" }}>Completadas</p>
+                  <p className="text-2xl font-bold" style={{ color: "#0D2B45" }}>{otherCount}</p>
+                  <p className="mt-1 text-xs font-bold" style={{ color: "#526071" }}>Otras</p>
                 </div>
               </div>
             </div>
 
             <div className="mt-6 flex flex-wrap gap-2">
               {[
-                { value: "ALL", label: "Todas" },
-                { value: "UPCOMING", label: "Pendientes" },
-                { value: "COMPLETED", label: "Completadas" },
+                { value: "ACTIVE", label: "Reservas activas" },
+                { value: "OTHER", label: "Todas" },
               ].map((item) => {
                 const active = filter === item.value
-                const allActive = active && item.value === "ALL"
                 return (
                   <button
                     key={item.value}
@@ -237,9 +376,9 @@ export default function MyBookingsPage() {
                     onClick={() => setFilter(item.value as BookingFilter)}
                     className="min-h-10 rounded-full border px-4 text-sm font-bold transition-colors"
                     style={{
-                      backgroundColor: allActive ? "#FFC43D" : active ? "#0D2B45" : "#F8FAFC",
-                      borderColor: allActive ? "#FFC43D" : active ? "#0D2B45" : "#E5E7EB",
-                      color: allActive ? "#0D2B45" : active ? "#FFFFFF" : "#526071",
+                      backgroundColor: active ? "#0D2B45" : "#F8FAFC",
+                      borderColor: active ? "#0D2B45" : "#E5E7EB",
+                      color: active ? "#FFFFFF" : "#526071",
                     }}
                   >
                     {item.label}
@@ -341,7 +480,10 @@ export default function MyBookingsPage() {
 
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                           <div>
-                            <p className="mb-2 inline-block rounded border px-2 py-0.5 font-mono text-xs font-bold" style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC", color: "#526071" }}>{booking.status}</p>
+                            <p className="mb-2 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-sm font-bold" style={{ backgroundColor: "#EAF2FF", color: "#125BD8" }}>
+                              <span className="text-xs font-semibold uppercase tracking-[0.08em]" style={{ color: "#8A94A6" }}>Reserva N°</span>
+                              {booking.number}
+                            </p>
                             <div className="flex flex-wrap items-center gap-2 text-sm font-bold" style={{ color: "#526071" }}>
                               <span className="inline-flex items-center gap-1.5">
                                 <MapPin size={15} style={{ color: "#125BD8" }} />
@@ -452,7 +594,7 @@ export default function MyBookingsPage() {
           </div>
         </div>
 
-        <Dialog open={!!bookingToCancel} onOpenChange={(open) => { if (!open) { setBookingToCancel(null); setCancellationConfirmed(false) } }}>
+        <Dialog open={!!bookingToCancel} onOpenChange={(open) => { if (!open) { setBookingToCancel(null); setCancellationConfirmed(false); setCancellationReason(""); cancellationMutation.reset() } }}>
           <DialogContent className="rounded-lg border-0 bg-white p-0 sm:max-w-[500px]">
             {bookingToCancel && (
               <div className="overflow-hidden rounded-lg">
@@ -483,7 +625,7 @@ export default function MyBookingsPage() {
                     <DialogFooter className="border-t px-6 py-4" style={{ borderColor: "#E5E7EB" }}>
                       <button
                         type="button"
-                        onClick={() => { setBookingToCancel(null); setCancellationConfirmed(false) }}
+                        onClick={() => { setBookingToCancel(null); setCancellationConfirmed(false); setCancellationReason(""); cancellationMutation.reset() }}
                         className="min-h-11 rounded-full px-5 text-sm font-bold"
                         style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
                       >
@@ -527,24 +669,45 @@ export default function MyBookingsPage() {
                         ¿Confirmas que deseas cancelar la reserva y pedir el reembolso del dinero de la reserva por{" "}
                         <span className="text-base font-bold">{formatClp(bookingToCancel.pricing.paidPrice)}</span>?
                       </p>
+
+                      <label className="mt-5 block">
+                        <span className="text-sm font-bold" style={{ color: "#0A1830" }}>
+                          Motivo de la cancelación
+                        </span>
+                        <textarea
+                          value={cancellationReason}
+                          onChange={(event) => setCancellationReason(event.target.value)}
+                          rows={4}
+                          className="mt-2 w-full resize-none rounded-xl border px-4 py-3 text-sm font-medium outline-none focus:border-[#B42318]"
+                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }}
+                          placeholder="Cuéntanos por qué quieres cancelar (nos ayuda a mejorar)..."
+                        />
+                      </label>
                     </div>
 
-                    <DialogFooter className="border-t px-6 py-4 gap-2" style={{ borderColor: "#F3D1D1" }}>
+                    <DialogFooter className="flex-col gap-2 border-t px-6 py-4 sm:flex-row" style={{ borderColor: "#F3D1D1" }}>
+                      {cancellationMutation.isError && (
+                        <p className="w-full text-sm font-semibold sm:mr-auto sm:w-auto sm:self-center" style={{ color: "#B42318" }}>
+                          No pudimos enviar tu solicitud. Intenta de nuevo.
+                        </p>
+                      )}
                       <button
                         type="button"
-                        onClick={() => setBookingToCancel(null)}
-                        className="min-h-11 rounded-full border-2 px-5 text-sm font-bold"
+                        onClick={() => { setBookingToCancel(null); setCancellationReason(""); cancellationMutation.reset() }}
+                        disabled={cancellationMutation.isPending}
+                        className="min-h-11 rounded-full border-2 px-5 text-sm font-bold disabled:opacity-60"
                         style={{ borderColor: "#CBD5E1", color: "#526071" }}
                       >
                         Cancelar
                       </button>
                       <button
                         type="button"
-                        onClick={() => setCancellationConfirmed(true)}
-                        className="min-h-11 rounded-full px-5 text-sm font-bold"
+                        onClick={() => cancellationMutation.mutate(bookingToCancel)}
+                        disabled={cancellationMutation.isPending}
+                        className="min-h-11 rounded-full px-5 text-sm font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                         style={{ backgroundColor: "#B42318", color: "#FFFFFF" }}
                       >
-                        Confirmar
+                        {cancellationMutation.isPending ? "Enviando..." : "Confirmar"}
                       </button>
                     </DialogFooter>
                   </>
@@ -554,7 +717,7 @@ export default function MyBookingsPage() {
           </DialogContent>
         </Dialog>
 
-        <Dialog open={!!bookingToReview} onOpenChange={(open) => !open && setBookingToReview(null)}>
+        <Dialog open={!!bookingToReview} onOpenChange={(open) => { if (!open) { setBookingToReview(null); reviewMutation.reset() } }}>
           <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-0 bg-white p-0 sm:max-w-[720px]">
             {bookingToReview && (
               <div className="rounded-2xl">
@@ -565,7 +728,9 @@ export default function MyBookingsPage() {
                       Calificar reserva
                     </DialogTitle>
                     <DialogDescription className="text-sm font-medium" style={{ color: "#667085" }}>
-                      Una calificación de 1 a 10 y dos comentarios simples para entender la experiencia.
+                      {bookingToReview.transport.included
+                        ? "Califica de 1 a 10 el alojamiento y el transporte, y déjanos dos comentarios simples."
+                        : "Una calificación de 1 a 10 y dos comentarios simples para entender la experiencia."}
                     </DialogDescription>
                   </DialogHeader>
                 </div>
@@ -585,46 +750,11 @@ export default function MyBookingsPage() {
                   </div>
 
                   <div className="mt-6">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Tu nota</p>
-                      <p className="rounded-full px-3 py-1 text-sm font-bold" style={{ backgroundColor: "#FDECC8", color: "#8A6100" }}>
-                        {reviewScore}/10
-                      </p>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-10 gap-1.5 sm:gap-2">
-                      {Array.from({ length: 10 }, (_, index) => {
-                        const value = index + 1
-                        const filled = value <= reviewScore
-                        const current = value === reviewScore
-                        return (
-                          <div key={value} className="flex flex-col items-center gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => setReviewScore(value)}
-                              className="flex aspect-square w-full items-center justify-center rounded-xl border transition-transform hover:-translate-y-0.5"
-                              style={{
-                                backgroundColor: current ? "#FFC43D" : "#FFFFFF",
-                                borderColor: current ? "#FFC43D" : "#E5E7EB",
-                              }}
-                              aria-label={`Calificar con ${value} de 10`}
-                            >
-                              <Star
-                                size={26}
-                                fill={current ? "#FFFFFF" : filled ? "#F5B000" : "#D6DEE8"}
-                                style={{ color: current ? "#FFFFFF" : filled ? "#F5B000" : "#D6DEE8" }}
-                              />
-                            </button>
-                            <span className="text-xs font-semibold" style={{ color: "#8A94A6" }}>{value}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className="text-xs font-medium" style={{ color: "#8A94A6" }}>Muy malo</span>
-                      <span className="text-xs font-medium" style={{ color: "#8A94A6" }}>Excelente</span>
-                    </div>
+                    <ScoreSelector
+                      label={bookingToReview.transport.included ? "Nota de alojamiento" : "Tu nota"}
+                      score={reviewScore}
+                      onChange={setReviewScore}
+                    />
                   </div>
 
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -651,24 +781,45 @@ export default function MyBookingsPage() {
                       />
                     </label>
                   </div>
+
+                  {bookingToReview.transport.included && (
+                    <div className="mt-6">
+                      <ScoreSelector
+                        label="Nota de transporte"
+                        score={transportScore}
+                        onChange={setTransportScore}
+                      />
+                    </div>
+                  )}
                 </div>
 
-                <DialogFooter className="border-t px-6 py-4 sm:justify-end" style={{ borderColor: "#E5E7EB" }}>
+                <DialogFooter className="flex-col gap-3 border-t px-6 py-4 sm:flex-row sm:justify-end" style={{ borderColor: "#E5E7EB" }}>
+                  {reviewMutation.isError && (
+                    <p className="w-full text-sm font-semibold sm:mr-auto sm:w-auto sm:self-center" style={{ color: "#D92D20" }}>
+                      No pudimos guardar tu calificación. Intenta de nuevo.
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => setBookingToReview(null)}
-                    className="min-h-11 rounded-full border px-6 text-sm font-bold transition-colors hover:bg-gray-50"
+                    disabled={reviewMutation.isPending}
+                    className="min-h-11 rounded-full border px-6 text-sm font-bold transition-colors hover:bg-gray-50 disabled:opacity-60"
                     style={{ borderColor: "#CBD5E1", color: "#526071" }}
                   >
                     Cancelar
                   </button>
                   <button
                     type="button"
-                    onClick={() => setBookingToReview(null)}
-                    className="min-h-11 rounded-full px-6 text-sm font-bold transition-opacity hover:opacity-90"
+                    onClick={() => reviewMutation.mutate(bookingToReview)}
+                    disabled={
+                      reviewMutation.isPending ||
+                      reviewScore === 0 ||
+                      (bookingToReview.transport.included && transportScore === 0)
+                    }
+                    className="min-h-11 rounded-full px-6 text-sm font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
                   >
-                    Enviar calificación
+                    {reviewMutation.isPending ? "Enviando..." : "Enviar calificación"}
                   </button>
                 </DialogFooter>
               </div>

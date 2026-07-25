@@ -42,11 +42,6 @@ function BookingConfirmationErrorContent() {
         <SiteNavbar />
 
         <section className="relative flex flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-10">
-          <div
-            className="absolute inset-x-0 top-0 h-56"
-            style={{ background: "linear-gradient(180deg, #0D2B45 0%, #125BD8 58%, rgba(248,250,252,0) 100%)" }}
-          />
-
           <div className="relative grid w-full max-w-[1040px] overflow-hidden rounded-[28px] border bg-white shadow-2xl lg:grid-cols-[0.9fr_1.1fr]" style={{ borderColor: "#E5E7EB" }}>
             <div className="relative min-h-[280px] overflow-hidden bg-[#FFF7E2] px-6 py-8 sm:px-8 lg:min-h-[560px]">
               <div className="absolute -left-16 top-12 h-44 w-44 rounded-full bg-[#FFC43D]/30" />

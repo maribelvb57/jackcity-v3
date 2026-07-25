@@ -107,6 +107,13 @@ function SearchPageContent() {
   const [presupuesto, setPresupuesto] = useState(0)
   const [selectedBenefits, setSelectedBenefits] = useState<string[]>([])
   const [puntuacionMin, setPuntuacionMin] = useState(6)
+  // El filtro de nota no se aplica hasta que el usuario mueve el control por primera vez:
+  // la primera carga muestra todos los hoteles sin importar su puntuación.
+  const [puntuacionTouched, setPuntuacionTouched] = useState(false)
+  const handlePuntuacionChange = (value: number) => {
+    setPuntuacionTouched(true)
+    setPuntuacionMin(value)
+  }
   const [ordenarPor, setOrdenarPor] = useState("Recomendados de Jack")
 
   const cityParam = searchParams.get("city") ?? "SANTIAGO"
@@ -199,7 +206,9 @@ function SearchPageContent() {
     .filter(({ hotel: h }) => !allowedCommunes || allowedCommunes.includes(h.communeCode ?? ""))
     .filter(({ hotel: h }) => presupuesto === 0 || (h.pricing?.totalPrice ?? 0) <= presupuesto)
     .filter(({ hotel: h }) => selectedBenefits.length === 0 || selectedBenefits.every((code) => (h.benefits ?? []).some((b) => b.code === code)))
-    .filter(({ hotel: h }) => (h.avgRating ?? 0) >= puntuacionMin)
+    // El filtro de nota solo aplica una vez que el usuario movió el control (puntuacionTouched).
+    // En la primera carga se muestran todos los hoteles sin importar la puntuación.
+    .filter(({ hotel: h }) => !puntuacionTouched || (h.avgRating ?? 0) >= puntuacionMin)
     .sort((a, b) => {
       if (ordenarPor === "Precio menor a mayor") return (a.hotel.pricing?.totalPrice ?? 0) - (b.hotel.pricing?.totalPrice ?? 0)
       if (ordenarPor === "Precio mayor a menor") return (b.hotel.pricing?.totalPrice ?? 0) - (a.hotel.pricing?.totalPrice ?? 0)
@@ -320,7 +329,7 @@ function SearchPageContent() {
                 </button>
               </div>
               <div className="px-4 pb-4">
-                <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} puntuacionMin={puntuacionMin} onPuntuacionChange={setPuntuacionMin} ordenarPor={ordenarPor} onOrdenarChange={setOrdenarPor} />
+                <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} puntuacionMin={puntuacionMin} onPuntuacionChange={handlePuntuacionChange} ordenarPor={ordenarPor} onOrdenarChange={setOrdenarPor} />
               </div>
             </div>
           )}
@@ -339,7 +348,7 @@ function SearchPageContent() {
               <h2 className="text-lg font-bold mb-5" style={{ color: "#0A1830" }}>
                 Filtros
               </h2>
-              <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} puntuacionMin={puntuacionMin} onPuntuacionChange={setPuntuacionMin} ordenarPor={ordenarPor} onOrdenarChange={setOrdenarPor} />
+              <SearchFilters zona={zona} onZonaChange={setZona} priceMin={priceMin} priceMax={priceMax} presupuesto={presupuesto} onPresupuestoChange={setPresupuesto} selectedBenefits={selectedBenefits} onBenefitsChange={setSelectedBenefits} puntuacionMin={puntuacionMin} onPuntuacionChange={handlePuntuacionChange} ordenarPor={ordenarPor} onOrdenarChange={setOrdenarPor} />
             </div>
 
             {/* Collapse/Expand toggle button */}

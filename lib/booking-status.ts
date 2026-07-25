@@ -5,6 +5,7 @@ const STATUS_LABELS: Record<MyBookingStatus, string> = {
   PAID: "Pagada",
   CONFIRMED: "Confirmada",
   INITIATED: "Iniciada",
+  PENDING_CANCELLATION: "Cancelación pendiente",
   COMPLETED: "Completada",
   CLOSED: "Cerrada",
   EXPIRED: "Expirada",

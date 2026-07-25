@@ -26,24 +26,27 @@ import {
   Eye,
   ArrowLeft,
   Pencil,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react"
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { ManagerLayout } from "@/components/manager-layout"
 import { useApiClient } from "@/hooks/use-api-client"
 import { formatClp } from "@/lib/format"
-import { getHotelBookings, confirmHotelBooking, checkInHotelBooking, checkOutHotelBooking, markNoShowHotelBooking, type HotelBooking, type HotelBookingStatus, type TransportSlot, type BookingPet } from "@/lib/api/hotel-bookings"
+import { getHotelBookings, confirmHotelBooking, checkInHotelBooking, checkOutHotelBooking, markNoShowHotelBooking, type HotelBooking, type HotelBookingStatus, type TransportSlot, type BookingPet, type BookingReviewType } from "@/lib/api/hotel-bookings"
 import { getBookingDocuments, getPetDocumentDownloadUrl, approveBookingDocument, rejectBookingDocument, setBookingDocumentValidUntil, setBookingDocumentComments, type BookingDocumentsPet, type BookingDocumentStatus } from "@/lib/api/booking-documents"
 import { getBookingStatusLabel } from "@/lib/booking-status"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // Agrupaciones de estados (según definición de negocio):
-//   Vigentes:    PAID, CONFIRMED, INITIATED
+//   Vigentes:    PAID, CONFIRMED, INITIATED, PENDING_CANCELLATION
 //   Completadas: COMPLETED, CLOSED, NO_SHOW
 //   Otras:       PENDING_PAYMENT, EXPIRED, CANCELLED
 type BookingGroup = "VIGENTES" | "COMPLETADAS" | "OTRAS"
 
 const GROUP_STATUSES: Record<BookingGroup, HotelBookingStatus[]> = {
-  VIGENTES: ["PAID", "CONFIRMED", "INITIATED"],
+  VIGENTES: ["PAID", "CONFIRMED", "INITIATED", "PENDING_CANCELLATION"],
   COMPLETADAS: ["COMPLETED", "CLOSED", "NO_SHOW"],
   OTRAS: ["PENDING_PAYMENT", "EXPIRED", "CANCELLED"],
 }
@@ -98,6 +101,7 @@ const STATUS_ACTIONS: Record<HotelBookingStatus, BookingAction[]> = {
     { key: "no_show", label: "No Show", variant: "danger" },
   ],
   INITIATED: [{ key: "checkout", label: "Check-out", variant: "primary" }],
+  PENDING_CANCELLATION: [],
   PENDING_PAYMENT: [],
   COMPLETED: [],
   CLOSED: [],
@@ -283,6 +287,7 @@ function statusMeta(status: HotelBookingStatus) {
     case "PAID": return { color: "#125BD8", bg: "#EAF2FF", icon: ShieldCheck }
     case "CONFIRMED": return { color: "#08785B", bg: "#EAF8F3", icon: CheckCircle2 }
     case "INITIATED": return { color: "#4338CA", bg: "#EEF2FF", icon: LogIn }
+    case "PENDING_CANCELLATION": return { color: "#9A3412", bg: "#FFF7ED", icon: Hourglass }
     case "COMPLETED": return { color: "#0D2B45", bg: "#EAF2F8", icon: Star }
     case "CLOSED": return { color: "#526071", bg: "#F3F4F6", icon: Lock }
     case "EXPIRED": return { color: "#8A6D1C", bg: "#FEF3C7", icon: Hourglass }
@@ -863,6 +868,75 @@ const ACTION_ICON: Record<BookingActionKey, typeof LogIn> = {
   no_show: Ban,
 }
 
+const REVIEW_TYPE_LABEL: Record<BookingReviewType, string> = {
+  HOUSING: "Alojamiento",
+  TRANSPORT: "Transporte",
+}
+
+// Nota con que el tutor evaluó la reserva. El pill muestra la nota de alojamiento
+// (o la primera disponible) y, al hacer click, un popover con el desglose por sección
+// (alojamiento / transporte) y los comentarios de "Lo bueno" y "Lo malo".
+function ReviewRatingPopover({ reviews }: { reviews: HotelBooking["reviews"] }) {
+  if (reviews.length === 0) return null
+  const primary = reviews.find((review) => review.type === "HOUSING") ?? reviews[0]
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition-colors hover:bg-[#FFFBEB]"
+          style={{ borderColor: "#F1D07A", backgroundColor: "#FFFBEB", color: "#8A6100" }}
+          aria-label={`Ver evaluación del tutor: ${primary.stars} de 10`}
+        >
+          <Star size={13} fill="#F5B000" style={{ color: "#F5B000" }} />
+          <span>{primary.stars}</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 rounded-xl border p-0 shadow-lg" style={{ borderColor: "#E5E7EB" }}>
+        <div className="border-b px-4 py-3" style={{ borderColor: "#F1F5F9" }}>
+          <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Evaluación del tutor</p>
+        </div>
+        <div className="flex flex-col divide-y" style={{ borderColor: "#F1F5F9" }}>
+          {reviews.map((review) => (
+            <div key={review.type} className="px-4 py-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold" style={{ color: "#0A1830" }}>{REVIEW_TYPE_LABEL[review.type]}</p>
+                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold" style={{ backgroundColor: "#FDECC8", color: "#8A6100" }}>
+                  <Star size={12} fill="#F5B000" style={{ color: "#F5B000" }} />
+                  {review.stars}
+                </span>
+              </div>
+              {/* El transporte solo trae la nota; los comentarios de "Lo bueno" y
+                  "Lo malo" únicamente aplican al alojamiento. */}
+              {review.type === "HOUSING" && (
+                <div className="mt-2 flex flex-col gap-2">
+                  <div>
+                    <p className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#2E7D32" }}>
+                      <ThumbsUp size={13} /> Lo bueno
+                    </p>
+                    <p className="mt-1 text-sm leading-snug" style={{ color: review.goodThings ? "#0A1830" : "#9CA3AF" }}>
+                      {review.goodThings || "Sin comentarios."}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="flex items-center gap-1.5 text-xs font-bold" style={{ color: "#9B1C1C" }}>
+                      <ThumbsDown size={13} /> Lo malo
+                    </p>
+                    <p className="mt-1 text-sm leading-snug" style={{ color: review.badThings ? "#0A1830" : "#9CA3AF" }}>
+                      {review.badThings || "Sin comentarios."}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function BookingCard({
   booking,
   onAction,
@@ -878,7 +952,9 @@ function BookingCard({
   const StatusIcon = meta.icon
   const nights = nightsBetween(booking.checkinDate, booking.checkoutDate)
   const [selectedPet, setSelectedPet] = useState<BookingPet | null>(null)
-  const actions = STATUS_ACTIONS[booking.status]
+  // Fallback a [] por si el backend envía un estado que aún no mapeamos: sin acciones,
+  // evita el crash de .map sobre undefined (el estado igual se muestra con su label/meta por defecto).
+  const actions = STATUS_ACTIONS[booking.status] ?? []
 
   // Sólo las reservas pagadas pueden voltear a la vista de aprobación de documentos.
   const canApproveDocs = booking.status === "PAID"
@@ -959,7 +1035,10 @@ function BookingCard({
         )}
       </div>
 
-      {(actions.length > 0 || showApprove) && (
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        {booking.reviews.length > 0 && <ReviewRatingPopover reviews={booking.reviews} />}
+
+        {(actions.length > 0 || showApprove) && (
         <div className="flex flex-col items-end gap-1.5">
           <div className="flex flex-wrap items-center gap-2">
             {showApprove && (
@@ -1000,7 +1079,8 @@ function BookingCard({
             </span>
           )}
         </div>
-      )}
+        )}
+      </div>
     </div>
   )
 
@@ -1129,7 +1209,7 @@ function BookingCard({
         className="rounded border px-2 py-0.5 font-mono text-xs font-bold"
         style={{ borderColor: "#E5E7EB", backgroundColor: "#F8FAFC", color: "#8A94A6" }}
       >
-        #{booking.id.slice(0, 8)}
+        #{booking.number}
       </span>
     </div>
   )

@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { MapPin, Check, Heart } from "lucide-react"
+import { MapPin, Check, Heart, Star } from "lucide-react"
 import { useState } from "react"
 import { formatClp } from "@/lib/format"
 
@@ -84,17 +84,32 @@ export function ResultCard({ data }: ResultCardProps) {
 
         {/* Score + reviews */}
         <div className="flex items-center gap-2">
-          <div
-            className="flex items-center justify-center px-2 py-0.5 rounded-md text-white font-bold text-sm flex-shrink-0"
-            style={{ backgroundColor: "#1a6b4a" }}
-          >
-            {data.score.toFixed(1).replace(".", ",")}
-          </div>
-          <span className="text-sm" style={{ color: "#333" }}>
-            <span className="font-semibold">{data.scoreLabel}</span>
-            {" · "}
-            {data.reviewCount} comentarios
-          </span>
+          {data.score === 0 ? (
+            <>
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0"
+                style={{ backgroundColor: "#F1F3F5", color: "#526071" }}
+              >
+                <Star size={13} style={{ color: "#526071" }} />
+                Nuevo en JackCity
+              </span>
+              <span className="text-xs" style={{ color: "#8A94A6" }}>· Aún sin evaluaciones</span>
+            </>
+          ) : (
+            <>
+              <div
+                className="flex items-center justify-center px-2 py-0.5 rounded-md text-white font-bold text-sm flex-shrink-0"
+                style={{ backgroundColor: "#1a6b4a" }}
+              >
+                {data.score.toFixed(1).replace(".", ",")}
+              </div>
+              <span className="text-sm" style={{ color: "#333" }}>
+                <span className="font-semibold">{data.scoreLabel}</span>
+                {" · "}
+                {data.reviewCount} comentarios
+              </span>
+            </>
+          )}
         </div>
 
         {/* Location */}
