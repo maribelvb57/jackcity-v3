@@ -85,7 +85,7 @@ export function SiteFooter() {
         <div className="mx-auto max-w-[1100px] px-6 pt-14 pb-8">
 
           {/* Top: logo + columns */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
 
             {/* Brand */}
             <div className="col-span-2 md:col-span-1">
@@ -170,6 +170,31 @@ export function SiteFooter() {
                 </ul>
               </div>
             ))}
+
+            {/* AndesBits */}
+            <div className="col-span-2 md:col-span-1">
+              <h4 className="text-sm font-bold mb-4 text-white">
+                Un producto de
+              </h4>
+              <a
+                href="https://andesbits.cl"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block rounded-xl overflow-hidden transition-opacity hover:opacity-80"
+                aria-label="AndesBits"
+              >
+                <Image
+                  src="/images/andesbits-logo.png"
+                  alt="AndesBits — Tecnología que conecta el sur"
+                  width={180}
+                  height={112}
+                  className="w-full max-w-[180px] h-auto"
+                />
+              </a>
+              <p className="text-xs mt-3 leading-relaxed" style={{ color: "#7F8897" }}>
+                JackCity es un producto de AndesBits.
+              </p>
+            </div>
           </div>
 
           {/* Divider */}
