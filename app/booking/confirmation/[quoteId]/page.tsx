@@ -4,15 +4,15 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter, useParams } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { SiteNavbar } from "@/components/site-navbar"
 import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { AddPetModal } from "@/components/add-pet-modal"
-import { getQuote } from "@/lib/api/quotes"
+import { getQuote, type Quote } from "@/lib/api/quotes"
 import { validateEmail, getMyProfile, type CustomerProfile } from "@/lib/api/customers"
-import { saveBookingUser, saveBookingPets, gotoPay, getBookingRequests, type BookingRequest, type BookingRequestPet } from "@/lib/api/bookings"
+import { saveBookingUser, saveBookingPets, gotoPay, getBookingRequests, addBookingService, removeBookingService, getBookingCart, type BookingRequest, type BookingRequestPet, type BookingCart } from "@/lib/api/bookings"
 import { initiateBookingDocument, uploadFileToR2, confirmBookingDocument, deleteBookingDocument } from "@/lib/api/booking-documents"
 import { BookingExpiredError, createWebpayPayment } from "@/lib/api/payments"
 import { redirectToWebpay } from "@/lib/webpay"
@@ -20,6 +20,8 @@ import { useApiClient } from "@/hooks/use-api-client"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
 import { getBreedByCode, resolveBreedCode } from "@/lib/dog-breeds"
 import { slotTime } from "@/lib/transport-slots"
+import { getCommuneNameByCode } from "@/config/communes"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
   User,
   Mail,
@@ -46,6 +48,8 @@ import {
   LockKeyhole,
   Loader2,
   Trash2,
+  HeartPulse,
+  X,
 } from "lucide-react"
 import { formatClp } from "@/lib/format"
 import { useClerk, useUser } from "@clerk/nextjs"
@@ -231,6 +235,78 @@ function formatValidUntil(iso: string) {
   return `${day} de ${month.charAt(0).toUpperCase()}${month.slice(1)} de ${year}`
 }
 
+// ─── Servicio relacionado (getrequests → serviceToOffer) ─────────────────
+// Cuando la mascota no cumple un requisito (p.ej. le falta una vacuna), el hotel
+// puede ofrecer un servicio para resolverlo al llegar. El backend lo entrega en
+// request.serviceToOffer; acá lo mapeamos al view-model del enlace + el modal.
+type RelatedService = {
+  // Texto del enlace en la fila del requisito.
+  linkLabel: string
+  // Contenido del modal.
+  heading: string
+  descriptionLines: string[]
+  icon: string | null
+  focusMessage: boolean
+  focusIcon: string | null
+  focusText: string | null
+  // Datos crudos para POST /booking/addService al confirmar.
+  serviceId: number
+  serviceName: string
+  price: number
+}
+
+// Número entero con separador de miles ("18.000"), sin símbolo (el template ya trae "$").
+function formatThousands(value: number) {
+  return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+}
+
+// serviceToOffer → view-model. Reemplaza %PET% (nombre mascota) y %PRICE% (precio).
+function resolveServiceToOffer(request: BookingRequest, petName: string): RelatedService | null {
+  const offer = request.serviceToOffer
+  if (!offer) return null
+  const s = offer.service
+  const description = s.description
+    .replace(/%PRICE%/g, formatThousands(offer.price))
+    .replace(/%PET%/g, petName)
+  return {
+    linkLabel: s.offerText.replace(/%PET%/g, petName),
+    heading: s.title.replace(/%PET%/g, petName),
+    descriptionLines: description.split("\n").map((l) => l.trim()).filter(Boolean),
+    icon: s.icon,
+    focusMessage: s.focusMessage,
+    focusIcon: s.focusIcon,
+    focusText: s.focusText,
+    serviceId: offer.serviceId,
+    serviceName: s.name,
+    price: offer.price,
+  }
+}
+
+// Los iconos del servicio llegan como clase lucide ("lucide-heart-pulse" o
+// "lucide lucide-shield-check"). Resolvemos el nombre kebab a su componente lucide,
+// con un fallback cuando el nombre no está en el registro.
+const LUCIDE_ICONS: Record<string, typeof HeartPulse> = {
+  "heart-pulse": HeartPulse,
+  "shield-check": ShieldCheck,
+}
+
+function lucideKey(raw: string | null | undefined) {
+  if (!raw) return null
+  const token = raw.trim().split(/\s+/).pop() ?? ""
+  return token.replace(/^lucide-/, "") || null
+}
+
+function ServiceIcon({ raw, fallback: Fallback, size, style }: {
+  raw: string | null | undefined
+  fallback: typeof HeartPulse
+  size: number
+  style?: React.CSSProperties
+}) {
+  const key = lucideKey(raw)
+  const Icon = (key && LUCIDE_ICONS[key]) || Fallback
+  return <Icon size={size} style={style} />
+}
+
 // Número de sección: círculo azul (sección activa) o gris (secciones siguientes)
 function SectionNumber({ n, active = false }: { n: number; active?: boolean }) {
   return (
@@ -396,7 +472,9 @@ function UploadBox({
   )
 }
 
-// Fila de un requisito: checkbox + texto a la izquierda, acción de archivo a la derecha
+// Fila de un requisito: checkbox + texto a la izquierda, acción de archivo a la derecha.
+// Layout de 2 columnas. La 2ª columna (right) puede, a su vez, dividirse internamente
+// (p.ej. Carnet de Vacunas + enlace de servicio); eso lo arma quien pasa `right`.
 function RequirementRow({
   checked, onToggle, title, description, right, first = false, checkboxDisabled = false,
 }: {
@@ -421,8 +499,227 @@ function RequirementRow({
           {description && <p className="text-sm mt-1 leading-snug" style={{ color: "#6B7280" }}>{description}</p>}
         </div>
       </div>
-      <div className="md:flex-1">{right}</div>
+      {/* Sin contenido a la derecha (p.ej. requisito sin archivo): no renderizamos la
+          2ª columna para que el texto ocupe el ancho completo. */}
+      {right != null && <div className="md:flex-1">{right}</div>}
     </div>
+  )
+}
+
+// Modal que ofrece el servicio relacionado (mockup imagen 2). Aparece al hacer click
+// en el enlace "¿%PET% no cuenta con esta vacuna?".
+function ServiceModal({
+  service, onClose, onConfirm, isSubmitting = false, error = false,
+}: {
+  service: RelatedService
+  onClose: () => void
+  onConfirm: () => void
+  isSubmitting?: boolean
+  error?: boolean
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(10, 24, 48, 0.45)" }}
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-md rounded-2xl bg-white px-6 py-7 text-center shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar"
+          className="absolute right-4 top-4 rounded-md p-1 transition-colors hover:bg-gray-100"
+          style={{ color: "#9CA3AF" }}
+        >
+          <X size={20} />
+        </button>
+
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: "#EAF2FF" }}>
+          <ServiceIcon raw={service.icon} fallback={HeartPulse} size={30} style={{ color: "#125BD8" }} />
+        </div>
+
+        <h3 className="text-2xl font-extrabold" style={{ color: "#0A1830" }}>
+          {service.heading}
+        </h3>
+
+        {service.descriptionLines.map((line, i) => (
+          <p
+            key={i}
+            className={`mx-auto mt-3 max-w-xs text-sm leading-snug ${i === service.descriptionLines.length - 1 ? "font-semibold" : ""}`}
+            style={{ color: i === service.descriptionLines.length - 1 ? "#0A1830" : "#475569" }}
+          >
+            {line}
+          </p>
+        ))}
+
+        {service.focusMessage && service.focusText && (
+          <div className="mt-5 flex items-center justify-center gap-2 rounded-xl px-4 py-3" style={{ backgroundColor: "#EEF3FB" }}>
+            <ServiceIcon raw={service.focusIcon} fallback={ShieldCheck} size={18} style={{ color: "#125BD8" }} />
+            <span className="text-sm font-medium" style={{ color: "#475569" }}>{service.focusText}</span>
+          </div>
+        )}
+
+        {error && (
+          <p className="mt-4 text-sm font-medium" style={{ color: "#DC2626" }}>
+            No pudimos agregar el servicio. Intenta nuevamente.
+          </p>
+        )}
+
+        <div className="mt-5 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="flex-1 rounded-xl border px-4 py-3 text-sm font-bold transition-colors hover:bg-gray-50 disabled:opacity-50"
+            style={{ borderColor: "#CBD5E1", color: "#125BD8" }}
+          >
+            No, gracias
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isSubmitting}
+            className="flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+            style={{ backgroundColor: "#125BD8", color: "#ffffff" }}
+          >
+            {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+            {isSubmitting ? "Agregando…" : "Sí, agregar servicio"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Tamaños ["SMALL","MEDIUM"] → "Pequeño y Mediano" (unión con "y" al final).
+function petSizesText(sizes: string[]) {
+  const labels = sizes.map((s) => PET_SIZE_LABEL[s as PetSize] ?? s)
+  return labels.length <= 1 ? labels.join("") : `${labels.slice(0, -1).join(", ")} y ${labels[labels.length - 1]}`
+}
+
+// Maqueta compartida del sidebar "Resumen Reserva" (versión carrito). La usan tanto
+// el resumen basado en la quote (antes del bookingId) como el del cart (después).
+function SummaryCard({ headerLines, lines, total, payNow, hasTransport }: {
+  headerLines: string[]
+  lines: { label: string; price: number }[]
+  total: number
+  payNow: number
+  // Con transporte (monto != 0), el "pagar ahora" no es un 30% simple → tooltip explicativo.
+  hasTransport: boolean
+}) {
+  return (
+    <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "#E5E7EB" }}>
+      <h3 className="font-bold text-sm mb-2" style={{ color: "#0A1830" }}>Resumen Reserva</h3>
+      <div className="flex flex-col gap-0.5 text-xs mb-3" style={{ color: "#555" }}>
+        {headerLines.map((line, i) => <p key={i}>{line}</p>)}
+      </div>
+
+      <div className="flex flex-col gap-2 border-t pt-3" style={{ borderColor: "#F1F5F9" }}>
+        {lines.map((line, i) => (
+          <div key={i} className="flex items-start justify-between gap-3 text-xs">
+            <span style={{ color: "#475569" }}>{line.label}</span>
+            <span className="flex-shrink-0 font-medium" style={{ color: "#0A1830" }}>{formatClp(line.price)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3" style={{ borderColor: "#E5E7EB" }}>
+        <span className="text-sm font-bold" style={{ color: "#0A1830" }}>Total de tu reserva</span>
+        <span className="flex-shrink-0 text-sm font-bold" style={{ color: "#0A1830" }}>{formatClp(total)}</span>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-3 rounded-xl pl-3 pr-0 py-2.5" style={{ backgroundColor: "#FFFBF0" }}>
+        <span className="flex items-center gap-2 text-xs font-semibold" style={{ color: "#0A1830" }}>
+          A pagar ahora{hasTransport ? "" : " 30%"}
+          {hasTransport && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" aria-label="Cómo se calcula el pago ahora" className="inline-flex">
+                  <Info size={13} style={{ color: "#94A3B8" }} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-[220px] border border-[#E5E7EB] bg-white text-center text-[#0A1830] shadow-md [&>svg]:bg-white [&>svg]:fill-white">
+                30% del valor de tu alojamiento y servicios más el total del valor del transporte
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </span>
+        <span className="flex-shrink-0 text-sm font-bold" style={{ color: "#B77900" }}>{formatClp(payNow)}</span>
+      </div>
+    </div>
+  )
+}
+
+// Resumen basado en la quote (antes de que exista bookingId). Mismo look que el cart.
+function QuoteSummary({ quote }: { quote: Quote }) {
+  const checkIn = new Date(`${quote.checkinDate}T12:00:00`)
+  const checkOut = new Date(`${quote.checkoutDate}T12:00:00`)
+  const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000) || 1
+  const petCount = quote.pets.length
+  const petCountLabel = `${petCount} ${petCount === 1 ? "mascota" : "mascotas"}`
+  const sizesText = petSizesText(quote.pets.map((p) => p.size))
+
+  const lines: { label: string; price: number }[] = [
+    { label: `${nights} ${nights === 1 ? "noche" : "noches"} alojamiento`, price: quote.pricing.bookingPrice },
+    ...(quote.needsTransport
+      ? [{
+          label: `Transporte Ida y regreso a ${getCommuneNameByCode(quote.transportCommune) ?? quote.transportCommune ?? ""}`,
+          price: quote.pricing.transportPrice,
+        }]
+      : []),
+  ]
+
+  return (
+    <SummaryCard
+      headerLines={[
+        `${petCountLabel}${sizesText ? `, ${sizesText}` : ""}`,
+        `Fechas: ${format(checkIn, "d MMM", { locale: es })} - ${format(checkOut, "d MMM", { locale: es })}`,
+      ]}
+      lines={lines}
+      total={quote.pricing.totalPrice}
+      payNow={quote.pricing.payNowAmount}
+      hasTransport={quote.needsTransport && quote.pricing.transportPrice !== 0}
+    />
+  )
+}
+
+// Sidebar "Resumen Reserva" en versión carrito (una vez que existe bookingId).
+// Los montos finales vienen del backend (totalBookingAmount / payNowAmount).
+function CartSummary({ cart }: { cart: BookingCart }) {
+  const petCountLabel = `${cart.petCount} ${cart.petCount === 1 ? "mascota" : "mascotas"}`
+  const sizesText = petSizesText(cart.petSizes)
+  const checkIn = new Date(`${cart.checkIn}T12:00:00`)
+  const checkOut = new Date(`${cart.checkOut}T12:00:00`)
+
+  // Líneas del carrito: alojamiento + servicios agregados + (transporte si aplica).
+  const lines: { label: string; price: number }[] = [
+    {
+      label: `${cart.items.housing.nightsCount} ${cart.items.housing.nightsCount === 1 ? "noche" : "noches"} alojamiento`,
+      price: cart.items.housing.price,
+    },
+    ...cart.items.services.map((s) => ({ label: s.name, price: s.price })),
+    ...(cart.items.transport
+      ? [{
+          label: `Transporte Ida y regreso a ${getCommuneNameByCode(cart.items.transport.communeCode) ?? cart.items.transport.communeCode}`,
+          price: cart.items.transport.price,
+        }]
+      : []),
+  ]
+
+  return (
+    <SummaryCard
+      headerLines={[
+        `${petCountLabel}${sizesText ? `, ${sizesText}` : ""}`,
+        `Fechas: ${format(checkIn, "d MMM", { locale: es })} - ${format(checkOut, "d MMM", { locale: es })}`,
+      ]}
+      lines={lines}
+      total={cart.totalBookingAmount}
+      payNow={cart.payNowAmount}
+      hasTransport={(cart.items.transport?.price ?? 0) !== 0}
+    />
   )
 }
 
@@ -454,6 +751,12 @@ function ConfirmationContent() {
   // Si la reserva incluye transporte se intercala un paso extra (selección de
   // horarios) entre "Requisitos" y "Confirmar y pagar" → 5 pasos en vez de 4.
   const includeTransport = quote?.needsTransport ?? false
+  // Si el transporte lo realiza JackCity, el texto de la sección es más corto (sin la
+  // coordinación de horario del hotel). Por defecto (HOTEL / sin dato) va el texto largo.
+  const transportByJackCity = quote?.transportBy === "JACKCITY"
+  const transportSubtitle = transportByJackCity
+    ? "Selecciona tu tramo horario de preferencia para el transporte de tu mascota."
+    : "Selecciona tu tramo horario de preferencia para el transporte de tu mascota. El hotel hará todo lo posible por recogerlo en ese horario pero si no es posible coordinará contigo un nuevo horario con la debida anticipación."
   const TOTAL_STEPS = includeTransport ? 5 : 4
   const TRANSPORT_STEP = 4
   const PAY_STEP = includeTransport ? 5 : 4
@@ -467,6 +770,17 @@ function ConfirmationContent() {
   const [savedUserId, setSavedUserId] = useState<string | null>(null)
   // bookingId devuelto por saveuser; requerido para el paso 2 (savepets) y posteriores.
   const [savedBookingId, setSavedBookingId] = useState<string | null>(null)
+
+  // ─── Carrito (sidebar "Resumen Reserva") ───────────────────────────────
+  // Se carga aparte, en paralelo, solo una vez que existe bookingId (post /saveuser).
+  // Mientras no haya bookingId, el sidebar muestra el resumen basado en la quote.
+  const queryClient = useQueryClient()
+  const { data: cart } = useQuery({
+    queryKey: ["booking-cart", savedBookingId],
+    queryFn: () => getBookingCart(savedBookingId!, apiFetch),
+    enabled: !!savedBookingId,
+  })
+
   const [isSavingStep2, setIsSavingStep2] = useState(false)
   const [step2Error, setStep2Error] = useState(false)
   // ids de las mascotas creadas por savepets; se usarán en los pasos siguientes (requisitos, etc.)
@@ -618,6 +932,70 @@ function ConfirmationContent() {
   // Estado de subida a R2 por (mascota, requisito): status + nombre + id + error.
   type ReqUpload = { status: DocUploadStatus; filename?: string; documentId?: string; error?: string }
   const [reqUploads, setReqUploads] = useState<Record<string, ReqUpload>>({})
+
+  // ─── Servicio relacionado (serviceToOffer) ─────────────────────────────
+  // Modal abierto (con el servicio a ofrecer) y servicios ya agregados por
+  // (mascota, requisito) → guardamos el bookingServiceId que devuelve addService,
+  // necesario para poder quitarlo luego (removeService).
+  const [openService, setOpenService] = useState<{ key: string; service: RelatedService } | null>(null)
+  const [addedServices, setAddedServices] = useState<Record<string, number>>({})
+  const [isAddingService, setIsAddingService] = useState(false)
+  const [addServiceError, setAddServiceError] = useState(false)
+  // Estado de la remoción por (mascota, requisito): en curso + error.
+  const [removingServices, setRemovingServices] = useState<Record<string, boolean>>({})
+  const [removeServiceErrors, setRemoveServiceErrors] = useState<Record<string, boolean>>({})
+
+  // Confirma el servicio del modal → POST /bookings/addService. Al éxito guarda el
+  // bookingServiceId, marca el requisito como cumplido y cierra; en error lo muestra
+  // en el modal para reintentar.
+  const handleAddService = async () => {
+    if (!openService || !savedBookingId) return
+    setIsAddingService(true)
+    setAddServiceError(false)
+    try {
+      const { id: bookingServiceId } = await addBookingService({
+        bookingId: savedBookingId,
+        serviceId: openService.service.serviceId,
+        serviceName: openService.service.serviceName,
+        servicePrice: openService.service.price,
+      }, apiFetch)
+      setAddedServices((prev) => ({ ...prev, [openService.key]: bookingServiceId }))
+      // El servicio resuelve el requisito: activamos su checkbox (queda cumplido).
+      setReqChecks((prev) => ({ ...prev, [openService.key]: true }))
+      setOpenService(null)
+      // El servicio recién agregado cambia el carrito → refrescar el resumen.
+      queryClient.invalidateQueries({ queryKey: ["booking-cart", savedBookingId] })
+    } catch {
+      setAddServiceError(true)
+    } finally {
+      setIsAddingService(false)
+    }
+  }
+
+  // Quita un servicio agregado → DELETE /bookings/removeService/{bookingServiceId}.
+  // Al éxito revierte el requisito (vuelve a exigir documento) y refresca el carrito.
+  const handleRemoveService = async (key: string) => {
+    const bookingServiceId = addedServices[key]
+    if (bookingServiceId == null || !savedBookingId) return
+    setRemovingServices((prev) => ({ ...prev, [key]: true }))
+    setRemoveServiceErrors((prev) => ({ ...prev, [key]: false }))
+    try {
+      await removeBookingService(bookingServiceId, apiFetch)
+      setAddedServices((prev) => {
+        const next = { ...prev }
+        delete next[key]
+        return next
+      })
+      // Al quitar el servicio, el requisito vuelve a exigir su documento.
+      setReqChecks((prev) => ({ ...prev, [key]: false }))
+      // Quitar el servicio cambia el carrito → refrescar el resumen.
+      queryClient.invalidateQueries({ queryKey: ["booking-cart", savedBookingId] })
+    } catch {
+      setRemoveServiceErrors((prev) => ({ ...prev, [key]: true }))
+    } finally {
+      setRemovingServices((prev) => ({ ...prev, [key]: false }))
+    }
+  }
 
   // Sube un documento a R2 (initiate → PUT → confirm) apenas el usuario elige el archivo.
   // Al confirmar con éxito, auto-cumple el requisito (marca el check) para habilitar el avance.
@@ -915,6 +1293,8 @@ function ConfirmationContent() {
       }, apiFetch)
       setSavedPetIds(petIds)
       setCurrentStep(3)
+      // Guardar mascotas puede cambiar el carrito (cantidad/tamaños) → refrescar.
+      queryClient.invalidateQueries({ queryKey: ["booking-cart", savedBookingId] })
     } catch {
       setStep2Error(true)
     } finally {
@@ -1031,22 +1411,9 @@ function ConfirmationContent() {
                   </div>
                 </div>
 
-                {/* Reservation summary */}
-                <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "#E5E7EB" }}>
-                  <h3 className="font-bold text-sm mb-3" style={{ color: "#0A1830" }}>Resumen Reserva</h3>
-                  <ul className="flex flex-col gap-1.5 text-xs" style={{ color: "#555" }}>
-                    <li>{petCountLabel}{quotedPetSizesLabel ? `, ${quotedPetSizesLabel}` : ""}</li>
-                    <li>
-                      {nights} {nights === 1 ? "noche" : "noches"}
-                      {checkinDate && checkoutDate && (
-                        <span>
-                          {" "}({format(checkinDate, "d MMM", { locale: es })} - {format(checkoutDate, "d MMM", { locale: es })})
-                        </span>
-                      )}
-                    </li>
-                    {includeTransport && <li>Transporte incluido</li>}
-                  </ul>
-                </div>
+                {/* Reservation summary — carrito (cart) una vez que hay bookingId;
+                    mientras tanto, resumen basado en la quote (mismo look). */}
+                {cart ? <CartSummary cart={cart} /> : <QuoteSummary quote={quote} />}
 
                 {/* Hotel conditions */}
                 {quote.hotel.policies.length > 0 && (
@@ -1505,6 +1872,24 @@ function ConfirmationContent() {
                                 // su check lo controla la subida, no un click manual del usuario.
                                 const needsUpload = request.fileRequired && !pet.foundValidFile
                                 const upload = reqUploads[key]
+                                // Servicio relacionado para esta fila (null si el requisito no lo ofrece).
+                                const service = resolveServiceToOffer(request, pet.petName)
+                                const serviceAdded = addedServices[key] != null
+                                const isRemoving = !!removingServices[key]
+                                const removeError = !!removeServiceErrors[key]
+                                const uploadBox = (
+                                  <UploadBox
+                                    id={`req-${group.petId}-${request.id}`}
+                                    title={request.fileText ?? "Subir archivo"}
+                                    hint={buildFileHint(request.fileTypes, request.maxFileSize)}
+                                    uploadedName={upload?.filename ?? null}
+                                    status={upload?.status ?? "idle"}
+                                    error={upload?.error ?? null}
+                                    onFile={(file) => handleUploadDocument(key, group.petId, request, file)}
+                                    onDelete={() => handleDeleteDocument(key)}
+                                    icon={request.icon === "PHOTO" ? <Camera size={30} /> : <UploadCloud size={30} />}
+                                  />
+                                )
                                 return (
                                   <RequirementRow
                                     key={request.id}
@@ -1515,13 +1900,37 @@ function ConfirmationContent() {
                                     title={request.title.replace(/%PET%/g, pet.petName)}
                                     description={request.description ?? undefined}
                                     right={
-                                      // 3 conceptos: (1) no requiere archivo, (2) requiere pero ya
-                                      // hay uno vigente, (3) requiere y hay que subirlo ahora.
-                                      !request.fileRequired ? (
-                                        <div className="flex items-center gap-2 px-5 py-4 rounded-xl" style={{ backgroundColor: "#F0FDF4" }}>
-                                          <CheckCircle2 size={20} style={{ color: "#16A34A" }} />
-                                          <span className="text-sm font-medium" style={{ color: "#16A34A" }}>No requiere archivo</span>
+                                      // Layout de 2 columnas. Estados de la 2ª columna:
+                                      // (0) servicio agregado → reemplaza la caja de subida;
+                                      // (1) no requiere archivo; (2) ya hay uno vigente;
+                                      // (3) requiere subirlo + ofrece servicio → 2/3 upload + 1/3 enlace;
+                                      // (4) requiere subirlo sin servicio → solo el upload.
+                                      serviceAdded ? (
+                                        <div>
+                                          <div className="flex items-center justify-between gap-2 rounded-xl px-4 py-4" style={{ backgroundColor: "#F0FDF4" }}>
+                                            <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: "#16A34A" }}>
+                                              <CheckCircle2 size={20} /> Servicio agregado
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleRemoveService(key)}
+                                              disabled={isRemoving}
+                                              aria-label="Quitar servicio"
+                                              className="rounded-md p-0.5 transition-colors hover:bg-green-100 disabled:cursor-default disabled:opacity-60"
+                                              style={{ color: "#16A34A" }}
+                                            >
+                                              {isRemoving ? <Loader2 size={16} className="animate-spin" /> : <X size={16} />}
+                                            </button>
+                                          </div>
+                                          {removeError && (
+                                            <p className="mt-1 text-xs" style={{ color: "#DC2626" }}>
+                                              No se pudo quitar. Intenta nuevamente.
+                                            </p>
+                                          )}
                                         </div>
+                                      ) : !request.fileRequired ? (
+                                        // Sin archivo: no mostramos caja; el texto ocupa el ancho completo.
+                                        null
                                       ) : pet.foundValidFile ? (
                                         <div className="flex items-center gap-2 px-5 py-4 rounded-xl" style={{ backgroundColor: "#F0FDF4" }}>
                                           <CheckCircle2 size={20} style={{ color: "#16A34A" }} />
@@ -1531,18 +1940,21 @@ function ConfirmationContent() {
                                               : "Documento disponible"}
                                           </span>
                                         </div>
+                                      ) : service ? (
+                                        // El enlace le "roba" un tercio a la caja del carnet (2/3 + 1/3).
+                                        <div className="flex items-stretch gap-3">
+                                          <div className="flex-[3] min-w-0">{uploadBox}</div>
+                                          <button
+                                            type="button"
+                                            onClick={() => { setAddServiceError(false); setOpenService({ key, service }) }}
+                                            className="flex flex-1 items-center justify-center rounded-lg px-2 py-2 text-xs leading-snug text-center transition-colors hover:opacity-80"
+                                            style={{ backgroundColor: "#EEF1F6", color: "#475569" }}
+                                          >
+                                            {service.linkLabel}
+                                          </button>
+                                        </div>
                                       ) : (
-                                        <UploadBox
-                                          id={`req-${group.petId}-${request.id}`}
-                                          title={request.fileText ?? "Subir archivo"}
-                                          hint={buildFileHint(request.fileTypes, request.maxFileSize)}
-                                          uploadedName={upload?.filename ?? null}
-                                          status={upload?.status ?? "idle"}
-                                          error={upload?.error ?? null}
-                                          onFile={(file) => handleUploadDocument(key, group.petId, request, file)}
-                                          onDelete={() => handleDeleteDocument(key)}
-                                          icon={request.icon === "PHOTO" ? <Camera size={30} /> : <UploadCloud size={30} />}
-                                        />
+                                        uploadBox
                                       )
                                     }
                                   />
@@ -1582,6 +1994,21 @@ function ConfirmationContent() {
                         <ArrowRight size={16} />
                       </button>
                     </div>
+
+                    {/* Modal de servicio relacionado (MOCK) */}
+                    {openService && (
+                      <ServiceModal
+                        service={openService.service}
+                        isSubmitting={isAddingService}
+                        error={addServiceError}
+                        onClose={() => {
+                          if (isAddingService) return
+                          setAddServiceError(false)
+                          setOpenService(null)
+                        }}
+                        onConfirm={handleAddService}
+                      />
+                    )}
                   </div>
                 ) : (
                   <CollapsedSection
@@ -1604,7 +2031,7 @@ function ConfirmationContent() {
                             <Car size={20} style={{ color: "#0A1830" }} />
                             Horarios de transporte
                           </h2>
-                          <p className="text-sm" style={{ color: "#6B7280" }}>Elige el horario de ida y de regreso de tu mascota.</p>
+                          <p className="text-sm" style={{ color: "#6B7280" }}>{transportSubtitle}</p>
                         </div>
                       </div>
 
@@ -1676,7 +2103,7 @@ function ConfirmationContent() {
                     <CollapsedSection
                       n={4}
                       title="Horarios de transporte"
-                      subtitle="Elige el horario de ida y de regreso de tu mascota."
+                      subtitle={transportSubtitle}
                       completed={currentStep > TRANSPORT_STEP}
                       onClick={currentStep > TRANSPORT_STEP ? () => setCurrentStep(TRANSPORT_STEP) : undefined}
                     />

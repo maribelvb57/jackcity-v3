@@ -19,6 +19,8 @@ export type Quote = {
     bookingPrice: number
     transportPrice: number
     totalPrice: number
+    // Monto a pagar ahora (lo calcula el backend). Alimenta "A pagar ahora" del resumen.
+    payNowAmount: number
   }
   transport: {
     departureSlots: string[]
@@ -29,6 +31,8 @@ export type Quote = {
   checkoutDate: string
   needsTransport: boolean
   transportCommune: string | null
+  // Quién realiza el transporte: el hotel o JackCity. Ajusta el texto de la sección.
+  transportBy?: "HOTEL" | "JACKCITY" | null
 }
 
 export async function createQuote(params: {

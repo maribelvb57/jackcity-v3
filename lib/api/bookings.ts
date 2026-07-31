@@ -221,6 +221,36 @@ export type BookingRequestPet = {
   validUntil: string | null
 }
 
+// Detalle del servicio que el hotel puede ofrecer para resolver un requisito
+// incumplido (p.ej. aplicar una vacuna al llegar). Alimenta el enlace + el modal.
+// Los iconos vienen como clase lucide (p.ej. "lucide-heart-pulse" o
+// "lucide lucide-shield-check") y se resuelven en el frontend.
+export type BookingRequestServiceDetail = {
+  id: number
+  name: string
+  // Texto del enlace en la fila del requisito.
+  offerText: string
+  type: string
+  // Icono principal del modal (nombre lucide).
+  icon: string | null
+  // Título del modal (puede traer emoji).
+  title: string
+  // Cuerpo del modal. Puede traer saltos de línea y el token %PRICE% (→ price).
+  description: string
+  // Si false, no se muestra la barra de "focus" (assurance) del modal.
+  focusMessage: boolean
+  focusIcon: string | null
+  focusText: string | null
+}
+
+export type BookingRequestServiceToOffer = {
+  hotelServiceId: number
+  hotelId: string
+  serviceId: number
+  price: number
+  service: BookingRequestServiceDetail
+}
+
 export type BookingRequest = {
   id: number
   title: string
@@ -233,9 +263,13 @@ export type BookingRequest = {
   // "FILE" (UploadCloud) | "PHOTO" (Camera) | otros → fallback a UploadCloud
   icon: string | null
   reviewerText: string | null
+  // "ALL" | "MALE" | "FEMALE": género de mascota al que aplica el requisito.
+  genderApply?: string | null
   fileRequired: boolean
   // El backend puede omitir pets (o mandarlo null) en requisitos de nivel reserva.
   pets: BookingRequestPet[] | null
+  // Servicio ofrecido para este requisito; ausente/null si hotel_service_id era null.
+  serviceToOffer?: BookingRequestServiceToOffer | null
 }
 
 export type GetBookingRequestsResult = {
@@ -282,5 +316,73 @@ export async function requestBookingCancellation(params: CancellationRequestPara
   await apiFetch("/api/bookings/cancellation-request", {
     method: "POST",
     body: JSON.stringify(params),
+  })
+}
+
+// Carrito de la reserva (sidebar "Resumen Reserva"). Se carga aparte, en paralelo,
+// una vez que existe bookingId (lo devuelve /saveuser). Los montos finales
+// (totalBookingAmount / payNowAmount) los calcula el backend; el frontend no suma.
+export type BookingCartItems = {
+  housing: { nightsCount: number; price: number }
+  // Null cuando la reserva no incluye transporte.
+  transport: { communeCode: string; price: number } | null
+  // Servicios agregados (p.ej. vía addService). Puede venir vacío.
+  services: { name: string; price: number }[]
+}
+
+export type BookingCart = {
+  bookingId: string
+  hotelId: string
+  checkIn: string
+  checkOut: string
+  bookingStatus: string
+  petCount: number
+  // Códigos de tamaño ("SMALL" | "MEDIUM" | ...); usar PET_SIZE_LABEL para el nombre.
+  petSizes: string[]
+  items: BookingCartItems
+  totalBookingAmount: number
+  payNowAmount: number
+}
+
+export async function getBookingCart(bookingId: string, apiFetch: ApiFetch): Promise<BookingCart> {
+  return apiFetch(`/api/booking/cart/${bookingId}`)
+}
+
+// Agrega a la reserva un servicio ofrecido (serviceToOffer) al confirmarlo en el modal.
+// El body va en snake_case tal como lo espera el endpoint.
+export type AddBookingServiceParams = {
+  bookingId: string
+  serviceId: number
+  serviceName: string
+  servicePrice: number
+}
+
+// Fila del servicio creada en la reserva. `id` es el bookingServiceId que necesita
+// removeService para quitarlo luego.
+export type AddBookingServiceResult = {
+  id: number
+  bookingId: string
+  serviceId: number
+  serviceName: string
+  servicePrice: number
+}
+
+export async function addBookingService(params: AddBookingServiceParams, apiFetch: ApiFetch): Promise<AddBookingServiceResult> {
+  return apiFetch("/api/bookings/addService", {
+    method: "POST",
+    body: JSON.stringify({
+      booking_id: params.bookingId,
+      service_id: params.serviceId,
+      service_name: params.serviceName,
+      service_price: params.servicePrice,
+    }),
+  })
+}
+
+// Quita de la reserva un servicio previamente agregado. bookingServiceId identifica
+// la fila del servicio en la reserva (lo devuelve addService), NO es el serviceId del catálogo.
+export async function removeBookingService(bookingServiceId: number, apiFetch: ApiFetch): Promise<void> {
+  await apiFetch(`/api/bookings/removeService/${bookingServiceId}`, {
+    method: "DELETE",
   })
 }
