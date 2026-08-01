@@ -41,7 +41,7 @@ import {
   Dog,
   CalendarDays,
   Car,
-  Hotel,
+  House,
   CreditCard,
   Building2,
   ShieldCheck,
@@ -1216,7 +1216,29 @@ function ConfirmationContent() {
     : accommodationPrice
   const payNowAccommodationPrice = Math.round(accommodationPrice * PAY_NOW_PERCENTAGE)
   const payNowPrice = payNowAccommodationPrice + transportPrice
-  const payAtHotelPrice = accommodationPrice - payNowAccommodationPrice
+
+  // ─── Paso 5 (Confirmar y pagar): datos desde el cart ───────────────────
+  // El cart ya existe en este paso (el booking está creado) e incluye los servicios
+  // agregados. Si por algún motivo aún no llegó, caemos a los valores de la quote.
+  const cartServices = cart?.items.services ?? []
+  const hasCartServices = cartServices.length > 0
+  const cartServicesSum = cartServices.reduce((acc, s) => acc + s.price, 0)
+  const payHousingPrice = cart?.items.housing.price ?? accommodationPrice
+  const payTransportPrice = cart?.items.transport?.price ?? transportPrice
+  const payHasTransport = cart ? cart.items.transport != null : includeTransport
+  const payNights = cart?.items.housing.nightsCount ?? nights
+  // Total y pago-ahora los da el backend; el saldo del hotel es la diferencia.
+  const payTotalAmount = cart?.totalBookingAmount ?? totalPrice
+  const payNowAmount = cart?.payNowAmount ?? payNowPrice
+  const payAtHotelAmount = payTotalAmount - payNowAmount
+  // Línea "30% del alojamiento (y servicios)" del desglose de pago-ahora. El backend no
+  // entrega ese desglose por ítem, así que este monto (solo esta línea) se calcula acá.
+  const payNowHousingLine = Math.round((payHousingPrice + cartServicesSum) * PAY_NOW_PERCENTAGE)
+  // Encabezado del resumen (mascotas, tamaños, fechas) desde el cart.
+  const payPetCountLabel = cart ? `${cart.petCount} ${cart.petCount === 1 ? "mascota" : "mascotas"}` : petCountLabel
+  const payPetSizes = cart ? petSizesText(cart.petSizes) : quotedPetSizesLabel
+  const payCheckIn = cart ? new Date(`${cart.checkIn}T12:00:00`) : checkinDate
+  const payCheckOut = cart ? new Date(`${cart.checkOut}T12:00:00`) : checkoutDate
 
   // Validación campo email / rut
   const rutHasValue = cleanRut(rut).length > 0
@@ -2112,40 +2134,40 @@ function ConfirmationContent() {
 
                 {/* Sección final — Confirmar y pagar */}
                 {currentStep === PAY_STEP ? (
-                  <div className="bg-white rounded-2xl p-5 border-2 overflow-hidden" style={{ borderColor: "#125BD8" }}>
-                    <div className="mb-4 flex items-center gap-3">
+                  <div className="bg-white rounded-2xl p-4 border-2 overflow-hidden" style={{ borderColor: "#125BD8" }}>
+                    <div className="mb-3 flex items-center gap-3">
                       <SectionNumber n={PAY_STEP} active />
                       <div>
-                        <h2 className="text-lg font-bold leading-tight" style={{ color: "#0A1830" }}>Confirmar y pagar</h2>
-                        <p className="text-sm" style={{ color: "#6B7280" }}>Revisa tu reserva y realiza el pago seguro.</p>
+                        <h2 className="text-base font-bold leading-tight" style={{ color: "#0A1830" }}>Confirmar y pagar</h2>
+                        <p className="text-xs" style={{ color: "#6B7280" }}>Revisa tu reserva y realiza el pago seguro.</p>
                       </div>
                     </div>
 
                     {/* Reservation summary + pay */}
-                    <div className="rounded-2xl border p-4 shadow-sm sm:p-5" style={{ borderColor: "#E5E7EB" }}>
-                      <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+                    <div className="rounded-xl border p-3 shadow-sm sm:p-4" style={{ borderColor: "#E5E7EB" }}>
+                      <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
                         <div>
-                          <h2 className="text-xl font-bold" style={{ color: "#0A1830" }}>
+                          <h2 className="text-base font-bold" style={{ color: "#0A1830" }}>
                             Resumen de tu reserva
                           </h2>
-                          <div className="mt-4 flex gap-4">
-                            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#ECE8FF" }}>
-                              <PawPrint size={24} fill="#0A1830" style={{ color: "#0A1830" }} />
+                          <div className="mt-3 flex gap-3">
+                            <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#ECE8FF" }}>
+                              <PawPrint size={18} fill="#0A1830" style={{ color: "#0A1830" }} />
                             </div>
-                            <ul className="flex min-w-0 flex-col gap-3 text-base" style={{ color: "#0A1830" }}>
-                              <li>{petCountLabel}{quotedPetSizesLabel ? ` (${quotedPetSizesLabel})` : ""}</li>
+                            <ul className="flex min-w-0 flex-col gap-1.5 text-sm" style={{ color: "#0A1830" }}>
+                              <li>{payPetCountLabel}{payPetSizes ? ` (${payPetSizes})` : ""}</li>
                               <li className="flex items-center gap-2">
-                                <CalendarDays size={18} className="flex-shrink-0" style={{ color: "#26364F" }} />
+                                <CalendarDays size={15} className="flex-shrink-0" style={{ color: "#26364F" }} />
                                 <span>
-                                  {nights} {nights === 1 ? "noche" : "noches"}
-                                  {checkinDate && checkoutDate && (
-                                    <> · {format(checkinDate, "d MMM", { locale: es })} - {format(checkoutDate, "d MMM", { locale: es })}</>
+                                  {payNights} {payNights === 1 ? "noche" : "noches"}
+                                  {payCheckIn && payCheckOut && (
+                                    <> · {format(payCheckIn, "d MMM", { locale: es })} - {format(payCheckOut, "d MMM", { locale: es })}</>
                                   )}
                                 </span>
                               </li>
-                              {includeTransport && (
+                              {payHasTransport && (
                                 <li className="flex items-center gap-2">
-                                  <Car size={18} className="flex-shrink-0" style={{ color: "#26364F" }} />
+                                  <Car size={15} className="flex-shrink-0" style={{ color: "#26364F" }} />
                                   <span>Transporte JackCity (Ida y regreso)</span>
                                 </li>
                               )}
@@ -2153,153 +2175,166 @@ function ConfirmationContent() {
                           </div>
                         </div>
 
-                        <div className="rounded-2xl border px-5 py-4" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
-                          <div className="flex gap-4">
-                            <div className="mt-1 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#2563EB" }}>
-                              <Info size={24} style={{ color: "#FFFFFF" }} />
+                        <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
+                          <div className="flex gap-3">
+                            <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#2563EB" }}>
+                              <Info size={18} style={{ color: "#FFFFFF" }} />
                             </div>
-                            <div className="flex flex-col gap-2 text-base leading-relaxed" style={{ color: "#0A1830" }}>
+                            <div className="flex flex-col gap-1.5 text-sm leading-snug" style={{ color: "#0A1830" }}>
                               <p>
                                 Para confirmar tu reserva debes pagar <span className="font-semibold">ahora</span>{" "}
                                 <span className="font-semibold" style={{ color: "#125BD8" }}>
-                                  el 30% del alojamiento{includeTransport ? " + el 100% del transporte" : ""}.
+                                  el 30% del alojamiento{hasCartServices ? " y servicios adicionales" : ""}{payHasTransport ? " + el 100% del transporte" : ""}.
                                 </span>
-                              </p>
-                              <p>
-                                El <span className="font-semibold">70% restante del alojamiento</span> lo abonas directamente en el hotel.
                               </p>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-5 rounded-2xl border p-4 sm:p-5" style={{ borderColor: "#E5E7EB" }}>
-                        <h3 className="text-xl font-bold" style={{ color: "#0A1830" }}>
+                      <div className="mt-4 rounded-xl border p-3 sm:p-4" style={{ borderColor: "#E5E7EB" }}>
+                        <h3 className="text-base font-bold" style={{ color: "#0A1830" }}>
                           Total de tu reserva
                         </h3>
 
-                        <div className="mt-4 flex flex-col gap-3 text-base" style={{ color: "#0A1830" }}>
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex min-w-0 items-center gap-4">
-                              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#EAF2FF" }}>
-                                <Hotel size={22} style={{ color: "#125BD8" }} />
+                        <div className="mt-2.5 flex flex-col gap-1.5 text-sm" style={{ color: "#0A1830" }}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#EAF2FF" }}>
+                                <House size={13} style={{ color: "#125BD8" }} />
                               </div>
-                              <p className="min-w-0">Alojamiento ({nights} {nights === 1 ? "noche" : "noches"})</p>
+                              <p className="min-w-0">Alojamiento ({payNights} {payNights === 1 ? "noche" : "noches"})</p>
                             </div>
-                            <p className="flex-shrink-0 font-medium">{formatClp(accommodationPrice)}</p>
+                            <p className="flex-shrink-0 font-medium">{formatClp(payHousingPrice)}</p>
                           </div>
 
-                          {includeTransport && (
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="flex min-w-0 items-center gap-4">
-                                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#DDF5EA" }}>
-                                  <Car size={22} style={{ color: "#08785B" }} />
+                          {cartServices.map((service, i) => (
+                            <div key={i} className="flex items-center justify-between gap-2">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#EAF2FF" }}>
+                                  <HeartPulse size={13} style={{ color: "#125BD8" }} />
+                                </div>
+                                <p className="min-w-0">{service.name}</p>
+                              </div>
+                              <p className="flex-shrink-0 font-medium">{formatClp(service.price)}</p>
+                            </div>
+                          ))}
+
+                          {payHasTransport && (
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#DDF5EA" }}>
+                                  <Car size={13} style={{ color: "#08785B" }} />
                                 </div>
                                 <p className="min-w-0">Transporte JackCity (Ida y regreso)</p>
                               </div>
-                              <p className="flex-shrink-0 font-medium">{formatClp(transportPrice)}</p>
+                              <p className="flex-shrink-0 font-medium">{formatClp(payTransportPrice)}</p>
                             </div>
                           )}
 
-                          <div className="border-t pt-4" style={{ borderColor: "#E5E7EB" }}>
-                            <div className="flex items-end justify-between gap-4">
+                          <div className="mt-1 border-t pt-2.5" style={{ borderColor: "#E5E7EB" }}>
+                            <div className="flex items-end justify-between gap-3">
                               <div>
-                                <p className="text-lg font-semibold" style={{ color: "#0A1830" }}>Total reserva</p>
-                                <p className="mt-0.5 text-sm" style={{ color: "#667085" }}>IVA incluido</p>
+                                <p className="text-base font-semibold" style={{ color: "#0A1830" }}>Total reserva</p>
+                                <p className="mt-0.5 text-xs" style={{ color: "#667085" }}>IVA incluido</p>
                               </div>
-                              <p className="text-2xl font-bold" style={{ color: "#0A1830" }}>{formatClp(totalPrice)}</p>
+                              <p className="text-lg font-bold" style={{ color: "#0A1830" }}>{formatClp(payTotalAmount)}</p>
                             </div>
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 rounded-2xl border p-4 sm:p-5" style={{ backgroundColor: "#FFFBF0", borderColor: "#FFC43D" }}>
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex min-w-0 items-center gap-4">
-                            <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#FFE7A3" }}>
-                              <CreditCard size={30} style={{ color: "#0A1830" }} />
+                      <div className="mt-3 rounded-xl border p-3 sm:p-4" style={{ backgroundColor: "#FFFBF0", borderColor: "#FFC43D" }}>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#FFE7A3" }}>
+                              <CreditCard size={24} style={{ color: "#0A1830" }} />
                             </div>
                             <div className="min-w-0">
-                              <h3 className="text-xl font-bold" style={{ color: "#0A1830" }}>Pagar ahora por Webpay</h3>
-                              <p className="mt-0.5 text-base" style={{ color: "#0A1830" }}>
-                                30% del alojamiento{includeTransport ? " + 100% del transporte" : ""}
+                              <h3 className="text-base font-bold" style={{ color: "#0A1830" }}>Pagar ahora por Webpay</h3>
+                              <p className="mt-0.5 text-xs" style={{ color: "#0A1830" }}>
+                                30% del alojamiento{hasCartServices ? " y servicios adicionales" : ""}{payHasTransport ? " + 100% del transporte" : ""}
                               </p>
                             </div>
                           </div>
-                          <p className="text-2xl font-bold sm:text-right" style={{ color: "#B77900" }}>{formatClp(payNowPrice)}</p>
+                          <p className="text-lg font-bold sm:text-right" style={{ color: "#B77900" }}>{formatClp(payNowAmount)}</p>
                         </div>
 
-                        <div className="mt-4 border-t pt-4" style={{ borderColor: "#F6CF83", borderStyle: "dashed" }}>
-                          <div className="flex flex-col gap-3 text-base" style={{ color: "#0A1830" }}>
-                            <div className="flex items-center justify-between gap-4">
-                              <div className="flex min-w-0 items-center gap-3">
-                                <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: "#2F9E68" }} />
-                                <p className="min-w-0">30% del alojamiento ({nights} {nights === 1 ? "noche" : "noches"})</p>
+                        <div className="mt-3 border-t pt-3" style={{ borderColor: "#F6CF83", borderStyle: "dashed" }}>
+                          <div className="flex flex-col gap-2 text-sm" style={{ color: "#0A1830" }}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: "#2F9E68" }} />
+                                <p className="min-w-0">
+                                  {hasCartServices
+                                    ? "30% del alojamiento y servicios adicionales"
+                                    : `30% del alojamiento (${payNights} ${payNights === 1 ? "noche" : "noches"})`}
+                                </p>
                               </div>
-                              <p className="flex-shrink-0 font-semibold">{formatClp(payNowAccommodationPrice)}</p>
+                              <p className="flex-shrink-0 font-semibold">{formatClp(payNowHousingLine)}</p>
                             </div>
-                            {includeTransport && (
-                              <div className="flex items-center justify-between gap-4">
-                                <div className="flex min-w-0 items-center gap-3">
-                                  <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ backgroundColor: "#2F9E68" }} />
+                            {payHasTransport && (
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex min-w-0 items-center gap-2">
+                                  <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: "#2F9E68" }} />
                                   <p className="min-w-0">Transporte JackCity (Ida y regreso)</p>
                                 </div>
-                                <p className="flex-shrink-0 font-semibold">{formatClp(transportPrice)}</p>
+                                <p className="flex-shrink-0 font-semibold">{formatClp(payTransportPrice)}</p>
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="mt-4 flex flex-col gap-4 rounded-2xl px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between" style={{ backgroundColor: "#EEF8F2" }}>
-                        <div className="flex min-w-0 items-center gap-4">
-                          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#D5F1E2" }}>
-                            <Building2 size={26} style={{ color: "#08785B" }} />
+                      <div className="mt-3 flex flex-col gap-3 rounded-xl px-4 py-3 sm:flex-row sm:items-center sm:justify-between" style={{ backgroundColor: "#EEF8F2" }}>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#D5F1E2" }}>
+                            <Building2 size={20} style={{ color: "#08785B" }} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-lg font-bold" style={{ color: "#08785B" }}>Saldo a pagar en el hotel</p>
-                            <p className="mt-1 text-base" style={{ color: "#0A1830" }}>70% restante del alojamiento</p>
+                            <p className="text-base font-bold" style={{ color: "#08785B" }}>Saldo a pagar en el hotel</p>
+                            <p className="mt-0.5 text-xs" style={{ color: "#0A1830" }}>70% restante del alojamiento{hasCartServices ? " y servicios adicionales" : ""}</p>
                           </div>
                         </div>
-                        <p className="flex-shrink-0 text-2xl font-bold sm:text-right" style={{ color: "#08785B" }}>{formatClp(payAtHotelPrice)}</p>
+                        <p className="flex-shrink-0 text-lg font-bold sm:text-right" style={{ color: "#08785B" }}>{formatClp(payAtHotelAmount)}</p>
                       </div>
 
-                      <div className="mt-5 flex flex-col gap-3">
+                      <div className="mt-4 flex flex-col gap-2">
                         {submitError && (
-                          <p className="text-center text-sm" style={{ color: "#DC2626" }}>
+                          <p className="text-center text-xs" style={{ color: "#DC2626" }}>
                             No pudimos procesar el pago. Intenta nuevamente.
                           </p>
                         )}
                         <button
                           onClick={handleConfirmPayment}
                           disabled={isSubmitting}
-                          className="w-full rounded-xl px-6 py-3.5 text-lg font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 hover:opacity-90"
+                          className="w-full rounded-xl px-5 py-2.5 text-base font-bold transition-opacity disabled:cursor-not-allowed disabled:opacity-50 hover:opacity-90"
                           style={{ backgroundColor: "#FFB200", color: "#0A1830" }}
                         >
-                          <span className="flex items-center justify-center gap-3">
-                            <LockKeyhole size={22} />
-                            {isSubmitting ? "Procesando..." : `Ir a pagar ${formatClp(payNowPrice)}`}
+                          <span className="flex items-center justify-center gap-2">
+                            <LockKeyhole size={18} />
+                            {isSubmitting ? "Procesando..." : `Ir a pagar ${formatClp(payNowAmount)}`}
                           </span>
                         </button>
-                        <p className="text-center text-sm" style={{ color: "#667085" }}>
+                        <p className="text-center text-xs" style={{ color: "#667085" }}>
                           Al continuar, aceptas los términos y condiciones de JackCity.
                         </p>
                       </div>
 
-                      <div className="mt-4 rounded-2xl border p-4" style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}>
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                          <div className="flex min-w-0 items-center gap-4">
-                            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#F3F4F6" }}>
-                              <ShieldCheck size={26} style={{ color: "#98A2B3" }} />
+                      <div className="mt-3 rounded-xl border p-3" style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB" }}>
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#F3F4F6" }}>
+                              <ShieldCheck size={20} style={{ color: "#98A2B3" }} />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-base font-semibold" style={{ color: "#667085" }}>Pago seguro y protegido</p>
-                              <p className="mt-1 text-sm leading-relaxed" style={{ color: "#98A2B3" }}>
+                              <p className="text-sm font-semibold" style={{ color: "#667085" }}>Pago seguro y protegido</p>
+                              <p className="mt-0.5 text-xs leading-snug" style={{ color: "#98A2B3" }}>
                                 Serás redirigido a Webpay para realizar el pago de forma segura.
                               </p>
                             </div>
                           </div>
-                          <div className="flex flex-wrap items-center gap-3 text-sm font-semibold" style={{ color: "#98A2B3" }}>
+                          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold" style={{ color: "#98A2B3" }}>
                             <span>transbank.</span>
                             <span>VISA</span>
                             <span>Mastercard</span>
@@ -2310,7 +2345,7 @@ function ConfirmationContent() {
                       </div>
                     </div>
 
-                    <div className="mt-5">
+                    <div className="mt-4">
                       <button
                         type="button"
                         onClick={() => setCurrentStep(PAY_STEP - 1)}
