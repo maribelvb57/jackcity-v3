@@ -62,6 +62,7 @@ export type BookingDetail = {
     totalPrice: number
   }
   freeCancellationDeadline: string
+  cancellationPolicy: CancellationPolicy | null
 }
 
 export type MyBookingStatus =

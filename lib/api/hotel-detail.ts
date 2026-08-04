@@ -15,6 +15,14 @@ export type HotelDetailTransport = {
   returnSlots: string[]
 }
 
+// Foto de la galería del hotel. El orden de exhibición lo manda sortOrder,
+// no la posición en el array (ver getHotelBookingDetail).
+export type HotelDetailPhoto = {
+  url: string
+  caption: string | null
+  sortOrder: number
+}
+
 export type HotelDetail = {
   name: string
   addressStreet: string | null
@@ -30,6 +38,7 @@ export type HotelDetail = {
   policies: HotelDetailPolicy[]
   cancellationPolicy: CancellationPolicy | null
   benefits: HotelDetailBenefit[]
+  photos: HotelDetailPhoto[]
   transport: HotelDetailTransport | null
   pricing: {
     bookingPrice: number | null
@@ -76,8 +85,13 @@ export async function getHotelBookingDetail(params: {
     { method: "POST", body: JSON.stringify(body) }
   )
 
+  // Las fotos se ordenan acá por sortOrder para que la galería no dependa del
+  // orden en que vengan en el array.
+  const photos = [...(data.hotel.photos ?? [])].sort((a, b) => a.sortOrder - b.sortOrder)
+
   return {
     ...data.hotel,
+    photos,
     transport: data.transport ?? null,
     pricing: data.pricing ?? null,
   }

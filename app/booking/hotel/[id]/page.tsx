@@ -34,6 +34,9 @@ const CITY_LABELS: Record<string, string> = {
 
 const PAY_NOW_PERCENTAGE = 0.3
 
+// Se usa mientras carga el detalle y si el hotel no tiene fotos cargadas.
+const GALLERY_FALLBACK_IMAGE = "/images/hotel-patitas-inn.jpg"
+
 function getScoreLabel(score: number): string {
   if (score >= 9.5) return "Excepcional"
   if (score >= 9.0) return "Fantástico"
@@ -107,12 +110,11 @@ function HotelDetailContent() {
     enabled: !!hotelId && !!checkinParam && !!checkoutParam && !!searchIdParam,
   })
 
-  const images = [
-    "/images/hotel-patitas-inn.jpg",
-    "/images/hotel-huellitas.jpg",
-    "/images/hotel-pet-lodge.jpg",
-    "/images/hotel-casa-canina.jpg",
-  ]
+  const photos = hotel?.photos ?? []
+  // El índice puede quedar fuera de rango si cambia el hotel o su galería
+  // (la query se refetchea al cambiar fechas/mascotas); se acota al mostrar.
+  const photoIndex = currentImageIndex < photos.length ? currentImageIndex : 0
+  const currentPhoto = photos[photoIndex] ?? null
 
   const score = hotel?.avgRating ?? null
   const scoreLabel = score != null ? getScoreLabel(score) : "—"
@@ -120,8 +122,8 @@ function HotelDetailContent() {
   const payNowPrice = Math.round(totalPrice * PAY_NOW_PERCENTAGE)
   const hasTransportPrice = (hotel?.pricing?.transportPrice ?? 0) > 0
 
-  const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % images.length)
-  const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length)
+  const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % photos.length)
+  const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + photos.length) % photos.length)
 
   const backParams = new URLSearchParams({
     city: cityParam,
@@ -224,13 +226,14 @@ function HotelDetailContent() {
                   <div className="order-1 bg-white rounded-2xl overflow-hidden border" style={{ borderColor: "#E5E7EB" }}>
                     <div className="relative aspect-[16/9] w-full">
                       <Image
-                        src={images[currentImageIndex]}
-                        alt={hotel?.name ?? "Hotel"}
+                        src={currentPhoto?.url ?? GALLERY_FALLBACK_IMAGE}
+                        alt={currentPhoto?.caption ?? hotel?.name ?? "Hotel"}
                         fill
                         className="object-cover"
                         sizes="(max-width: 1024px) 100vw, 75vw"
+                        priority
                       />
-                      {images.length > 1 && (
+                      {photos.length > 1 && (
                         <>
                           <button
                             onClick={prevImage}
@@ -247,7 +250,7 @@ function HotelDetailContent() {
                             <ChevronRight size={24} style={{ color: "#0A1830" }} />
                           </button>
                           <div className="absolute bottom-3 right-3 px-3 py-1 rounded-full text-sm font-medium" style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "#fff" }}>
-                            {currentImageIndex + 1} / {images.length}
+                            {photoIndex + 1} / {photos.length}
                           </div>
                         </>
                       )}

@@ -10,6 +10,7 @@ import { SiteNavbar } from "@/components/site-navbar"
 import { MapPin, Clock, Calendar, AlertCircle, LockKeyhole, Building2, ReceiptText, Download } from "lucide-react"
 import { formatClp } from "@/lib/format"
 import { getBooking } from "@/lib/api/bookings"
+import { CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
 import { getWebpayVoucherByBuyOrder, getWebpayVoucherPdfUrl } from "@/lib/api/payments"
 import { slotTime } from "@/lib/transport-slots"
 
@@ -99,7 +100,6 @@ function BookingConfirmationSuccessContent() {
   const nights = Math.round((checkoutDate.getTime() - checkinDate.getTime()) / 86400000)
   const checkinFormatted = formatDate(booking.checkinDate)
   const checkoutFormatted = formatDate(booking.checkoutDate)
-  const cancellationFormatted = formatDate(booking.freeCancellationDeadline)
   const totalPrice = booking.pricing.totalPrice
   const paidPrice = Math.round(totalPrice * PAY_NOW_PERCENTAGE)
   const pendingPrice = totalPrice - paidPrice
@@ -334,17 +334,20 @@ function BookingConfirmationSuccessContent() {
                 </div>
               </div>
 
-              {/* Cancellation policy */}
-              <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
-                <div className="flex items-start gap-3">
-                  <AlertCircle size={20} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 2 }} />
-                  <div>
-                    <p className="text-sm leading-relaxed" style={{ color: "#333" }}>
-                      La cancelacion de esta reserva la puedes realizar sin costo hasta el <strong>{cancellationFormatted}</strong>
-                    </p>
+              {/* Cancellation policy — la fecha sin costo sólo aplica a la política FLEXIBLE.
+                  En STRICT (por tramos) no hay ventana gratuita, así que la card no se muestra. */}
+              {booking.cancellationPolicy === CANCELLATION_POLICY_FLEXIBLE && (
+                <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                  <div className="flex items-start gap-3">
+                    <AlertCircle size={20} style={{ color: "#F59E0B", flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <p className="text-sm leading-relaxed" style={{ color: "#333" }}>
+                        La cancelacion de esta reserva la puedes realizar sin costo hasta el <strong>{formatDate(booking.freeCancellationDeadline)}</strong>
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
             </div>
           </div>
