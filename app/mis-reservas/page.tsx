@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { useAuth, useUser } from "@clerk/nextjs"
 import { useApiClient } from "@/hooks/use-api-client"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -24,6 +24,7 @@ import {
 import { SiteNavbar } from "@/components/site-navbar"
 import { AccountSidebar } from "@/components/account-sidebar"
 import { getBookingStatusLabel } from "@/lib/booking-status"
+import { CancellationPolicyBadge, CancellationPolicyBody } from "@/components/cancellation-policy"
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { getCommuneNameByCode } from "@/config/communes"
 import { getMyBookings, requestBookingCancellation, type MyBooking, type MyBookingStatus } from "@/lib/api/bookings"
+import { CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
 import { createReview } from "@/lib/api/reviews"
 import { formatClp } from "@/lib/format"
 
@@ -70,10 +72,6 @@ function nightsBetween(checkinDate: string, checkoutDate: string) {
   return Math.max(1, Math.round((checkout.getTime() - checkin.getTime()) / 86400000))
 }
 
-function isPendingBooking(status: MyBookingStatus) {
-  return status === "PAID" || status === "CONFIRMED"
-}
-
 function isCompletedBooking(status: MyBookingStatus) {
   return status === "COMPLETED"
 }
@@ -102,7 +100,7 @@ function statusMeta(status: MyBookingStatus) {
 
   if (status === "PAID") {
     return {
-      label: "Pagada",
+      label: "Abonada",
       description: "Pago inicial recibido",
       color: "#125BD8",
       bg: "#EAF2FF",
@@ -156,10 +154,81 @@ function petNames(pets: MyBooking["pets"]) {
   return `${names.slice(0, -1).join(", ")} y ${names[names.length - 1]}`
 }
 
-function formatCancellationLabel(booking: MyBooking) {
-  // Mostramos el día sin el año y con la hora límite fija (17:00) de la política.
-  const deadline = format(new Date(`${booking.cancellation.freeCancellationDeadline}T12:00:00`), "d MMM", { locale: es })
-  return `Gratis hasta ${deadline} a las 5pm`
+// "2026-08-20" -> "20 de Agosto". Sin año, con el mes capitalizado.
+function formatDeadlineDate(date: string) {
+  const parsed = new Date(`${date}T12:00:00`)
+  const month = format(parsed, "MMMM", { locale: es })
+  return `${format(parsed, "d", { locale: es })} de ${month.charAt(0).toUpperCase()}${month.slice(1)}`
+}
+
+// "17:00" -> "5pm"; "17:30" -> "5:30pm". Los minutos sólo aparecen si no es hora en punto.
+function formatDeadlineTime(time: string) {
+  const [hours, minutes] = time.split(":").map(Number)
+  const suffix = hours < 12 ? "am" : "pm"
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12
+  return minutes ? `${hour12}:${String(minutes).padStart(2, "0")}${suffix}` : `${hour12}${suffix}`
+}
+
+// Texto del cuadro "Cancelación". El backend entrega el estado ya resuelto
+// (ventana de gracia, si se puede cancelar y cuánto se retiene); acá sólo se redacta.
+// El contenedor va en bold: los tramos bajan a peso normal todo salvo el titular.
+// onShowConditions abre el mismo modal de política que sirve el menú de la reserva.
+function cancellationMessage(cancellation: MyBooking["cancellation"], onShowConditions: () => void): ReactNode {
+  if (cancellation.freeWindow) {
+    return (
+      <>
+        Gratis{" "}
+        <span className="font-normal">durante las dos primeras horas de creada tu reserva</span>
+      </>
+    )
+  }
+
+  if (cancellation.cancellableNow && cancellation.currentFeePct === 0) {
+    const deadline = formatDeadlineDate(cancellation.nextDeadline)
+    return (
+      <>
+        Gratis{" "}
+        <span className="font-normal">
+          {cancellation.deadlineTime
+            ? `hasta las ${formatDeadlineTime(cancellation.deadlineTime)} del ${deadline}`
+            : `hasta el ${deadline}`}
+        </span>
+      </>
+    )
+  }
+
+  if (cancellation.cancellableNow) {
+    const conditionsLink = (
+      <button
+        type="button"
+        onClick={onShowConditions}
+        className="inline font-semibold underline underline-offset-2 transition-opacity hover:opacity-80"
+        style={{ color: "#125BD8" }}
+      >
+        Ver condiciones
+      </button>
+    )
+
+    if (cancellation.cancellationPolicy === CANCELLATION_POLICY_FLEXIBLE) {
+      return (
+        <span className="font-normal">
+          Reserva fuera de plazo de cancelación gratuita. Se retiene {cancellation.currentFeePct}% si
+          cancelas ahora. {conditionsLink}
+        </span>
+      )
+    }
+
+    return (
+      <>
+        Cancelación por tramos.{" "}
+        <span className="font-normal">
+          Retención actual: {cancellation.currentFeePct}% del total de la reserva. {conditionsLink}
+        </span>
+      </>
+    )
+  }
+
+  return <span className="font-normal">Reserva no reembolsable. Tu cupo está garantizado</span>
 }
 
 function HotelPhoto({ src, alt, sizes }: { src: string | null; alt: string; sizes?: string }) {
@@ -239,6 +308,7 @@ export default function MyBookingsPage() {
   const queryClient = useQueryClient()
   const [filter, setFilter] = useState<BookingFilter>("ACTIVE")
   const [bookingToCancel, setBookingToCancel] = useState<MyBooking | null>(null)
+  const [policyBooking, setPolicyBooking] = useState<MyBooking | null>(null)
   const [cancellationConfirmed, setCancellationConfirmed] = useState(false)
   const [cancellationReason, setCancellationReason] = useState("")
   const [bookingToReview, setBookingToReview] = useState<MyBooking | null>(null)
@@ -424,9 +494,15 @@ export default function MyBookingsPage() {
                 const meta = statusMeta(booking.status)
                 const StatusIcon = meta.icon
                 const nights = nightsBetween(booking.checkinDate, booking.checkoutDate)
-                const isUpcoming = isPendingBooking(booking.status)
                 const isCompleted = isCompletedBooking(booking.status)
-                const canRequestCancellation = isUpcoming && booking.cancellation.canCancel
+                // El cuadro "Cancelación" sólo aplica a reservas vigentes: en una cancelada
+                // o cerrada el mensaje ya no dice nada útil.
+                const isActive = isActiveBooking(booking.status)
+                // Único criterio: lo resuelve el backend en cancellableNow.
+                const canRequestCancellation = booking.cancellation.cancellableNow
+                // Disponible en cualquier reserva del tab "Reservas activas", siempre que
+                // el backend haya informado la política (si no, no hay texto que mostrar).
+                const canViewPolicy = isActive && !!booking.cancellation.cancellationPolicy
                 const communeName = getCommuneNameByCode(booking.hotel.commune)
 
                 return (
@@ -460,7 +536,17 @@ export default function MyBookingsPage() {
                               </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-56 rounded-lg border bg-white p-1 shadow-lg" style={{ borderColor: "#E5E7EB" }}>
-                              {canRequestCancellation ? (
+                              {canViewPolicy && (
+                                <DropdownMenuItem
+                                  onSelect={() => setPolicyBooking(booking)}
+                                  className="cursor-pointer rounded-md px-3 py-2 text-sm font-semibold"
+                                  style={{ color: "#0A1830" }}
+                                >
+                                  <ShieldCheck size={16} style={{ color: "#15803D" }} />
+                                  Ver política de cancelación
+                                </DropdownMenuItem>
+                              )}
+                              {canRequestCancellation && (
                                 <DropdownMenuItem
                                   onSelect={() => setBookingToCancel(booking)}
                                   className="cursor-pointer rounded-md px-3 py-2 text-sm font-semibold"
@@ -469,7 +555,8 @@ export default function MyBookingsPage() {
                                   <XCircle size={16} style={{ color: "#8A1C1C" }} />
                                   Solicitar cancelación
                                 </DropdownMenuItem>
-                              ) : (
+                              )}
+                              {!canViewPolicy && !canRequestCancellation && (
                                 <DropdownMenuItem disabled className="rounded-md px-3 py-2 text-sm font-semibold">
                                   Sin acciones disponibles
                                 </DropdownMenuItem>
@@ -507,7 +594,7 @@ export default function MyBookingsPage() {
                           </div>
                         </div>
 
-                        <div className={`grid gap-3 ${isUpcoming ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+                        <div className={`grid gap-3 ${isActive ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                           <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
                             <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em]" style={{ color: "#8A94A6" }}>
                               <CalendarDays size={14} />
@@ -526,16 +613,15 @@ export default function MyBookingsPage() {
                             <p className="mt-2 text-sm font-bold" style={{ color: "#0A1830" }}>{booking.hotel.name}</p>
                             <p className="mt-1 text-xs font-semibold" style={{ color: "#667085" }}>{booking.transport.included ? "Transporte incluido" : "Sin transporte"}</p>
                           </div>
-                          {canRequestCancellation && (
+                          {isActive && (
                             <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
                               <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em]" style={{ color: "#8A94A6" }}>
                                 <Clock size={14} />
                                 Cancelación
                               </p>
                               <p className="mt-2 text-sm font-bold" style={{ color: "#0A1830" }}>
-                                {formatCancellationLabel(booking)}
+                                {cancellationMessage(booking.cancellation, () => setPolicyBooking(booking))}
                               </p>
-                              <p className="mt-1 text-xs font-semibold" style={{ color: "#667085" }}>Disponible para cancelar</p>
                             </div>
                           )}
                         </div>
@@ -593,6 +679,41 @@ export default function MyBookingsPage() {
         </section>
           </div>
         </div>
+
+        <Dialog open={!!policyBooking?.cancellation.cancellationPolicy} onOpenChange={(open) => { if (!open) setPolicyBooking(null) }}>
+          <DialogContent className="rounded-lg border-0 bg-white p-0 sm:max-w-[500px]">
+            {policyBooking?.cancellation.cancellationPolicy && (
+              <div className="overflow-hidden rounded-lg">
+                <div className="px-6 py-5" style={{ backgroundColor: "#F5F8FC" }}>
+                  <DialogHeader>
+                    <DialogTitle className="flex flex-wrap items-center gap-2 text-xl font-bold" style={{ color: "#0A1830" }}>
+                      Política de Cancelación
+                      <CancellationPolicyBadge policy={policyBooking.cancellation.cancellationPolicy} />
+                    </DialogTitle>
+                    <DialogDescription className="mt-1 text-sm font-medium" style={{ color: "#526071" }}>
+                      {policyBooking.hotel.name} · {formatDate(policyBooking.checkinDate)} – {formatDate(policyBooking.checkoutDate)}
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+
+                <div className="px-6 py-5">
+                  <CancellationPolicyBody policy={policyBooking.cancellation.cancellationPolicy} />
+                </div>
+
+                <DialogFooter className="border-t px-6 py-4" style={{ borderColor: "#E5E7EB" }}>
+                  <button
+                    type="button"
+                    onClick={() => setPolicyBooking(null)}
+                    className="rounded-xl px-5 py-2.5 text-sm font-bold transition-opacity hover:opacity-90"
+                    style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
+                  >
+                    Entendido
+                  </button>
+                </DialogFooter>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={!!bookingToCancel} onOpenChange={(open) => { if (!open) { setBookingToCancel(null); setCancellationConfirmed(false); setCancellationReason(""); cancellationMutation.reset() } }}>
           <DialogContent className="rounded-lg border-0 bg-white p-0 sm:max-w-[500px]">
@@ -665,9 +786,14 @@ export default function MyBookingsPage() {
                         </p>
                       </div>
 
-                      <p className="mt-5 text-sm font-medium leading-6" style={{ color: "#0A1830" }}>
-                        ¿Confirmas que deseas cancelar la reserva y pedir el reembolso del dinero de la reserva por{" "}
-                        <span className="text-base font-bold">{formatClp(bookingToCancel.pricing.paidPrice)}</span>?
+                      <p className="mt-5 text-base font-bold leading-6" style={{ color: "#0A1830" }}>
+                        ¿Confirmas que deseas cancelar esta reserva?
+                      </p>
+                      <p className="mt-2 text-sm font-medium leading-6" style={{ color: "#526071" }}>
+                        Revisaremos los pagos de tu reserva para determinar tu devolución. Consideramos
+                        tanto lo que pagaste a través de JackCity como cualquier monto abonado
+                        directamente al hotel, y aplicamos la política de cancelación vigente para esta
+                        reserva. Te contactaremos con el detalle a la brevedad.
                       </p>
 
                       <label className="mt-5 block">

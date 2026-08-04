@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { MapPin, Check, Heart, Star } from "lucide-react"
+import { MapPin, Check, Heart, Star, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 import { formatClp } from "@/lib/format"
 
@@ -13,7 +13,7 @@ export type ResultCardData = {
   reviewCount: number
   address: string
   features: string[]
-  freeCancellation: boolean
+  flexibleCancellation: boolean
   petCount: number
   nights: number
   price: number
@@ -135,27 +135,32 @@ export function ResultCard({ data }: ResultCardProps) {
 
         {/* Bottom row: cancellation + pets/nights | price + CTA */}
         <div className="flex items-end justify-between gap-2 mt-auto pt-1">
-          {/* Left: cancellation + details */}
+          {/* Left: details + price + cancellation pill */}
           <div className="flex flex-col gap-0.5">
-            {data.freeCancellation && (
-              <div className="flex items-center gap-1.5">
-                <Check size={13} style={{ color: "#16a34a", flexShrink: 0 }} strokeWidth={2.5} />
-                <span className="text-sm font-semibold" style={{ color: "#16a34a" }}>Cancelación gratis</span>
-              </div>
-            )}
             <p className="text-xs" style={{ color: "#777" }}>
               {data.petCount} {data.petCount === 1 ? "mascota" : "mascotas"}, {data.nights} {data.nights === 1 ? "noche" : "noches"}
             </p>
-            {/* Price */}
-            <p className="text-2xl md:text-3xl font-bold leading-tight mt-1" style={{ color: "#0A1830" }}>
-              {formatClp(data.price)}
-            </p>
+            {/* Price + IVA en la misma línea */}
+            <div className="flex flex-wrap items-baseline gap-x-2 mt-1">
+              <p className="text-2xl md:text-3xl font-bold leading-tight" style={{ color: "#0A1830" }}>
+                {formatClp(data.price)}
+              </p>
+              <span className="text-xs" style={{ color: "#888" }}>IVA incluido</span>
+            </div>
             {data.includesTransport && (
               <p className="text-xs" style={{ color: "#888" }}>
                 Transporte incluido{data.transportProvider === "HOTEL" ? " por el hotel" : data.transportProvider === "JACKCITY" ? " por JackCity" : ""}
               </p>
             )}
-            <p className="text-xs" style={{ color: "#888" }}>IVA incluido</p>
+            {data.flexibleCancellation && (
+              <span
+                className="inline-flex self-start items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border mt-1.5"
+                style={{ backgroundColor: "#EEF7F2", borderColor: "#CBE5D7", color: "#15803D" }}
+              >
+                <ShieldCheck size={13} strokeWidth={2.2} style={{ flexShrink: 0 }} />
+                Cancelación flexible
+              </span>
+            )}
           </div>
 
           {/* CTA button */}

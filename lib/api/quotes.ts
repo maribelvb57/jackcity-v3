@@ -1,5 +1,6 @@
 import type { PetPayload } from "./hotel-detail"
 import type { ApiFetch } from "@/lib/api/types"
+import type { CancellationPolicy } from "@/lib/api/hotels"
 
 export type QuoteHotel = {
   id: string
@@ -10,6 +11,7 @@ export type QuoteHotel = {
   checkinTime: string | null
   checkoutTime: string | null
   policies: { description: string; confirmationRequired: boolean }[]
+  cancellationPolicy: CancellationPolicy | null
 }
 
 export type Quote = {

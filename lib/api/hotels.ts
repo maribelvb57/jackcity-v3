@@ -24,6 +24,11 @@ export type HotelTransport = {
   endDateSlots: string[] | null
 }
 
+export type CancellationPolicy = "CANCELLATION_POLICY_STRICT" | "CANCELLATION_POLICY_FLEXIBLE"
+
+export const CANCELLATION_POLICY_STRICT: CancellationPolicy = "CANCELLATION_POLICY_STRICT"
+export const CANCELLATION_POLICY_FLEXIBLE: CancellationPolicy = "CANCELLATION_POLICY_FLEXIBLE"
+
 export type Hotel = {
   id: string
   name: string
@@ -45,6 +50,7 @@ export type Hotel = {
   benefits: HotelBenefit[]
   pricing: HotelPricing | null
   transport: HotelTransport | null
+  cancellationPolicy: CancellationPolicy | null
 }
 
 export const PET_SIZE_MAP: Record<string, PetSize> = {

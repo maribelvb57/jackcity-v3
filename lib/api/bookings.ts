@@ -1,5 +1,6 @@
 import { API_BASE } from "./config"
 import type { ApiFetch } from "@/lib/api/types"
+import type { CancellationPolicy } from "@/lib/api/hotels"
 
 export type ConfirmBookingParams = {
   quoteId: string
@@ -102,9 +103,17 @@ export type MyBooking = {
     included: boolean
   }
   cancellation: {
-    canCancel: boolean
-    freeCancellationDeadline: string
-    label: string
+    // Ventana de gracia de 2 horas desde que se creó la reserva: manda sobre todo lo demás.
+    freeWindow: boolean
+    daysToCheckin: number
+    cancellationPolicy: CancellationPolicy | null
+    // Único criterio para ofrecer "Solicitar cancelación" en el menú de la reserva.
+    cancellableNow: boolean
+    // Porcentaje del total que se retiene si cancela ahora (0 = sin costo).
+    currentFeePct: number
+    nextDeadline: string
+    // Hora límite del próximo tramo ("17:00"). Opcional: sin ella el texto sólo lleva la fecha.
+    deadlineTime?: string
   }
   review: {
     hasReview: boolean

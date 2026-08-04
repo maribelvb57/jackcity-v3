@@ -2,7 +2,7 @@ import type { MyBookingStatus } from "@/lib/api/bookings"
 
 const STATUS_LABELS: Record<MyBookingStatus, string> = {
   PENDING_PAYMENT: "Pendiente de Pago",
-  PAID: "Pagada",
+  PAID: "Abonada",
   CONFIRMED: "Confirmada",
   INITIATED: "Iniciada",
   PENDING_CANCELLATION: "Cancelación pendiente",

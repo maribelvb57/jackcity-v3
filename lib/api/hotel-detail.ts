@@ -1,4 +1,5 @@
 import type { ApiFetch } from "@/lib/api/types"
+import type { CancellationPolicy } from "@/lib/api/hotels"
 
 export type HotelDetailBenefit = {
   name: string
@@ -27,6 +28,7 @@ export type HotelDetail = {
   checkinTime: string | null
   checkoutTime: string | null
   policies: HotelDetailPolicy[]
+  cancellationPolicy: CancellationPolicy | null
   benefits: HotelDetailBenefit[]
   transport: HotelDetailTransport | null
   pricing: {

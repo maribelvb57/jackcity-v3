@@ -597,7 +597,7 @@ export function SearchBar() {
                         commune: transportCommune,
                       }),
                     })
-                    router.push(`/search?${params.toString()}`)
+                    router.push(`/booking/search?${params.toString()}`)
                   }}
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${isSearchEnabled ? "shadow-md hover:shadow-lg active:scale-95" : "cursor-not-allowed"}`}
                   style={{

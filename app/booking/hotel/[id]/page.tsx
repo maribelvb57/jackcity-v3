@@ -9,6 +9,7 @@ import { es } from "date-fns/locale"
 import { formatClp } from "@/lib/format"
 import { SiteNavbar } from "@/components/site-navbar"
 import { SearchSummaryBar } from "@/components/search-summary-bar"
+import { CancellationPolicySection } from "@/components/cancellation-policy"
 import { getHotelBookingDetail } from "@/lib/api/hotel-detail"
 import { createQuote } from "@/lib/api/quotes"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
@@ -133,7 +134,7 @@ function HotelDetailContent() {
     ...(transportParam && communeCodeParam && { communeCode: communeCodeParam }),
     ...(transportParam && communeParam && { commune: communeParam }),
   })
-  const backUrl = `/search?${backParams.toString()}`
+  const backUrl = `/booking/search?${backParams.toString()}`
   const landingUrl = `/?${backParams.toString()}`
 
   const handleReservar = async () => {
@@ -397,8 +398,16 @@ function HotelDetailContent() {
                     </div>
                   )}
 
-                  {/* 6. Reservation Summary */}
-                  <div className="order-6 lg:order-5 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                  {/* 6. Cancellation Policy */}
+                  {hotel?.cancellationPolicy && (
+                    <CancellationPolicySection
+                      policy={hotel.cancellationPolicy}
+                      className="order-6 lg:order-5"
+                    />
+                  )}
+
+                  {/* 7. Reservation Summary */}
+                  <div className="order-7 lg:order-6 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                       <div>
                         <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>Resumen de Reserva</h2>

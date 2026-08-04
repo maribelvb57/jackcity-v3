@@ -13,7 +13,7 @@ import { SearchFilters } from "@/components/search-filters"
 import { SearchBenefitsBanner } from "@/components/search-benefits-banner"
 import { useApiClient } from "@/hooks/use-api-client"
 import { useSearchStore } from "@/providers/search-store-provider"
-import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL, type SearchResult } from "@/lib/api/hotels"
+import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL, type SearchResult, CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
 import { parsePetBreedsParam, parsePetIdsParam } from "@/lib/search-pets"
 import { ZONE_COMMUNES } from "@/config/zones"
 import { getTransportCommuneByCode } from "@/config/transport-communes"
@@ -31,7 +31,7 @@ const CARD_DEFAULTS: Omit<ResultCardData, "name" | "detailUrl"> = {
   reviewCount: 0,
   address: "—",
   features: [],
-  freeCancellation: false,
+  flexibleCancellation: false,
   petCount: 1,
   nights: 1,
   price: 0,
@@ -72,7 +72,7 @@ function hotelToCardData(
   return {
     ...CARD_DEFAULTS,
     name: hotel.name,
-    detailUrl: `/hotel/${hotel.id}?${qs.toString()}`,
+    detailUrl: `/booking/hotel/${hotel.id}?${qs.toString()}`,
     imageUrl: hotel.mainPhotoUrl ?? CARD_DEFAULTS.imageUrl,
     score: hotel.avgRating ?? CARD_DEFAULTS.score,
     scoreLabel: hotel.avgRating != null ? getScoreLabel(hotel.avgRating) : CARD_DEFAULTS.scoreLabel,
@@ -85,6 +85,7 @@ function hotelToCardData(
     includesTransport: (hotel.pricing?.transportPrice ?? 0) > 0,
     transportProvider: hotel.transport?.provider,
     recommended: hotel.recommendedByJack,
+    flexibleCancellation: hotel.cancellationPolicy === CANCELLATION_POLICY_FLEXIBLE,
   }
 }
 

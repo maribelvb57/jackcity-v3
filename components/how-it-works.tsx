@@ -136,8 +136,8 @@ export function HowItWorks() {
                     </div>
                   </div>
                   <div className="absolute bottom-5 right-5 hidden rounded-lg border bg-[#2F7D32] px-4 py-3 text-white shadow-lg sm:block" style={{ borderColor: "rgba(255,255,255,0.28)" }}>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em]">Reserva segura</p>
-                    <p className="mt-1 text-sm font-bold">Cancela sin costo hasta 3 días antes</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em]">Cancelación flexible</p>
+                    <p className="mt-1 text-sm font-bold">Cancela sin costo hasta 2 días antes</p>
                   </div>
                 </div>
               </div>

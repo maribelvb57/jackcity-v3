@@ -17,7 +17,7 @@ import { initiateBookingDocument, uploadFileToR2, confirmBookingDocument, delete
 import { BookingExpiredError, createWebpayPayment } from "@/lib/api/payments"
 import { redirectToWebpay } from "@/lib/webpay"
 import { useApiClient } from "@/hooks/use-api-client"
-import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
+import { PET_SIZE_LABEL, type PetSize, CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
 import { getBreedByCode, resolveBreedCode } from "@/lib/dog-breeds"
 import { slotTime } from "@/lib/transport-slots"
 import { getCommuneNameByCode } from "@/config/communes"
@@ -1452,13 +1452,38 @@ function ConfirmationContent() {
                   </div>
                 )}
 
-                {/* Cancellation policy */}
-                <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "#E5E7EB" }}>
-                  <h3 className="font-bold text-sm mb-3" style={{ color: "#0A1830" }}>Política de Cancelación</h3>
-                  <p className="text-xs leading-relaxed" style={{ color: "#555" }}>
-                    Cancelación gratuita hasta 48 horas antes del check-in. Después de ese plazo se cobra el 50% de la reserva.
-                  </p>
-                </div>
+                {/* Cancellation policy — el texto depende del enum que entrega /api/quotes */}
+                {quote.hotel.cancellationPolicy && (
+                  <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "#E5E7EB" }}>
+                    {quote.hotel.cancellationPolicy === CANCELLATION_POLICY_FLEXIBLE ? (
+                      <>
+                        <h3 className="flex items-start gap-1.5 font-bold text-sm mb-3" style={{ color: "#0A1830" }}>
+                          <ShieldCheck size={15} strokeWidth={2.2} style={{ color: "#15803D", flexShrink: 0, marginTop: 1 }} />
+                          Política de Cancelación Flexible
+                        </h3>
+                        <p className="text-xs leading-relaxed" style={{ color: "#555" }}>
+                          Cancelación gratuita hasta dos días antes de tu check-in (Límite 5pm). Después
+                          de ese plazo se cobra el 30% de la reserva abonado.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="flex items-start gap-1.5 font-bold text-sm mb-3" style={{ color: "#0A1830" }}>
+                          <AlertCircle size={15} strokeWidth={2.2} style={{ color: "#D08706", flexShrink: 0, marginTop: 1 }} />
+                          Política de Cancelación por tramos
+                        </h3>
+                        <p className="text-xs leading-relaxed" style={{ color: "#555" }}>
+                          Hasta 7 días antes del check-in: se retiene un 30% del total de la reserva.
+                          Entre 7 y 2 días antes del check-in: se retiene un 50%. A menos de 2 días del
+                          check-in: la reserva no es reembolsable.
+                        </p>
+                        <p className="mt-2 text-xs italic leading-relaxed" style={{ color: "#777" }}>
+                          Te recomendamos revisar tus fechas con anticipación al momento de reservar.
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Right column — 75% */}
