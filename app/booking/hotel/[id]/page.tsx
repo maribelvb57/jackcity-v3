@@ -37,6 +37,9 @@ const PAY_NOW_PERCENTAGE = 0.3
 // Se usa mientras carga el detalle y si el hotel no tiene fotos cargadas.
 const GALLERY_FALLBACK_IMAGE = "/images/hotel-patitas-inn.jpg"
 
+// Recorrido mínimo del dedo para cambiar de foto (mismo umbral que JackStoryCarousel).
+const SWIPE_THRESHOLD_PX = 50
+
 function getScoreLabel(score: number): string {
   if (score >= 9.5) return "Excepcional"
   if (score >= 9.0) return "Fantástico"
@@ -53,6 +56,7 @@ function HotelDetailContent() {
   const searchParams = useSearchParams()
   const { apiFetch } = useApiClient()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [touchStart, setTouchStart] = useState<{ x: number; y: number } | null>(null)
   const [isCreatingQuote, setIsCreatingQuote] = useState(false)
   const [quoteError, setQuoteError] = useState(false)
 
@@ -122,8 +126,28 @@ function HotelDetailContent() {
   const payNowPrice = Math.round(totalPrice * PAY_NOW_PERCENTAGE)
   const hasTransportPrice = (hotel?.pricing?.transportPrice ?? 0) > 0
 
-  const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % photos.length)
-  const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + photos.length) % photos.length)
+  // Avanzan desde photoIndex (el índice realmente visible) y no desde currentImageIndex,
+  // que puede haber quedado fuera de rango si la galería cambió.
+  const nextImage = () => setCurrentImageIndex((photoIndex + 1) % photos.length)
+  const prevImage = () => setCurrentImageIndex((photoIndex - 1 + photos.length) % photos.length)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+  }
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart === null) return
+    setTouchStart(null)
+    if (photos.length < 2) return
+
+    const deltaX = e.changedTouches[0].clientX - touchStart.x
+    const deltaY = e.changedTouches[0].clientY - touchStart.y
+    // Sólo se toma como swipe si el gesto fue más horizontal que vertical:
+    // de lo contrario el usuario estaba haciendo scroll de la página sobre la foto.
+    if (Math.abs(deltaX) > SWIPE_THRESHOLD_PX && Math.abs(deltaX) > Math.abs(deltaY)) {
+      deltaX < 0 ? nextImage() : prevImage()
+    }
+  }
 
   const backParams = new URLSearchParams({
     city: cityParam,
@@ -224,7 +248,11 @@ function HotelDetailContent() {
 
                   {/* 1. Photo Gallery */}
                   <div className="order-1 bg-white rounded-2xl overflow-hidden border" style={{ borderColor: "#E5E7EB" }}>
-                    <div className="relative aspect-[16/9] w-full">
+                    <div
+                      className="relative aspect-[16/9] w-full select-none"
+                      onTouchStart={handleTouchStart}
+                      onTouchEnd={handleTouchEnd}
+                    >
                       <Image
                         src={currentPhoto?.url ?? GALLERY_FALLBACK_IMAGE}
                         alt={currentPhoto?.caption ?? hotel?.name ?? "Hotel"}
@@ -232,6 +260,7 @@ function HotelDetailContent() {
                         className="object-cover"
                         sizes="(max-width: 1024px) 100vw, 75vw"
                         priority
+                        draggable={false}
                       />
                       {photos.length > 1 && (
                         <>
