@@ -32,6 +32,7 @@ import {
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { ManagerLayout } from "@/components/manager-layout"
 import { useApiClient } from "@/hooks/use-api-client"
+import { useRequireAuth } from "@/hooks/use-require-auth"
 import { formatClp } from "@/lib/format"
 import { getHotelBookings, confirmHotelBooking, checkInHotelBooking, checkOutHotelBooking, markNoShowHotelBooking, type HotelBooking, type HotelBookingStatus, type TransportSlot, type BookingPet, type BookingReviewType } from "@/lib/api/hotel-bookings"
 import { getBookingDocuments, getPetDocumentDownloadUrl, approveBookingDocument, rejectBookingDocument, setBookingDocumentValidUntil, setBookingDocumentComments, type BookingDocumentsPet, type BookingDocumentStatus } from "@/lib/api/booking-documents"
@@ -1506,6 +1507,20 @@ function HotelBookingsContent({ hotelId }: { hotelId: string }) {
 
 export default function HotelBookingsPage({ params }: PageProps) {
   const { hotelId } = use(params)
+  const { isLoaded, isSignedIn } = useRequireAuth()
+
+  // Sin sesión no se renderiza el panel ni se dispara ninguna llamada al API:
+  // useRequireAuth ya está redirigiendo al sign-in.
+  if (!isLoaded || !isSignedIn) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: "#F6F7F9" }}>
+        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
+          {isLoaded ? "Redirigiendo al inicio de sesión..." : "Cargando..."}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <ManagerLayout hotelId={hotelId}>
       <HotelBookingsContent hotelId={hotelId} />

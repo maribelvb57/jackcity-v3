@@ -32,8 +32,6 @@ const CITY_LABELS: Record<string, string> = {
   VDM: "Viña del Mar",
 }
 
-const PAY_NOW_PERCENTAGE = 0.3
-
 // Se usa mientras carga el detalle y si el hotel no tiene fotos cargadas.
 const GALLERY_FALLBACK_IMAGE = "/images/hotel-patitas-inn.jpg"
 
@@ -123,8 +121,10 @@ function HotelDetailContent() {
   const score = hotel?.avgRating ?? null
   const scoreLabel = score != null ? getScoreLabel(score) : "—"
   const totalPrice = hotel?.pricing?.totalPrice ?? 0
-  const payNowPrice = Math.round(totalPrice * PAY_NOW_PERCENTAGE)
-  const hasTransportPrice = (hotel?.pricing?.transportPrice ?? 0) > 0
+  const payNowPrice = hotel?.pricing?.payNowAmount ?? 0
+  const lodgingPrice = hotel?.pricing?.bookingPrice ?? 0
+  const transportPrice = hotel?.pricing?.transportPrice ?? 0
+  const hasTransportPrice = transportPrice > 0
 
   // Avanzan desde photoIndex (el índice realmente visible) y no desde currentImageIndex,
   // que puede haber quedado fuera de rango si la galería cambió.
@@ -453,7 +453,15 @@ function HotelDetailContent() {
                         </ul>
                       </div>
                       <div className="flex flex-col sm:items-end gap-1">
-                        <p className="text-3xl md:text-4xl font-bold" style={{ color: "#0A1830" }}>
+                        {/* Con transporte el precio se desglosa: alojamiento y transporte por separado,
+                            y el monto grande de abajo sigue siendo el total de la reserva. */}
+                        {hasTransportPrice && (
+                          <div className="flex flex-col sm:items-end gap-0.5 text-xs" style={{ color: "#555" }}>
+                            <p>Alojamiento: {formatClp(lodgingPrice)}</p>
+                            <p>Transporte: {formatClp(transportPrice)}</p>
+                          </div>
+                        )}
+                        <p className="text-2xl md:text-3xl font-bold" style={{ color: "#0A1830" }}>
                           {formatClp(totalPrice)}
                         </p>
                         {hasTransportPrice && (
@@ -461,7 +469,9 @@ function HotelDetailContent() {
                         )}
                         <p className="text-xs" style={{ color: "#888" }}>IVA incluido</p>
                         <p className="mt-1 rounded-lg px-3 py-2 text-xs font-bold leading-snug sm:whitespace-nowrap sm:text-right" style={{ backgroundColor: "#FFF7D6", color: "#0A1830" }}>
-                          Reserva ahora pagando el 30% por {formatClp(payNowPrice)}
+                          {hasTransportPrice
+                            ? `Reserva ahora pagando un abono de ${formatClp(payNowPrice)}`
+                            : `Reserva ahora pagando el 30% por ${formatClp(payNowPrice)}`}
                         </p>
                       </div>
                     </div>

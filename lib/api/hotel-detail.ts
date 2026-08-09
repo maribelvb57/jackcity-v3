@@ -44,6 +44,8 @@ export type HotelDetail = {
     bookingPrice: number | null
     transportPrice: number
     totalPrice: number | null
+    // Monto a pagar al reservar. Lo calcula el backend; el frontend no lo deriva del total.
+    payNowAmount: number
   } | null
 }
 
