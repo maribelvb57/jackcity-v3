@@ -102,47 +102,11 @@ export function TerminosCondicionesContent() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>6. Cancelaciones y devoluciones</h3>
-        <p>
-          Las cancelaciones y devoluciones se regirán por la Política de cancelación y
-          devoluciones publicada en JackCity.
-        </p>
-        <p>El usuario declara conocer y aceptar que, como regla general:</p>
-        <ul className="flex flex-col gap-2 pl-5 list-disc">
-          <li>
-            Podrá recibir devolución total de lo pagado si cancela hasta las{" "}
-            <strong>17:00 horas (hora de Chile) de dos días antes de la fecha de check-in</strong>.
-          </li>
-          <li>
-            Toda reserva podrá cancelarse con devolución total dentro de las{" "}
-            <strong>2 horas siguientes a su creación</strong>, cualquiera sea la fecha de check-in.
-          </li>
-          <li>
-            Las reservas creadas después del plazo de cancelación gratuita no son reembolsables,
-            salvo la ventana de gracia de 2 horas.
-          </li>
-          <li>
-            Si cancela después del plazo de cancelación gratuita, o no se presenta (no-show),
-            JackCity retendrá el anticipo pagado por alojamiento, correspondiente al{" "}
-            <strong>30% del valor total del alojamiento</strong>.
-          </li>
-          <li>
-            Del valor pagado por transporte, en caso de cancelación fuera de plazo o no-show, se
-            devolverá el <strong>50%</strong> al usuario.
-          </li>
-        </ul>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>7. Precios y disponibilidad</h3>
+        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>6. Precios y disponibilidad</h3>
         <p>
           Los precios, cupos, disponibilidad, condiciones y características de cada hotel pueden
           variar según fechas, tamaño de mascota, temporada, demanda, servicios adicionales u
           otros factores.
-        </p>
-        <p>
-          JackCity hace esfuerzos razonables para mantener la información actualizada, pero la
-          confirmación definitiva dependerá de la disponibilidad vigente al momento del pago.
         </p>
         <p>
           Los hoteles asociados se obligan a respetar los precios y condiciones publicados en la
@@ -152,7 +116,7 @@ export function TerminosCondicionesContent() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>8. Responsabilidad sobre la mascota</h3>
+        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>7. Responsabilidad sobre la mascota</h3>
         <p>
           El usuario declara ser dueño, tutor o responsable autorizado de la mascota incluida en
           la reserva.
@@ -170,7 +134,7 @@ export function TerminosCondicionesContent() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>9. Servicios de terceros</h3>
+        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>8. Servicios de terceros</h3>
         <p>
           Los hoteles, medios de pago, servicios de transporte, proveedores tecnológicos y otros
           prestadores externos pueden tener sus propios términos, condiciones, restricciones y
@@ -184,19 +148,16 @@ export function TerminosCondicionesContent() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>10. Promociones y beneficios</h3>
+        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>9. Promociones y beneficios</h3>
         <p>
           JackCity podrá ofrecer descuentos, cupones, promociones, beneficios de lanzamiento o
-          campañas especiales.
-        </p>
-        <p>
-          Estas promociones podrán estar sujetas a fechas, cupos, zonas, hoteles específicos,
-          condiciones de uso y restricciones informadas en cada caso.
+          campañas especiales. Estas promociones podrán estar sujetas a fechas, cupos, zonas,
+          hoteles específicos, condiciones de uso y restricciones informadas en cada caso.
         </p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>11. Propiedad intelectual</h3>
+        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>10. Propiedad intelectual</h3>
         <p>
           El contenido del sitio, incluyendo marca, diseño, textos, imágenes, ilustraciones,
           iconos, personajes, logotipos, experiencia de usuario, software y elementos gráficos,
@@ -209,7 +170,7 @@ export function TerminosCondicionesContent() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>12. Modificaciones</h3>
+        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>11. Modificaciones</h3>
         <p>
           JackCity podrá modificar estos Términos y Condiciones, políticas, funcionalidades,
           precios, servicios o contenidos del sitio cuando sea necesario.
@@ -221,7 +182,7 @@ export function TerminosCondicionesContent() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>13. Contacto</h3>
+        <h3 className="font-bold text-base" style={{ color: "#0A1830" }}>12. Contacto</h3>
         <p>Para consultas, solicitudes o reclamos, el usuario puede escribir a:</p>
         <ul className="flex flex-col gap-1 pl-5 list-disc">
           <li><strong>Correo:</strong> contacto@jackcity.cl</li>

@@ -2,41 +2,24 @@
 
 import Image from "next/image"
 import { useState } from "react"
-import { X } from "lucide-react"
+import { X, Instagram } from "lucide-react"
 import { PoliticaReservasContent } from "@/components/legal/politica-reservas-content"
 import { PoliticaCancelacionContent } from "@/components/legal/politica-cancelacion-content"
 import { TerminosCondicionesContent } from "@/components/legal/terminos-condiciones-content"
 import { PrivacidadDatosContent } from "@/components/legal/privacidad-datos-content"
+import { QuienesSomosContent } from "@/components/legal/quienes-somos-content"
 import { ContactModal } from "@/components/contact-modal"
+import { HotelContactModal } from "@/components/hotel-contact-modal"
 
-type ModalId = "reservas" | "cancelacion" | "terminos" | "privacidad" | null
+type ModalId = "nosotros" | "reservas" | "cancelacion" | "terminos" | "privacidad" | null
 
 const footerLinks = [
   {
-    title: "JackCity",
+    title: "Enlaces",
     links: [
-      { label: "Quiénes somos", href: "#" },
-      { label: "Nuestro equipo", href: "#" },
-      { label: "Trabaja con nosotros", href: "#" },
-      { label: "Blog", href: "#" },
-    ],
-  },
-  {
-    title: "Hoteles",
-    links: [
-      { label: "Buscar hoteles", href: "#" },
-      { label: "Hoteles destacados", href: "#" },
-      { label: "Registrar mi hotel", href: "#" },
-      { label: "Ciudades disponibles", href: "#" },
-    ],
-  },
-  {
-    title: "Soporte",
-    links: [
+      { label: "¿Quiénes somos?", href: "#", modal: "nosotros" as ModalId },
+      { label: "Quiero a mi hotel en JackCity", href: "#", hotelContact: true },
       { label: "Contáctanos", href: "#", contact: true },
-      { label: "Centro de ayuda", href: "#" },
-      { label: "Preguntas frecuentes", href: "#" },
-      { label: "Estado del servicio", href: "#" },
     ],
   },
   {
@@ -50,7 +33,11 @@ const footerLinks = [
   },
 ]
 
-const MODAL_CONFIG: Record<string, { title: string; href: string; content: React.ReactNode }> = {
+const MODAL_CONFIG: Record<string, { title: string; href?: string; content: React.ReactNode }> = {
+  nosotros: {
+    title: "¿Quiénes somos?",
+    content: <QuienesSomosContent />,
+  },
   reservas: {
     title: "Política de reservas JackCity",
     href: "/legal/politica-de-reservas",
@@ -77,6 +64,7 @@ export function SiteFooter() {
   const currentYear = new Date().getFullYear()
   const [openModal, setOpenModal] = useState<string | null>(null)
   const [contactOpen, setContactOpen] = useState(false)
+  const [hotelContactOpen, setHotelContactOpen] = useState(false)
   const modal = openModal ? MODAL_CONFIG[openModal] : null
 
   return (
@@ -85,10 +73,10 @@ export function SiteFooter() {
         <div className="mx-auto max-w-[1100px] px-6 pt-14 pb-8">
 
           {/* Top: logo + columns */}
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-12">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10 md:gap-8 mb-8">
 
             {/* Brand */}
-            <div className="col-span-2 md:col-span-1">
+            <div className="md:max-w-[260px]">
               <div className="flex items-center gap-2 mb-4">
                 <Image
                   src="/logo-02.png"
@@ -101,31 +89,37 @@ export function SiteFooter() {
                   JackCity
                 </span>
               </div>
-              <p className="text-sm leading-relaxed" style={{ color: "#A6AFBD" }}>
-                El hotel de perros que tu peque se merece. Profesional, acogedor y con todo el amor del mundo.
+              <p className="text-sm leading-relaxed max-w-[38ch]" style={{ color: "#A6AFBD" }}>
+                El hospedaje que tu perro merece, la tranquilidad que tú necesitas.
               </p>
 
               {/* Social links */}
-              <div className="flex gap-3 mt-5">
-                {["IG", "FB", "TW"].map((s) => (
-                  <a
-                    key={s}
-                    href="#"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold transition-colors hover:text-white"
-                    style={{ backgroundColor: "#232323", color: "#C7CED9" }}
-                    aria-label={s === "IG" ? "Instagram" : s === "FB" ? "Facebook" : "Twitter"}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#D4AA20")}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#232323")}
-                  >
-                    {s}
-                  </a>
-                ))}
+              <div className="mt-5">
+                <a
+                  href="https://www.instagram.com/jackcitycl/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 h-9 pl-3 pr-4 rounded-lg text-xs font-semibold transition-colors"
+                  style={{ backgroundColor: "#232323", color: "#C7CED9" }}
+                  aria-label="Instagram de JackCity"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "#D4AA20"
+                    e.currentTarget.style.color = "#111111"
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "#232323"
+                    e.currentTarget.style.color = "#C7CED9"
+                  }}
+                >
+                  <Instagram size={16} />
+                  Instagram
+                </a>
               </div>
             </div>
 
             {/* Link columns */}
             {footerLinks.map((col) => (
-              <div key={col.title}>
+              <div key={col.title} className="md:shrink-0">
                 <h4 className="text-sm font-bold mb-4 text-white">
                   {col.title}
                 </h4>
@@ -136,6 +130,17 @@ export function SiteFooter() {
                         <button
                           type="button"
                           onClick={() => setContactOpen(true)}
+                          className="text-sm transition-colors hover:text-white text-left"
+                          style={{ color: "#A6AFBD" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#D4AA20")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "#A6AFBD")}
+                        >
+                          {link.label}
+                        </button>
+                      ) : "hotelContact" in link && link.hotelContact ? (
+                        <button
+                          type="button"
+                          onClick={() => setHotelContactOpen(true)}
                           className="text-sm transition-colors hover:text-white text-left"
                           style={{ color: "#A6AFBD" }}
                           onMouseEnter={(e) => (e.currentTarget.style.color = "#D4AA20")}
@@ -172,7 +177,7 @@ export function SiteFooter() {
             ))}
 
             {/* AndesBits */}
-            <div className="col-span-2 md:col-span-1">
+            <div className="md:shrink-0 md:w-[180px] md:text-right">
               <h4 className="text-sm font-bold mb-4 text-white">
                 Un producto de
               </h4>
@@ -191,14 +196,14 @@ export function SiteFooter() {
                   className="w-full max-w-[180px] h-auto"
                 />
               </a>
-              <p className="text-xs mt-3 leading-relaxed" style={{ color: "#7F8897" }}>
+              <p className="text-xs mt-3 leading-relaxed max-w-[180px] md:ml-auto" style={{ color: "#7F8897" }}>
                 JackCity es un producto de AndesBits.
               </p>
             </div>
           </div>
 
           {/* Divider */}
-          <div className="border-t mb-6" style={{ borderColor: "#2B2B2B" }} />
+          <div className="border-t mb-5" style={{ borderColor: "#2B2B2B" }} />
 
           {/* Bottom row */}
           <div className="flex flex-col md:flex-row items-center justify-between gap-3">
@@ -216,6 +221,8 @@ export function SiteFooter() {
       </footer>
 
       <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
+
+      <HotelContactModal open={hotelContactOpen} onClose={() => setHotelContactOpen(false)} />
 
       {/* Legal modal */}
       {modal && (
@@ -249,17 +256,19 @@ export function SiteFooter() {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "#E5E7EB" }}>
-              <a
-                href={modal.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs underline underline-offset-2 transition-opacity hover:opacity-75"
-                style={{ color: "#6B7280" }}
-              >
-                Ver página completa
-              </a>
-            </div>
+            {modal.href && (
+              <div className="px-6 py-4 border-t flex-shrink-0" style={{ borderColor: "#E5E7EB" }}>
+                <a
+                  href={modal.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs underline underline-offset-2 transition-opacity hover:opacity-75"
+                  style={{ color: "#6B7280" }}
+                >
+                  Ver página completa
+                </a>
+              </div>
+            )}
           </div>
         </div>
       )}

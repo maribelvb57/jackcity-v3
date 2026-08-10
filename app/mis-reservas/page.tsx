@@ -498,8 +498,10 @@ export default function MyBookingsPage() {
                 // El cuadro "Cancelación" sólo aplica a reservas vigentes: en una cancelada
                 // o cerrada el mensaje ya no dice nada útil.
                 const isActive = isActiveBooking(booking.status)
-                // Único criterio: lo resuelve el backend en cancellableNow.
-                const canRequestCancellation = booking.cancellation.cancellableNow
+                // Lo resuelve el backend en cancellableNow, salvo cuando la solicitud de
+                // cancelación ya está en curso: ahí no se vuelve a ofrecer.
+                const canRequestCancellation =
+                  booking.cancellation.cancellableNow && booking.status !== "PENDING_CANCELLATION"
                 // Disponible en cualquier reserva del tab "Reservas activas", siempre que
                 // el backend haya informado la política (si no, no hay texto que mostrar).
                 const canViewPolicy = isActive && !!booking.cancellation.cancellationPolicy

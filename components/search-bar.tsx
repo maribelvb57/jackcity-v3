@@ -12,6 +12,7 @@ import { defaultMascota, type Mascota } from "@/stores/search-store"
 import { PET_SIZE_LABEL, PET_SIZE_MAP, type PetSize } from "@/lib/api/hotels"
 import { DOG_BREEDS, breedDisplayLabel, getBreedByCode, getBreedSizeByCode, resolveBreedCode, OTHER_BREED_CODE } from "@/lib/dog-breeds"
 import { encodePetBreeds, parsePetBreedsParam, encodePetIds, parsePetIdsParam } from "@/lib/search-pets"
+import { getMinCheckinDate, startOfLocalDay, CHECKIN_CUTOFF_HOUR } from "@/lib/booking-dates"
 import { getMyProfile } from "@/lib/api/customers"
 import { useApiClient } from "@/hooks/use-api-client"
 import { TRANSPORT_COMMUNES, getTransportCommuneByCode } from "@/config/transport-communes"
@@ -76,6 +77,31 @@ export function SearchBar() {
   const mascotas = useSearchStore((state) => state.mascotas)
   const setMascotas = useSearchStore((state) => state.setMascotas)
 
+  // Primer día seleccionable. Se guarda como timestamp para que React descarte el
+  // re-render mientras el mínimo no cambie, y se revisa cada minuto por si el
+  // usuario deja la página abierta y cruza la hora de corte de Chile.
+  const [minCheckinTs, setMinCheckinTs] = useState(() => getMinCheckinDate().getTime())
+  const minCheckinDate = new Date(minCheckinTs)
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setMinCheckinTs(getMinCheckinDate().getTime())
+    }, 60_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Un rango elegido antes (o traído por URL) puede quedar fuera de plazo al cruzar
+  // la hora de corte: lo descartamos para que el usuario vuelva a elegir, avisándole
+  // por qué desaparecieron sus fechas.
+  const [clearedByCutoff, setClearedByCutoff] = useState(false)
+
+  useEffect(() => {
+    if (dateRange?.from && startOfLocalDay(dateRange.from) < minCheckinDate) {
+      setDateRange(undefined)
+      setClearedByCutoff(true)
+    }
+  }, [minCheckinTs, dateRange])
+
   const { user: clerkUser, isSignedIn } = useUser()
   const { apiFetch } = useApiClient()
   const [savedPets, setSavedPets] = useState<Array<{ id: string; name: string; breed: string; size: string }>>([])
@@ -113,7 +139,8 @@ export function SearchBar() {
   const allPetsValid = effectiveMascotas.length > 0 && effectiveMascotas.every(
     (m) => !!m.petId || (m.raza !== "Sin especificar" && (m.raza !== OTHER_BREED_CODE || !!m.tamano))
   )
-  const isSearchEnabled = !!(dateRange?.from && dateRange?.to) && allPetsValid
+  const checkinTooSoon = !!dateRange?.from && startOfLocalDay(dateRange.from) < minCheckinDate
+  const isSearchEnabled = !!(dateRange?.from && dateRange?.to) && !checkinTooSoon && allPetsValid
 
   // Solo mostramos el motivo del botón deshabilitado después de que el usuario
   // intentó buscar; nunca al entrar por primera vez sin haber hecho nada.
@@ -124,6 +151,9 @@ export function SearchBar() {
   const searchDisabledReason = (() => {
     if (isSearchEnabled) return null
     if (!dateRange?.from || !dateRange?.to) return "Selecciona las fechas de tu estadía."
+    if (checkinTooSoon) {
+      return `Después de las ${CHECKIN_CUTOFF_HOUR}:00 hrs no se aceptan reservas para el día siguiente. Elige una fecha de inicio desde el ${format(minCheckinDate, "EEEE d 'de' MMMM", { locale: es })}.`
+    }
     if (effectiveMascotas.length === 0) return "Agrega al menos una mascota."
     const invalid = effectiveMascotas.find(
       (m) => !m.petId && (m.raza === "Sin especificar" || (m.raza === OTHER_BREED_CODE && !m.tamano))
@@ -340,13 +370,12 @@ export function SearchBar() {
                       <DayPicker
                         mode="range"
                         selected={dateRange}
-                        onSelect={setDateRange}
+                        onSelect={(range) => { setClearedByCutoff(false); setDateRange(range) }}
                         locale={es}
                         numberOfMonths={1}
                         disabled={(date) => {
-                          const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-                          const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1); tomorrow.setHours(0,0,0,0)
-                          if (d < tomorrow) return true
+                          const d = startOfLocalDay(date)
+                          if (d < minCheckinDate) return true
                           if (dateRange?.from && !dateRange?.to) {
                             const from = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate())
                             if (d.getTime() === from.getTime()) return true
@@ -582,6 +611,14 @@ export function SearchBar() {
                       setAttemptedSearch(true)
                       return
                     }
+                    // El corte pudo cumplirse dentro del último minuto (entre ticks del
+                    // intervalo): revalidamos con la hora real antes de navegar.
+                    const freshMin = getMinCheckinDate()
+                    if (startOfLocalDay(dateRange.from) < freshMin) {
+                      setMinCheckinTs(freshMin.getTime())
+                      setAttemptedSearch(true)
+                      return
+                    }
                     const params = new URLSearchParams({
                       city,
                       checkin: format(dateRange.from, "yyyy-MM-dd"),
@@ -614,7 +651,15 @@ export function SearchBar() {
               </div>
             </div>
 
-            {attemptedSearch && searchDisabledReason && (
+            {clearedByCutoff && (
+              <p className="mt-2 text-sm font-medium md:text-right" style={{ color: "#8A1C1C" }}>
+                Después de las {CHECKIN_CUTOFF_HOUR}:00 hrs (hora de Chile) no se aceptan reservas
+                para el día siguiente. Vuelve a elegir tus fechas desde el{" "}
+                {format(minCheckinDate, "EEEE d 'de' MMMM", { locale: es })}.
+              </p>
+            )}
+
+            {attemptedSearch && searchDisabledReason && !clearedByCutoff && (
               <p className="mt-2 text-sm font-medium md:text-right" style={{ color: "#8A1C1C" }}>
                 {searchDisabledReason}
               </p>

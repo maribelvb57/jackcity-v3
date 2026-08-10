@@ -1,7 +1,18 @@
 "use client"
 
-import { useState } from "react"
-import { MapPin, DollarSign, Home, Star, ArrowUpDown, ChevronDown } from "lucide-react"
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTRO_ZONA_DESACTIVADO — el filtro por "Zona" está apagado temporalmente.
+//
+// Para reactivarlo: busca "FILTRO_ZONA_DESACTIVADO" en este archivo (4 marcas) y
+// descomenta lo que hay bajo cada una. No hay que tocar nada en
+// app/booking/search/page.tsx: sigue pasando las props `zona`/`onZonaChange` y su
+// estado queda fijo en "Todas las zonas", valor que no filtra ninguna comuna.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// FILTRO_ZONA_DESACTIVADO (1/4): descomentar `useState` y `MapPin`.
+// import { useState } from "react"
+// import { MapPin, DollarSign, Home, Star, ArrowUpDown, ChevronDown } from "lucide-react"
+import { DollarSign, Home, Star, ArrowUpDown } from "lucide-react"
 import { formatClp } from "@/lib/format"
 import { BENEFITS } from "@/config/benefits"
 
@@ -10,13 +21,14 @@ const AMBER = "#FFC43D"
 const GRAY = "#9CA3AF"
 const SEPARATOR = "#F3F4F6"
 
-const ZONAS = [
-  "Todas las zonas",
-  "Santiago Oriente",
-  "Norte de Santiago",
-  "Sur de Santiago",
-  "Santiago Poniente",
-]
+// FILTRO_ZONA_DESACTIVADO (2/4): descomentar el listado de zonas.
+// const ZONAS = [
+//   "Todas las zonas",
+//   "Santiago Oriente",
+//   "Norte de Santiago",
+//   "Sur de Santiago",
+//   "Santiago Poniente",
+// ]
 
 const ORDENAR_OPTIONS = [
   "Recomendados de Jack",
@@ -26,6 +38,8 @@ const ORDENAR_OPTIONS = [
 ]
 
 interface SearchFiltersProps {
+  // `zona`/`onZonaChange` se siguen recibiendo aunque el filtro esté apagado, para no
+  // tocar los dos call sites de app/booking/search/page.tsx. Ver FILTRO_ZONA_DESACTIVADO.
   zona: string
   onZonaChange: (zona: string) => void
   priceMin: number
@@ -40,8 +54,10 @@ interface SearchFiltersProps {
   onOrdenarChange: (value: string) => void
 }
 
-export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupuesto, onPresupuestoChange, selectedBenefits, onBenefitsChange, puntuacionMin, onPuntuacionChange, ordenarPor, onOrdenarChange }: SearchFiltersProps) {
-  const [zonaOpen, setZonaOpen] = useState(false)
+// FILTRO_ZONA_DESACTIVADO (3/4): volver a destructurar `zona, onZonaChange` en la
+// firma y descomentar el estado `zonaOpen`.
+export function SearchFilters({ priceMin, priceMax, presupuesto, onPresupuestoChange, selectedBenefits, onBenefitsChange, puntuacionMin, onPuntuacionChange, ordenarPor, onOrdenarChange }: SearchFiltersProps) {
+  // const [zonaOpen, setZonaOpen] = useState(false)
 
   const toggleBenefit = (code: string) => {
     onBenefitsChange(
@@ -58,7 +74,10 @@ export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupue
   return (
     <div className="flex flex-col gap-5 w-full overflow-x-hidden">
 
-      {/* Zona */}
+      {/* FILTRO_ZONA_DESACTIVADO (4/4): descomentar el bloque "Zona" completo, incluido
+          el separador que lo sigue. (Ojo: los comentarios JSX no se anidan, por eso el
+          bloque de abajo no lleva ningún comentario interno.)
+
       <div className="w-full">
         <div className="flex items-center gap-2 mb-2.5">
           <MapPin size={15} style={{ color: AMBER }} />
@@ -107,6 +126,8 @@ export function SearchFilters({ zona, onZonaChange, priceMin, priceMax, presupue
       </div>
 
       <div className="border-t" style={{ borderColor: SEPARATOR }} />
+
+      */}
 
       {/* Presupuesto */}
       <div className="w-full">
