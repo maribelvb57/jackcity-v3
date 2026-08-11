@@ -12,17 +12,8 @@ import {
   Hotel,
   MapPinned,
   PawPrint,
-  RefreshCw,
-  Search,
-  ShieldCheck,
   Sparkles,
 } from "lucide-react"
-
-const highlights = [
-  { icon: PawPrint, label: "Hoteles pet friendly", color: "#0A1830" },
-  { icon: ShieldCheck, label: "Mejor precio garantizado", color: "#2F7D32" },
-  { icon: RefreshCw, label: "Cancelación flexible", color: "#FF6B5E" },
-]
 
 const steps = [
   {
@@ -75,19 +66,6 @@ export function HowItWorks() {
             <div className="relative mx-auto max-w-[1100px]">
               <div className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
                 <div className="relative z-10">
-                  <div className="mb-6 flex flex-wrap gap-3">
-                    {highlights.map((item) => (
-                      <div
-                        key={item.label}
-                        className="inline-flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-sm font-bold shadow-sm"
-                        style={{ borderColor: "#ECE6D8", color: "#0A1830" }}
-                      >
-                        <item.icon size={18} style={{ color: item.color }} />
-                        {item.label}
-                      </div>
-                    ))}
-                  </div>
-
                   <p className="mb-4 inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em]" style={{ color: "#2E7D32" }}>
                     <Sparkles size={16} />
                     Así de fácil
@@ -98,7 +76,7 @@ export function HowItWorks() {
                   </h2>
 
                   <p className="mt-5 max-w-[560px] text-lg font-medium leading-8" style={{ color: "#28384F" }}>
-                    En cuatro simples pasos tu peque tendrá su lugar asegurado en el mejor hotel canino.
+                    Cuatro simples pasos para reservar el lugar de tu peque en el mejor hotel canino.
                   </p>
 
                   <div className="mt-7 flex flex-wrap items-center gap-4">
@@ -110,10 +88,6 @@ export function HowItWorks() {
                       Buscar hotel ahora
                       <PawPrint size={19} fill="currentColor" />
                     </Link>
-                    <div className="flex items-center gap-2 text-sm font-semibold" style={{ color: "#526071" }}>
-                      <Search size={17} style={{ color: "#2F7D32" }} />
-                      Sin cargos por búsqueda
-                    </div>
                   </div>
                 </div>
 

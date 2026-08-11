@@ -2,7 +2,7 @@ import { Suspense } from "react"
 import { SiteNavbar } from "@/components/site-navbar"
 import { HeroHeader } from "@/components/hero-header"
 import { SearchBar } from "@/components/search-bar"
-import { PromoSection } from "@/components/promo-section"
+import { QuienesSomosSection } from "@/components/quienes-somos-section"
 import { HowItWorks } from "@/components/how-it-works"
 import { Testimonials } from "@/components/testimonials"
 import { JackStoryCarousel } from "@/components/jack-story-carousel"
@@ -29,8 +29,8 @@ export default function Home() {
           </Suspense>
         </div>
 
-        {/* Section 3: Promotional */}
-        <PromoSection />
+        {/* Section 3: Quiénes somos */}
+        <QuienesSomosSection />
 
         {/* Section 4: How it works */}
         <HowItWorks />

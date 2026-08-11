@@ -2,7 +2,7 @@
 
 import Image from "next/image"
 import { useState } from "react"
-import { X, Instagram } from "lucide-react"
+import { X, Instagram, Facebook } from "lucide-react"
 import { PoliticaReservasContent } from "@/components/legal/politica-reservas-content"
 import { PoliticaCancelacionContent } from "@/components/legal/politica-cancelacion-content"
 import { TerminosCondicionesContent } from "@/components/legal/terminos-condiciones-content"
@@ -12,6 +12,36 @@ import { ContactModal } from "@/components/contact-modal"
 import { HotelContactModal } from "@/components/hotel-contact-modal"
 
 type ModalId = "nosotros" | "reservas" | "cancelacion" | "terminos" | "privacidad" | null
+
+/** lucide-react no incluye logos de marca, así que el de TikTok va inline. */
+function TikTok({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M16.6 5.82A4.28 4.28 0 0 1 15.54 3h-3.09v12.4a2.59 2.59 0 1 1-1.82-2.48V9.66a5.7 5.7 0 1 0 4.91 5.64V9.01a7.35 7.35 0 0 0 4.3 1.38V7.3a4.29 4.29 0 0 1-3.24-1.48Z" />
+    </svg>
+  )
+}
+
+const socialLinks: {
+  icon: React.ComponentType<{ size?: number }>
+  label: string
+  href: string
+}[] = [
+  { icon: Instagram, label: "Instagram", href: "https://www.instagram.com/jackcitycl/" },
+  {
+    icon: Facebook,
+    label: "Facebook",
+    href: "https://www.facebook.com/profile.php?id=61592932239251",
+  },
+  { icon: TikTok, label: "TikTok", href: "https://www.tiktok.com/@jackcitycl" },
+]
 
 const footerLinks = [
   {
@@ -94,26 +124,29 @@ export function SiteFooter() {
               </p>
 
               {/* Social links */}
-              <div className="mt-5">
-                <a
-                  href="https://www.instagram.com/jackcitycl/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 h-9 pl-3 pr-4 rounded-lg text-xs font-semibold transition-colors"
-                  style={{ backgroundColor: "#232323", color: "#C7CED9" }}
-                  aria-label="Instagram de JackCity"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = "#D4AA20"
-                    e.currentTarget.style.color = "#111111"
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "#232323"
-                    e.currentTarget.style.color = "#C7CED9"
-                  }}
-                >
-                  <Instagram size={16} />
-                  Instagram
-                </a>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {socialLinks.map(({ icon: Icon, label, href }) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 h-9 pl-3 pr-4 rounded-lg text-xs font-semibold transition-colors"
+                    style={{ backgroundColor: "#232323", color: "#C7CED9" }}
+                    aria-label={`${label} de JackCity`}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = "#D4AA20"
+                      e.currentTarget.style.color = "#111111"
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "#232323"
+                      e.currentTarget.style.color = "#C7CED9"
+                    }}
+                  >
+                    <Icon size={16} />
+                    {label}
+                  </a>
+                ))}
               </div>
             </div>
 
