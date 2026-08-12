@@ -11,7 +11,7 @@ export type CustomerProfile = {
     email: string
     phone: string
     rut: string
-    role: "OWNER" | "HOTEL_MGR" | "ADMIN"
+    role: "PET_OWNER" | "HOTEL_MGR" | "ADMIN"
     hotelId: string | null   // solo para role=HOTEL_MGR; null en el resto
   }
   addresses: {

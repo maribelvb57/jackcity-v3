@@ -3,6 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useQuery } from "@tanstack/react-query"
 import {
   Building2,
   Tag,
@@ -18,6 +19,8 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { ContactModal } from "@/components/contact-modal"
+import { useApiClient } from "@/hooks/use-api-client"
+import { getHotelInfo } from "@/lib/api/hotel-info"
 
 interface MenuItem {
   id: string
@@ -38,6 +41,20 @@ export function ManagerSidebar({ hotelId }: ManagerSidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
+  const { apiFetch } = useApiClient()
+
+  // Misma queryKey que ManagerContextBar: comparten caché, no duplican la llamada.
+  const { data: hotelInfo, isPending } = useQuery({
+    queryKey: ["hotel-info", hotelId],
+    queryFn: () => getHotelInfo(hotelId, apiFetch),
+    enabled: !!hotelId,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Transporte se oculta solo cuando el backend confirma offersTransport: false.
+  // Mientras carga no se muestra (evita que aparezca y desaparezca); si la llamada
+  // falla se muestra, para no dejar al manager sin acceso a su sección.
+  const showTransport = isPending ? false : hotelInfo?.hotel.offersTransport !== false
 
   const menuItems: MenuItem[] = [
     {
@@ -70,12 +87,16 @@ export function ManagerSidebar({ hotelId }: ManagerSidebarProps) {
       href: `/hotel/services/${hotelId}`,
       icon: PauseCircle,
     },
-    {
-      id: "transporte",
-      label: "Transporte",
-      href: `/hotel/transport/${hotelId}`,
-      icon: Car,
-    },
+    ...(showTransport
+      ? [
+          {
+            id: "transporte",
+            label: "Transporte",
+            href: `/hotel/transport/${hotelId}`,
+            icon: Car,
+          },
+        ]
+      : []),
   ]
 
   function isActive(href: string): boolean {

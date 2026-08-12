@@ -22,7 +22,9 @@ import {
   Check,
   AlertCircle,
   Clock,
+  Star,
 } from "lucide-react"
+import type { HotelDetail } from "@/lib/api/hotel-detail"
 import { slotTime } from "@/lib/transport-slots"
 
 const CITY_LABELS: Record<string, string> = {
@@ -46,6 +48,60 @@ function getScoreLabel(score: number): string {
   if (score >= 7.0) return "Bien"
   if (score >= 6.0) return "Agradable"
   return "Aceptable"
+}
+
+/**
+ * Nota y reseña destacada del hotel. Sin evaluaciones (avgRating null o 0) se
+ * muestra como hotel nuevo en vez de una nota 0,0.
+ */
+function ScoreCard({
+  hotel,
+  score,
+  className = "",
+}: {
+  hotel: HotelDetail
+  score: number | null
+  className?: string
+}) {
+  const hasScore = score != null && score > 0
+
+  return (
+    <div className={`bg-white rounded-2xl p-4 border ${className}`} style={{ borderColor: "#E5E7EB" }}>
+      <div className="flex items-center gap-3">
+        {hasScore ? (
+          <div className="flex items-center justify-center px-3 py-2 rounded-lg text-white font-bold text-xl" style={{ backgroundColor: "#1a6b4a" }}>
+            {score.toFixed(1).replace(".", ",")}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center w-11 h-11 rounded-lg flex-shrink-0" style={{ backgroundColor: "#1a6b4a" }}>
+            <Star size={22} fill="#FFFFFF" strokeWidth={0} aria-hidden="true" />
+          </div>
+        )}
+        <div>
+          <p className="font-semibold" style={{ color: "#0A1830" }}>
+            {hasScore ? getScoreLabel(score) : "Nuevo en JackCity"}
+          </p>
+          {hasScore && (
+            <p className="text-sm" style={{ color: "#555" }}>
+              {hotel.reviewsCount ?? 0} comentarios
+            </p>
+          )}
+        </div>
+      </div>
+      {hotel.reviewText && (
+        <div className="mt-3 pt-3 border-t" style={{ borderColor: "#E5E7EB" }}>
+          <p className="text-sm italic leading-relaxed mb-2" style={{ color: "#333" }}>
+            &quot;{hotel.reviewText}&quot;
+          </p>
+          {hotel.reviewUserName && (
+            <p className="text-xs font-semibold" style={{ color: "#555" }}>
+              - {hotel.reviewUserName}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function HotelDetailContent() {
@@ -119,7 +175,6 @@ function HotelDetailContent() {
   const currentPhoto = photos[photoIndex] ?? null
 
   const score = hotel?.avgRating ?? null
-  const scoreLabel = score != null ? getScoreLabel(score) : "—"
   const totalPrice = hotel?.pricing?.totalPrice ?? 0
   const payNowPrice = hotel?.pricing?.payNowAmount ?? 0
   const lodgingPrice = hotel?.pricing?.bookingPrice ?? 0
@@ -249,15 +304,32 @@ function HotelDetailContent() {
                   {/* 1. Photo Gallery */}
                   <div className="order-1 bg-white rounded-2xl overflow-hidden border" style={{ borderColor: "#E5E7EB" }}>
                     <div
-                      className="relative aspect-[16/9] w-full select-none"
+                      className="relative aspect-[3/2] w-full select-none overflow-hidden"
+                      style={{ backgroundColor: "#F3F4F6" }}
                       onTouchStart={handleTouchStart}
                       onTouchEnd={handleTouchEnd}
                     >
+                      {/* Fondo: la misma foto ampliada y difuminada, para que las franjas que
+                          deja object-contain no queden vacías. Mismo src y sizes que la foto
+                          principal, así el navegador reutiliza el archivo ya descargado. */}
+                      <Image
+                        src={currentPhoto?.url ?? GALLERY_FALLBACK_IMAGE}
+                        alt=""
+                        fill
+                        aria-hidden="true"
+                        className="object-cover scale-125 blur-2xl"
+                        sizes="(max-width: 1024px) 100vw, 75vw"
+                        draggable={false}
+                      />
+                      <div className="absolute inset-0" style={{ backgroundColor: "rgba(10,24,48,0.28)" }} aria-hidden="true" />
+
+                      {/* La foto se ajusta al alto del marco y se ve completa: las verticales
+                          dejan franjas a los lados en vez de recortarse. */}
                       <Image
                         src={currentPhoto?.url ?? GALLERY_FALLBACK_IMAGE}
                         alt={currentPhoto?.caption ?? hotel?.name ?? "Hotel"}
                         fill
-                        className="object-cover"
+                        className="object-contain"
                         sizes="(max-width: 1024px) 100vw, 75vw"
                         priority
                         draggable={false}
@@ -286,54 +358,27 @@ function HotelDetailContent() {
                     </div>
                   </div>
 
-                  {/* 2. Score + Highlights — mobile only */}
-                  {hotel && (
-                    <div className="flex flex-col gap-4 order-2 lg:hidden">
-                      {score != null && (
-                        <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "#E5E7EB" }}>
-                          <div className="flex items-center gap-3 mb-3">
-                            <div className="flex items-center justify-center px-3 py-2 rounded-lg text-white font-bold text-xl" style={{ backgroundColor: "#1a6b4a" }}>
-                              {score.toFixed(1).replace(".", ",")}
-                            </div>
-                            <div>
-                              <p className="font-semibold" style={{ color: "#0A1830" }}>{scoreLabel}</p>
-                              <p className="text-sm" style={{ color: "#555" }}>{hotel.reviewsCount ?? 0} comentarios</p>
-                            </div>
-                          </div>
-                          {hotel.reviewText && (
-                            <div className="pt-3 border-t" style={{ borderColor: "#E5E7EB" }}>
-                              <p className="text-sm italic leading-relaxed mb-2" style={{ color: "#333" }}>
-                                &quot;{hotel.reviewText}&quot;
-                              </p>
-                              {hotel.reviewUserName && (
-                                <p className="text-xs font-semibold" style={{ color: "#555" }}>
-                                  - {hotel.reviewUserName}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                  {/* 2. Score — mobile only */}
+                  {hotel && <ScoreCard hotel={hotel} score={score} className="order-2 lg:hidden" />}
 
-                      {hotel.benefits?.length > 0 && (
-                        <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "#E5E7EB" }}>
-                          <h3 className="text-sm font-bold mb-3" style={{ color: "#0A1830" }}>Puntos destacables</h3>
-                          <ul className="flex flex-col gap-2">
-                            {hotel.benefits.map((b, i) => (
-                              <li key={i} className="flex items-center gap-2 text-sm" style={{ color: "#333" }}>
-                                <Check size={14} style={{ color: "#16a34a", flexShrink: 0 }} strokeWidth={2.5} />
-                                {b.name}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                  {/* 3. Highlights */}
+                  {hotel && hotel.benefits?.length > 0 && (
+                    <div className="order-3 lg:order-2 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                      <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>¿Por qué elegir este hotel?</h2>
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {hotel.benefits.map((b, i) => (
+                          <li key={i} className="flex items-center gap-2 text-sm" style={{ color: "#333" }}>
+                            <Check size={14} style={{ color: "#16a34a", flexShrink: 0 }} strokeWidth={2.5} />
+                            {b.name}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
-                  {/* 3. Description */}
+                  {/* 4. Description */}
                   {hotel?.description && (
-                    <div className="order-3 lg:order-2 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                    <div className="order-4 lg:order-3 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                       <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>Descripción del Hotel</h2>
                       <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "#333" }}>
                         {hotel.description}
@@ -341,9 +386,9 @@ function HotelDetailContent() {
                     </div>
                   )}
 
-                  {/* 4. Conditions */}
+                  {/* 5. Conditions */}
                   {hotel && (hotel.policies?.length > 0 || (!transportParam && (hotel.checkinTime || hotel.checkoutTime))) && (
-                    <div className="order-4 lg:order-3 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                    <div className="order-5 lg:order-4 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                       <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>Condiciones del Hotel</h2>
                       {hotel.policies?.length > 0 && (
                         <ul className="flex flex-col gap-2 mb-4">
@@ -380,11 +425,11 @@ function HotelDetailContent() {
                     </div>
                   )}
 
-                  {/* 5. Transport Schedules (only when needsTransport) */}
+                  {/* 6. Transport Schedules (only when needsTransport) */}
                   {transportParam && hotel?.transport && (
                     hotel.transport.departureSlots.length > 0 || hotel.transport.returnSlots.length > 0
                   ) && (
-                    <div className="order-5 lg:order-4 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                    <div className="order-6 lg:order-5 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                       <h2 className="text-lg font-bold mb-4" style={{ color: "#0A1830" }}>
                         Horarios disponibles para el transporte de tu mascota
                       </h2>
@@ -434,12 +479,12 @@ function HotelDetailContent() {
                   {hotel?.cancellationPolicy && (
                     <CancellationPolicySection
                       policy={hotel.cancellationPolicy}
-                      className="order-6 lg:order-5"
+                      className="order-7 lg:order-6"
                     />
                   )}
 
                   {/* 7. Reservation Summary */}
-                  <div className="order-7 lg:order-6 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
+                  <div className="order-8 lg:order-7 bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                       <div>
                         <h2 className="text-lg font-bold mb-3" style={{ color: "#0A1830" }}>Resumen de Reserva</h2>
@@ -495,45 +540,7 @@ function HotelDetailContent() {
                 {/* Right column — desktop only */}
                 <div className="hidden lg:flex flex-col gap-4 lg:w-1/4">
 
-                  {hotel && score != null && (
-                    <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "#E5E7EB" }}>
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="flex items-center justify-center px-3 py-2 rounded-lg text-white font-bold text-xl" style={{ backgroundColor: "#1a6b4a" }}>
-                          {score.toFixed(1).replace(".", ",")}
-                        </div>
-                        <div>
-                          <p className="font-semibold" style={{ color: "#0A1830" }}>{scoreLabel}</p>
-                          <p className="text-sm" style={{ color: "#555" }}>{hotel.reviewsCount ?? 0} comentarios</p>
-                        </div>
-                      </div>
-                      {hotel.reviewText && (
-                        <div className="pt-3 border-t" style={{ borderColor: "#E5E7EB" }}>
-                          <p className="text-sm italic leading-relaxed mb-2" style={{ color: "#333" }}>
-                            &quot;{hotel.reviewText}&quot;
-                          </p>
-                          {hotel.reviewUserName && (
-                            <p className="text-xs font-semibold" style={{ color: "#555" }}>
-                              - {hotel.reviewUserName}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {hotel && hotel.benefits?.length > 0 && (
-                    <div className="bg-white rounded-2xl p-4 border" style={{ borderColor: "#E5E7EB" }}>
-                      <h3 className="text-sm font-bold mb-3" style={{ color: "#0A1830" }}>Puntos destacables</h3>
-                      <ul className="flex flex-col gap-2">
-                        {hotel.benefits.map((b, i) => (
-                          <li key={i} className="flex items-center gap-2 text-sm" style={{ color: "#333" }}>
-                            <Check size={14} style={{ color: "#16a34a", flexShrink: 0 }} strokeWidth={2.5} />
-                            {b.name}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {hotel && <ScoreCard hotel={hotel} score={score} />}
                 </div>
               </div>
             </>

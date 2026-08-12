@@ -274,7 +274,7 @@ export function SearchBar() {
       <div className="flex items-center justify-center">
         <div
           className="w-full max-w-[1200px] px-1 pb-1 pt-1"
-          style={{ background: "linear-gradient(135deg, #17312E 0%, #1F3A36 55%, #2B4A45 100%)" }}
+          style={{ backgroundColor: "#0A1830" }}
         >
           {/* Search card */}
           <div
