@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, Suspense } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter, useSearchParams } from "next/navigation"
+import Link from "next/link"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { SiteNavbar } from "@/components/site-navbar"
@@ -417,7 +418,11 @@ function SearchPageContent() {
                     No encontramos hoteles disponibles
                   </p>
                   <p className="text-sm" style={{ color: "#6B7280", maxWidth: 320 }}>
-                    Intenta ajustando los filtros o realiza una nueva búsqueda con otras fechas.
+                    Intenta ajustando los filtros o realiza una{" "}
+                    <Link href="/#buscar" className="font-semibold underline whitespace-nowrap" style={{ color: "#28548f" }}>
+                      nueva búsqueda
+                    </Link>{" "}
+                    con otras fechas.
                   </p>
                 </div>
               </div>

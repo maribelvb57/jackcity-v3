@@ -19,7 +19,7 @@ import { redirectToWebpay } from "@/lib/webpay"
 import { useApiClient } from "@/hooks/use-api-client"
 import { PET_SIZE_LABEL, type PetSize, CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
 import { getBreedByCode, resolveBreedCode } from "@/lib/dog-breeds"
-import { slotTime } from "@/lib/transport-slots"
+import { slotTime, sortSlots } from "@/lib/transport-slots"
 import { getCommuneNameByCode } from "@/config/communes"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
@@ -2086,7 +2086,7 @@ function ConfirmationContent() {
                         <div className="flex-1">
                           <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Ida</p>
                           <div className="flex flex-col gap-2">
-                            {quote.transport.departureSlots.map((slot) => (
+                            {sortSlots(quote.transport.departureSlots).map((slot) => (
                               <button key={`dep-${slot}`} type="button" onClick={() => setSelectedDeparture(slot)}
                                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors"
                                 style={{
@@ -2106,7 +2106,7 @@ function ConfirmationContent() {
                         <div className="flex-1">
                           <p className="text-sm font-semibold mb-2" style={{ color: "#0A1830" }}>Regreso</p>
                           <div className="flex flex-col gap-2">
-                            {quote.transport.returnSlots.map((slot) => (
+                            {sortSlots(quote.transport.returnSlots).map((slot) => (
                               <button key={`ret-${slot}`} type="button" onClick={() => setSelectedReturn(slot)}
                                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm transition-colors"
                                 style={{

@@ -35,12 +35,12 @@ function installmentsLabel(count: number | null) {
   return `${count} cuota${count === 1 ? "" : "s"}`
 }
 
-function FallbackScreen({ message }: { message: string }) {
+function FallbackScreen({ message, tone = "error" }: { message: string; tone?: "error" | "neutral" }) {
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
       <div className="w-full max-w-[1200px] flex flex-col" style={{ backgroundColor: "#ffffff" }}>
         <SiteNavbar />
-        <div className="px-6 py-10 text-sm font-medium" style={{ color: "#8A1C1C" }}>
+        <div className="px-6 py-10 text-sm font-medium" style={{ color: tone === "error" ? "#8A1C1C" : "#0A1830" }}>
           {message}
         </div>
       </div>
@@ -77,7 +77,7 @@ function BookingConfirmationSuccessContent() {
   }
 
   if (isVoucherLoading || !voucher) {
-    return <FallbackScreen message="Cargando tu reserva..." />
+    return <FallbackScreen message="Confirmando tu transacción..." tone="neutral" />
   }
 
   if (!voucher.authorized) {
@@ -89,7 +89,7 @@ function BookingConfirmationSuccessContent() {
   }
 
   if (isBookingLoading || !booking) {
-    return <FallbackScreen message="Cargando tu reserva..." />
+    return <FallbackScreen message="Confirmando tu transacción..." tone="neutral" />
   }
 
   const petNames = formatPetNames(booking.pets.map((p) => p.name))
@@ -99,8 +99,8 @@ function BookingConfirmationSuccessContent() {
   const checkinFormatted = formatDate(booking.checkinDate)
   const checkoutFormatted = formatDate(booking.checkoutDate)
   const { totalAmount, paidAmount, pendingAmount } = voucher.amounts
-  const paidPercentage = Math.round((paidAmount / totalAmount) * 100)
-  const pendingPercentage = 100 - paidPercentage
+  // Con transporte el 30/70 deja de aplicar sobre el total, así que los porcentajes no se muestran.
+  const showPercentages = !booking.transport.included
   const serviceDescription = `Pago por adelanto de reserva de alojamiento en hotel ${booking.hotel.name} desde el ${checkinFormatted} hasta el ${checkoutFormatted}`
   const transactionDateFormatted = voucher.transactionDate
     ? format(new Date(voucher.transactionDate), "d MMM yyyy, HH:mm", { locale: es })
@@ -246,7 +246,7 @@ function BookingConfirmationSuccessContent() {
                   <div className="pt-4 border-t" style={{ borderColor: "#E5E7EB" }}>
                     <div className="grid min-w-0 items-stretch gap-2 md:grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)_32px_minmax(0,1fr)]">
                       <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#FFFFFF", borderColor: "#EEF0F5" }}>
-                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Total Alojamiento (100%)</p>
+                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Total Alojamiento{showPercentages ? " (100%)" : ""}</p>
                         <p className="mt-1 text-xs" style={{ color: "#667085" }}>Monto total de tu reserva</p>
                         <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(totalAmount)}</p>
                         <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
@@ -259,8 +259,8 @@ function BookingConfirmationSuccessContent() {
                       </div>
 
                       <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#EEF8F2", borderColor: "#BBE6CD" }}>
-                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Reserva pagada ({paidPercentage}%)</p>
-                        <p className="mt-1 text-xs" style={{ color: "#667085" }}>Pago Inicial</p>
+                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Monto abonado{showPercentages ? " (30%)" : ""}</p>
+                        <p className="mt-1 text-xs" style={{ color: "#667085" }}>Pagado en Jackcity</p>
                         <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(paidAmount)}</p>
                         <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
                         <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#D5F1E2", color: "#15803D" }}>
@@ -276,7 +276,7 @@ function BookingConfirmationSuccessContent() {
                       </div>
 
                       <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
-                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pendiente en el hotel ({pendingPercentage}%)</p>
+                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pendiente en el hotel{showPercentages ? " (70%)" : ""}</p>
                         <p className="mt-1 text-xs" style={{ color: "#667085" }}>Abona directamente al hotel</p>
                         <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(pendingAmount)}</p>
                         <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
