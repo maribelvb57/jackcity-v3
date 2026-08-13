@@ -7,12 +7,11 @@ import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { SiteNavbar } from "@/components/site-navbar"
-import { MapPin, Clock, Calendar, AlertCircle, LockKeyhole, Building2, ReceiptText, Download } from "lucide-react"
+import { MapPin, Calendar, AlertCircle, LockKeyhole, Building2, ReceiptText, Download, Info } from "lucide-react"
 import { formatClp } from "@/lib/format"
 import { getBooking } from "@/lib/api/bookings"
 import { CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
 import { getWebpayVoucherByBuyOrder, getWebpayVoucherPdfUrl } from "@/lib/api/payments"
-import { slotTime } from "@/lib/transport-slots"
 
 const PAY_NOW_PERCENTAGE = 0.3
 const MERCHANT_NAME = "AndesBits SpA (JackCity)"
@@ -103,11 +102,7 @@ function BookingConfirmationSuccessContent() {
   const totalPrice = booking.pricing.totalPrice
   const paidPrice = Math.round(totalPrice * PAY_NOW_PERCENTAGE)
   const pendingPrice = totalPrice - paidPrice
-  const checkinWindow = booking.transport.included
-    ? slotTime(booking.transport.departureSlot ?? "")
-    : booking.hotel.checkinWindow
-  const checkinWindowLabel = checkinWindow.trim() || "Horario por coordinar"
-  const serviceDescription = `Pago por reserva de alojamiento en hotel ${booking.hotel.name} desde el ${checkinFormatted} hasta el ${checkoutFormatted}`
+  const serviceDescription = `Pago por adelanto de reserva de alojamiento en hotel ${booking.hotel.name} desde el ${checkinFormatted} hasta el ${checkoutFormatted}`
   const transactionDateFormatted = voucher.transactionDate
     ? format(new Date(voucher.transactionDate), "d MMM yyyy, HH:mm", { locale: es })
     : "—"
@@ -153,13 +148,13 @@ function BookingConfirmationSuccessContent() {
                 <h1 className="text-2xl md:text-3xl font-bold mb-0" style={{ color: "#0A1830" }}>
                   Felicitaciones!
                 </h1>
-                <p className="text-lg md:text-xl" style={{ color: "#555" }}>
-                  Ya esta lista la reserva para tu peque
+                <p className="text-base md:text-lg" style={{ color: "#555" }}>
+                  Hemos generado una nueva reserva al hotel
                 </p>
               </div>
 
               {/* Payment voucher — Transbank required fields */}
-              <div className="rounded-2xl p-4 border mt-3" style={{ backgroundColor: "#EEF8F2", borderColor: "#D5F1E2" }}>
+              <div className="rounded-2xl p-4 border mt-3" style={{ backgroundColor: "#FAFAFA", borderColor: "#E5E7EB" }}>
                 <h2 className="text-base font-bold mb-3 flex items-center gap-2" style={{ color: "#0A1830" }}>
                   <ReceiptText size={18} style={{ color: "#0A1830" }} />
                   Comprobante de pago
@@ -213,6 +208,20 @@ function BookingConfirmationSuccessContent() {
                 </button>
               </div>
 
+              {/* Next step — hotel confirmation */}
+              <div className="rounded-2xl p-4 border mt-3 mb-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#FFE8A3" }}>
+                <h2 className="text-base font-bold mb-2 flex items-center gap-2" style={{ color: "#0A1830" }}>
+                  <Info size={18} style={{ color: "#C77700" }} />
+                  Siguiente paso: Confirmación de hotel
+                </h2>
+                <p className="text-sm leading-relaxed" style={{ color: "#333" }}>
+                  Para garantizar la seguridad de tu peludito y la de todas las mascotas hospedadas, el hotel revisará
+                  ahora los datos y documentos que nos compartiste. Este paso nos permite confirmar tu reserva con total
+                  tranquilidad. Lo harán lo antes posible y te avisaremos por email y en los estados de tu reserva apenas
+                  esté listo.
+                </p>
+              </div>
+
               {/* Reservation data */}
               <div className="bg-white rounded-2xl p-5 border" style={{ borderColor: "#E5E7EB" }}>
                 <h2 className="text-lg font-bold mb-2" style={{ color: "#0A1830" }}>
@@ -224,8 +233,8 @@ function BookingConfirmationSuccessContent() {
                     <li className="flex items-center gap-2">
                       <span>{booking.pets.length} {booking.pets.length === 1 ? "mascota" : "mascotas"} ({petNames})</span>
                     </li>
-                    <li className="flex items-center gap-2">
-                      <Calendar size={16} style={{ color: "#0A1830" }} />
+                    <li className="flex items-center gap-2 text-base font-semibold" style={{ color: "#0A1830" }}>
+                      <Calendar size={18} style={{ color: "#0A1830" }} />
                       <span>{nights} {nights === 1 ? "noche" : "noches"} ({checkinFormatted} al {checkoutFormatted})</span>
                     </li>
                     {booking.transport.included && (
@@ -250,12 +259,12 @@ function BookingConfirmationSuccessContent() {
                         </div>
                       </div>
 
-                      <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#FFFBF0", borderColor: "#FFD47A" }}>
+                      <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#EEF8F2", borderColor: "#BBE6CD" }}>
                         <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Reserva pagada (30%)</p>
-                        <p className="mt-1 text-xs" style={{ color: "#667085" }}>Pago realizado para confirmar</p>
+                        <p className="mt-1 text-xs" style={{ color: "#667085" }}>Pago Inicial</p>
                         <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(paidPrice)}</p>
                         <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
-                        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#FFE9A8", color: "#C77700" }}>
+                        <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#D5F1E2", color: "#15803D" }}>
                           <LockKeyhole size={13} />
                           Ya pagado
                         </div>
@@ -269,68 +278,16 @@ function BookingConfirmationSuccessContent() {
 
                       <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
                         <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pendiente en el hotel (70%)</p>
-                        <p className="mt-1 text-xs" style={{ color: "#667085" }}>Abona directamente en el hotel</p>
+                        <p className="mt-1 text-xs" style={{ color: "#667085" }}>Abona directamente al hotel</p>
                         <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(pendingPrice)}</p>
                         <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
                         <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#DCEBFF", color: "#2563EB" }}>
                           <Building2 size={13} />
-                          Se paga en el hotel
+                          Se paga al hotel
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Reminder card */}
-              <div
-                className="relative overflow-hidden rounded-2xl border-2 p-5 shadow-sm"
-                style={{ backgroundColor: "#FFF7D6", borderColor: "#FFC43D" }}
-              >
-                <div className="absolute right-0 top-0 h-24 w-24 rounded-bl-full" style={{ backgroundColor: "#FFE8A3" }} />
-
-                <div className="relative flex flex-col gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}>
-                      <AlertCircle size={23} />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold" style={{ color: "#0A1830" }}>
-                        Recuerda!
-                      </h2>
-                      <p className="mt-1 text-sm leading-relaxed" style={{ color: "#333" }}>
-                        {booking.transport.included ? "Pasaremos a buscar" : "Estaremos esperando"} a <strong>{petNames}</strong>.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border bg-white px-4 py-3 shadow-sm" style={{ borderColor: "#FFD47A" }}>
-                      <div className="flex items-center gap-2 text-xs font-bold uppercase" style={{ color: "#C77700" }}>
-                        <Calendar size={15} />
-                        Fecha
-                      </div>
-                      <p className="mt-2 text-lg font-bold" style={{ color: "#0A1830" }}>
-                        {checkinFormatted}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl border bg-white px-4 py-3 shadow-sm" style={{ borderColor: "#FFD47A" }}>
-                      <div className="flex items-center gap-2 text-xs font-bold uppercase" style={{ color: "#C77700" }}>
-                        <Clock size={15} />
-                        Horario
-                      </div>
-                      <p className="mt-2 text-lg font-bold" style={{ color: "#0A1830" }}>
-                        {checkinWindowLabel}
-                      </p>
-                    </div>
-                  </div>
-
-                  <p className="rounded-xl px-4 py-3 text-sm font-medium" style={{ backgroundColor: "#FFEDB8", color: "#51400B" }}>
-                    {booking.transport.included
-                      ? "Coordinaremos los detalles por anticipacion."
-                      : "Te recomendamos llegar dentro del horario indicado."}
-                  </p>
                 </div>
               </div>
 
