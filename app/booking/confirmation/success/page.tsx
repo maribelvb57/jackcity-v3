@@ -13,7 +13,6 @@ import { getBooking } from "@/lib/api/bookings"
 import { CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
 import { getWebpayVoucherByBuyOrder, getWebpayVoucherPdfUrl } from "@/lib/api/payments"
 
-const PAY_NOW_PERCENTAGE = 0.3
 const MERCHANT_NAME = "AndesBits SpA (JackCity)"
 const DEBIT_PAYMENT_TYPE_CODES = new Set(["VD", "VP"])
 
@@ -99,9 +98,9 @@ function BookingConfirmationSuccessContent() {
   const nights = Math.round((checkoutDate.getTime() - checkinDate.getTime()) / 86400000)
   const checkinFormatted = formatDate(booking.checkinDate)
   const checkoutFormatted = formatDate(booking.checkoutDate)
-  const totalPrice = booking.pricing.totalPrice
-  const paidPrice = Math.round(totalPrice * PAY_NOW_PERCENTAGE)
-  const pendingPrice = totalPrice - paidPrice
+  const { totalAmount, paidAmount, pendingAmount } = voucher.amounts
+  const paidPercentage = Math.round((paidAmount / totalAmount) * 100)
+  const pendingPercentage = 100 - paidPercentage
   const serviceDescription = `Pago por adelanto de reserva de alojamiento en hotel ${booking.hotel.name} desde el ${checkinFormatted} hasta el ${checkoutFormatted}`
   const transactionDateFormatted = voucher.transactionDate
     ? format(new Date(voucher.transactionDate), "d MMM yyyy, HH:mm", { locale: es })
@@ -249,7 +248,7 @@ function BookingConfirmationSuccessContent() {
                       <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#FFFFFF", borderColor: "#EEF0F5" }}>
                         <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Total Alojamiento (100%)</p>
                         <p className="mt-1 text-xs" style={{ color: "#667085" }}>Monto total de tu reserva</p>
-                        <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(totalPrice)}</p>
+                        <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(totalAmount)}</p>
                         <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
                       </div>
 
@@ -260,9 +259,9 @@ function BookingConfirmationSuccessContent() {
                       </div>
 
                       <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#EEF8F2", borderColor: "#BBE6CD" }}>
-                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Reserva pagada (30%)</p>
+                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Reserva pagada ({paidPercentage}%)</p>
                         <p className="mt-1 text-xs" style={{ color: "#667085" }}>Pago Inicial</p>
-                        <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(paidPrice)}</p>
+                        <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(paidAmount)}</p>
                         <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
                         <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#D5F1E2", color: "#15803D" }}>
                           <LockKeyhole size={13} />
@@ -277,9 +276,9 @@ function BookingConfirmationSuccessContent() {
                       </div>
 
                       <div className="min-w-0 rounded-2xl p-3 border shadow-sm md:p-4" style={{ backgroundColor: "#F8FBFF", borderColor: "#BFD7FF" }}>
-                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pendiente en el hotel (70%)</p>
+                        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Pendiente en el hotel ({pendingPercentage}%)</p>
                         <p className="mt-1 text-xs" style={{ color: "#667085" }}>Abona directamente al hotel</p>
-                        <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(pendingPrice)}</p>
+                        <p className="mt-5 text-2xl font-bold md:text-3xl" style={{ color: "#0A1830" }}>{formatClp(pendingAmount)}</p>
                         <p className="mt-1 text-xs" style={{ color: "#8A94A6" }}>IVA incluido</p>
                         <div className="mt-3 inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold" style={{ backgroundColor: "#DCEBFF", color: "#2563EB" }}>
                           <Building2 size={13} />

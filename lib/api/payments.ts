@@ -28,6 +28,12 @@ export async function createWebpayPayment(bookingId: string): Promise<CreateWebp
 
 export type WebpayPaymentStatus = "INITIATED" | "PENDING" | "COMMITTING" | "PAID" | "REJECTED" | "ABORTED" | "EXPIRED"
 
+export type WebpayVoucherAmounts = {
+  totalAmount: number
+  paidAmount: number
+  pendingAmount: number
+}
+
 export type WebpayVoucher = {
   authorized: boolean
   status: WebpayPaymentStatus
@@ -40,6 +46,7 @@ export type WebpayVoucher = {
   paymentTypeCode: string | null
   installmentsNumber: number | null
   cardLastFourDigits: string | null
+  amounts: WebpayVoucherAmounts
 }
 
 export async function getWebpayVoucherByBuyOrder(buyOrder: string, voucherToken?: string): Promise<WebpayVoucher> {

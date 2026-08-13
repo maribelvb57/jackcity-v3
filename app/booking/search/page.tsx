@@ -77,7 +77,7 @@ function hotelToCardData(
     score: hotel.avgRating ?? CARD_DEFAULTS.score,
     scoreLabel: hotel.avgRating != null ? getScoreLabel(hotel.avgRating) : CARD_DEFAULTS.scoreLabel,
     reviewCount: hotel.reviewsCount ?? CARD_DEFAULTS.reviewCount,
-    address: [hotel.addressStreet, hotel.commune].filter(Boolean).join(", ") || CARD_DEFAULTS.address,
+    address: hotel.commune || CARD_DEFAULTS.address,
     features: (hotel.mainBenefits ?? []).map((b) => b.name),
     petCount,
     nights,
