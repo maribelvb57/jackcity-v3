@@ -93,7 +93,7 @@ export function ResultCard({ data }: ResultCardProps) {
                 <Star size={13} style={{ color: "#526071" }} />
                 Nuevo en JackCity
               </span>
-              <span className="text-xs" style={{ color: "#8A94A6" }}>· Aún sin evaluaciones</span>
+              <span className="text-xs" style={{ color: "#8A94A6" }}>· Sin reseñas.</span>
             </>
           ) : (
             <>
