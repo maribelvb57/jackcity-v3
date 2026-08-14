@@ -10,6 +10,7 @@ import {
   CalendarDays,
   PauseCircle,
   Car,
+  Coins,
   ClipboardList,
   ChevronLeft,
   ChevronRight,
@@ -91,9 +92,15 @@ export function ManagerSidebar({ hotelId }: ManagerSidebarProps) {
       ? [
           {
             id: "transporte",
-            label: "Transporte",
+            label: "Transporte Dispo",
             href: `/hotel/transport/${hotelId}`,
             icon: Car,
+          },
+          {
+            id: "transporte-precios",
+            label: "Transporte Precios",
+            href: `/hotel/transport/prices/${hotelId}`,
+            icon: Coins,
           },
         ]
       : []),

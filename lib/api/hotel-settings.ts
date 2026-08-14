@@ -43,7 +43,22 @@ export async function updateHotelPricing(
   )
 }
 
-// minNights pendiente: GET /api/hotel/info debe exponer minNights por regla de descuento
+export type HotelDiscountRule = {
+  minNights: number
+  label: string
+  discountPct: number
+}
+
+// Fuente de verdad de los descuentos editables: expone minNights, que es lo que
+// identifica la regla en el PUT de abajo. GET /api/hotel/info trae los descuentos
+// como Record<label, pct> (sin minNights) y se sigue usando solo para lectura.
+export async function getHotelDiscounts(
+  hotelId: string,
+  apiFetch: ApiFetch
+): Promise<HotelDiscountRule[]> {
+  return apiFetch<HotelDiscountRule[]>(`/api/hotel/discounts/${hotelId}`)
+}
+
 export async function updateHotelDiscountRule(
   hotelId: string,
   minNights: number,

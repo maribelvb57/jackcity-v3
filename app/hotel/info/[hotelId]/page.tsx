@@ -15,7 +15,6 @@ import {
   Star,
   Check,
   AlertCircle,
-  Car,
   Users,
   Tag,
   Building2,
@@ -59,9 +58,6 @@ function HotelInfoContent({ hotelId }: { hotelId: string }) {
     queryFn: () => getHotelInfo(hotelId, apiFetch),
     enabled: !!hotelId,
   })
-
-  const hasTransportPrices =
-    data?.hotel.offersTransport && Object.keys(data.transport_prices ?? {}).length > 0
 
   if (isLoading) {
     return (
@@ -300,31 +296,6 @@ function HotelInfoContent({ hotelId }: { hotelId: string }) {
               </li>
             ))}
           </ul>
-        </Section>
-      )}
-
-      {/* Valores de Transporte */}
-      {hasTransportPrices && (
-        <Section
-          title="Valores de Transporte"
-          icon={<Car size={20} style={{ color: "#0A1830" }} />}
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {Object.entries(data.transport_prices).map(([communeCode, price]) => (
-              <div
-                key={communeCode}
-                className="flex items-center justify-between py-2.5 px-4 rounded-xl"
-                style={{ backgroundColor: "#F9FAFB" }}
-              >
-                <span className="text-sm" style={{ color: "#0A1830" }}>
-                  {getCommuneNameByCode(communeCode)}
-                </span>
-                <span className="text-sm font-bold" style={{ color: "#0A1830" }}>
-                  {formatClp(price)}
-                </span>
-              </div>
-            ))}
-          </div>
         </Section>
       )}
 

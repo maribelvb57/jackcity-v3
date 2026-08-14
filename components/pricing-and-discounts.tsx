@@ -1,10 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Edit2, Check, X, ArrowRight } from "lucide-react"
 import { getHotelInfo } from "@/lib/api/hotel-info"
-import { updateHotelPricing } from "@/lib/api/hotel-settings"
+import {
+  getHotelDiscounts,
+  updateHotelPricing,
+  updateHotelDiscountRule,
+} from "@/lib/api/hotel-settings"
 import { useApiClient } from "@/hooks/use-api-client"
 import { formatClp } from "@/lib/format"
 import { PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
@@ -23,8 +27,9 @@ interface PriceRow {
 }
 
 interface DiscountRow {
-  key: string
-  value: number
+  minNights: number
+  label: string
+  discountPct: number
 }
 
 interface PendingSave {
@@ -120,10 +125,24 @@ function ConfirmModal({
 
 export function PricingAndDiscounts({ hotelId }: { hotelId: string }) {
   const { apiFetch } = useApiClient()
+  const queryClient = useQueryClient()
 
   const { data: hotelInfo, isLoading, isError } = useQuery({
     queryKey: ["hotel-info", hotelId],
     queryFn: () => getHotelInfo(hotelId, apiFetch),
+    enabled: !!hotelId,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  // Descuentos vienen de su propio endpoint: es el único que expone minNights,
+  // que es lo que identifica la regla al guardar.
+  const {
+    data: discountRules,
+    isLoading: discountsLoading,
+    isError: discountsError,
+  } = useQuery({
+    queryKey: ["hotel-discounts", hotelId],
+    queryFn: () => getHotelDiscounts(hotelId, apiFetch),
     enabled: !!hotelId,
     staleTime: 5 * 60 * 1000,
   })
@@ -142,10 +161,14 @@ export function PricingAndDiscounts({ hotelId }: { hotelId: string }) {
           price: hotelInfo.pricing[size],
         }))
     )
-    setDiscounts(
-      Object.entries(hotelInfo.discounts).map(([key, value]) => ({ key, value }))
-    )
   }, [hotelInfo])
+
+  useEffect(() => {
+    if (!discountRules) return
+    setDiscounts(
+      [...discountRules].sort((a, b) => a.minNights - b.minNights)
+    )
+  }, [discountRules])
 
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState<string>("")
@@ -175,15 +198,15 @@ export function PricingAndDiscounts({ hotelId }: { hotelId: string }) {
         newNumeric: newPrice,
       })
     } else if (fieldId.startsWith("discount-")) {
-      const key = fieldId.replace("discount-", "")
+      const minNights = parseInt(fieldId.replace("discount-", ""), 10)
       const newValue = parseFloat(editingValue)
-      if (isNaN(newValue) || newValue < 0) return
-      const row = discounts.find((r) => r.key === key)
+      if (isNaN(newValue) || newValue < 0 || newValue > 100) return
+      const row = discounts.find((r) => r.minNights === minNights)
       if (!row) return
       setPendingSave({
         fieldId,
-        label: key,
-        oldFormatted: `${row.value}%`,
+        label: row.label,
+        oldFormatted: `${row.discountPct}%`,
         newFormatted: `${newValue}%`,
         newNumeric: newValue,
       })
@@ -204,11 +227,15 @@ export function PricingAndDiscounts({ hotelId }: { hotelId: string }) {
           prev.map((row) => row.sizeCode === sizeCode ? { ...row, price: newNumeric } : row)
         )
       } else if (fieldId.startsWith("discount-")) {
-        // TODO: requiere minNights — pendiente de ajuste en GET /api/hotel/info
-        const key = fieldId.replace("discount-", "")
+        const minNights = parseInt(fieldId.replace("discount-", ""), 10)
+        await updateHotelDiscountRule(hotelId, minNights, newNumeric, apiFetch)
         setDiscounts((prev) =>
-          prev.map((row) => row.key === key ? { ...row, value: newNumeric } : row)
+          prev.map((row) =>
+            row.minNights === minNights ? { ...row, discountPct: newNumeric } : row
+          )
         )
+        // Sin esto la caché (staleTime 5 min) devuelve el valor viejo al volver a la page.
+        queryClient.invalidateQueries({ queryKey: ["hotel-discounts", hotelId] })
       }
       setPendingSave(null)
       setEditingField(null)
@@ -320,24 +347,36 @@ export function PricingAndDiscounts({ hotelId }: { hotelId: string }) {
         </div>
 
         {/* Descuentos */}
-        {discounts.length > 0 && (
+        {(discountsLoading || discountsError || discounts.length > 0) && (
           <div className="mb-12">
             <h2 className="text-2xl font-bold mb-6" style={{ color: "#1a3a5c" }}>
               Descuentos
             </h2>
 
+            {discountsLoading && (
+              <p className="text-sm font-medium" style={{ color: "#0A1830" }}>
+                Cargando descuentos...
+              </p>
+            )}
+
+            {discountsError && (
+              <p className="text-sm font-medium" style={{ color: "#8A1C1C" }}>
+                No pudimos cargar los descuentos. Intenta nuevamente.
+              </p>
+            )}
+
             <div className="space-y-4">
               {discounts.map((row) => {
-                const fieldId = `discount-${row.key}`
+                const fieldId = `discount-${row.minNights}`
                 const isEditing = editingField === fieldId
                 return (
                   <div
-                    key={row.key}
+                    key={row.minNights}
                     className="flex items-center justify-between p-4 rounded-lg border bg-white hover:shadow-sm transition-shadow"
                     style={{ borderColor: "#E5E7EB" }}
                   >
                     <span className="text-sm font-medium flex-1" style={{ color: "#1a3a5c" }}>
-                      {row.key}
+                      {row.label}
                     </span>
                     <div className="flex items-center gap-2">
                       {isEditing ? (
@@ -370,10 +409,10 @@ export function PricingAndDiscounts({ hotelId }: { hotelId: string }) {
                       ) : (
                         <>
                           <span className="w-20 text-right font-semibold" style={{ color: "#1a3a5c" }}>
-                            {row.value}%
+                            {row.discountPct}%
                           </span>
                           <button
-                            onClick={() => startEdit(fieldId, row.value)}
+                            onClick={() => startEdit(fieldId, row.discountPct)}
                             className="p-1.5 rounded hover:bg-gray-100 transition-colors"
                             title="Editar"
                           >
