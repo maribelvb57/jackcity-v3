@@ -265,6 +265,9 @@ export type BookingRequest = {
   id: number
   title: string
   description: string | null
+  // Si true, `description` viene en Markdown y hay que renderizarlo con <MarkdownText>.
+  // Por defecto es false (texto plano).
+  descriptionMark?: boolean
   status: string
   documentType: string | null
   fileText: string | null

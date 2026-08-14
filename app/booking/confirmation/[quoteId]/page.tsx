@@ -10,6 +10,7 @@ import { es } from "date-fns/locale"
 import { SiteNavbar } from "@/components/site-navbar"
 import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { AddPetModal } from "@/components/add-pet-modal"
+import { MarkdownText } from "@/components/markdown-text"
 import { getQuote, type Quote } from "@/lib/api/quotes"
 import { validateEmail, getMyProfile, type CustomerProfile } from "@/lib/api/customers"
 import { saveBookingUser, saveBookingPets, gotoPay, getBookingRequests, addBookingService, removeBookingService, getBookingCart, type BookingRequest, type BookingRequestPet, type BookingCart } from "@/lib/api/bookings"
@@ -476,12 +477,14 @@ function UploadBox({
 // Layout de 2 columnas. La 2ª columna (right) puede, a su vez, dividirse internamente
 // (p.ej. Carnet de Vacunas + enlace de servicio); eso lo arma quien pasa `right`.
 function RequirementRow({
-  checked, onToggle, title, description, right, first = false, checkboxDisabled = false,
+  checked, onToggle, title, description, descriptionMark = false, right, first = false, checkboxDisabled = false,
 }: {
   checked: boolean
   onToggle: () => void
   title: React.ReactNode
   description?: string
+  // El backend puede mandar la descripción en Markdown (links normales y `modal-img:`).
+  descriptionMark?: boolean
   right: React.ReactNode
   first?: boolean
   // Para requisitos con archivo el check lo controla la subida, no el usuario.
@@ -496,7 +499,16 @@ function RequirementRow({
         <YellowCheckbox checked={checked} onChange={onToggle} disabled={checkboxDisabled} />
         <div className="min-w-0">
           <p className="text-base font-bold" style={{ color: "#0A1830" }}>{title}</p>
-          {description && <p className="text-sm mt-1 leading-snug" style={{ color: "#6B7280" }}>{description}</p>}
+          {description && (
+            descriptionMark ? (
+              <MarkdownText
+                text={description}
+                className="text-sm mt-1 leading-snug text-[#6B7280]"
+              />
+            ) : (
+              <p className="text-sm mt-1 leading-snug" style={{ color: "#6B7280" }}>{description}</p>
+            )
+          )}
         </div>
       </div>
       {/* Sin contenido a la derecha (p.ej. requisito sin archivo): no renderizamos la
@@ -1946,6 +1958,7 @@ function ConfirmationContent() {
                                     onToggle={() => setReqChecks((prev) => ({ ...prev, [key]: !prev[key] }))}
                                     title={request.title.replace(/%PET%/g, pet.petName)}
                                     description={request.description ?? undefined}
+                                    descriptionMark={request.descriptionMark ?? false}
                                     right={
                                       // Layout de 2 columnas. Estados de la 2ª columna:
                                       // (0) servicio agregado → reemplaza la caja de subida;
