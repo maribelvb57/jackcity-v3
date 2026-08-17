@@ -18,7 +18,9 @@ export interface SlotData {
 
 export interface DayData {
   date: number
-  slots: Record<Slot, SlotData>
+  // El backend sólo devuelve las zonas horarias que existen en la BD para esa fecha:
+  // un día puede venir con AM/PM y sin MD.
+  slots: Partial<Record<Slot, SlotData>>
 }
 
 interface SlotChange {
@@ -42,11 +44,7 @@ interface ApiSlotData {
   capacity: number
   available: number
 }
-interface ApiDayData {
-  AM: ApiSlotData
-  MD: ApiSlotData
-  PM: ApiSlotData
-}
+type ApiDayData = Partial<Record<Slot, ApiSlotData>>
 interface HotelTransportAvailability {
   hotelId: string
   monthId: string
@@ -65,7 +63,7 @@ function emptySlot(): SlotData {
   return { bookings: 0, capacity: 0, dispo: 0 }
 }
 function emptyDayData(date: number): DayData {
-  return { date, slots: { AM: emptySlot(), MD: emptySlot(), PM: emptySlot() } }
+  return { date, slots: {} }
 }
 
 function firstDayOfMonth(year: number, month: number): number {
@@ -81,16 +79,16 @@ function formatMonthId(year: number, month: number): string {
 
 function apiToDayData(apiData: HotelTransportAvailability): Record<number, DayData> {
   const data: Record<number, DayData> = {}
-  for (const [dateStr, dateInfo] of Object.entries(apiData.dates)) {
+  for (const [dateStr, dateInfo] of Object.entries(apiData.dates ?? {})) {
     const day = parseInt(dateStr.split("-")[2], 10)
-    data[day] = {
-      date: day,
-      slots: {
-        AM: { bookings: dateInfo.AM.bookings, capacity: dateInfo.AM.capacity, dispo: dateInfo.AM.available },
-        MD: { bookings: dateInfo.MD.bookings, capacity: dateInfo.MD.capacity, dispo: dateInfo.MD.available },
-        PM: { bookings: dateInfo.PM.bookings, capacity: dateInfo.PM.capacity, dispo: dateInfo.PM.available },
-      },
+    if (isNaN(day)) continue
+    const slots: Partial<Record<Slot, SlotData>> = {}
+    for (const slot of SLOTS) {
+      const apiSlot = dateInfo?.[slot]
+      if (!apiSlot) continue
+      slots[slot] = { bookings: apiSlot.bookings, capacity: apiSlot.capacity, dispo: apiSlot.available }
     }
+    data[day] = { date: day, slots }
   }
   return data
 }
@@ -111,12 +109,16 @@ interface DayCellProps {
   isPast: boolean
 }
 
+// Alto de cada celda del calendario: ajustar acá para comprimir/expandir el mes.
+// Incluye ~6px de aire bajo la fila D (el contenido va anclado arriba, align-top).
+const CELL_HEIGHT = 109
+
 function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
   if (day === null) {
     return (
       <td
         className="border border-gray-300 bg-gray-100 relative"
-        style={{ minHeight: 148, height: 148 }}
+        style={{ minHeight: CELL_HEIGHT, height: CELL_HEIGHT }}
         aria-hidden="true"
       >
         <div
@@ -132,22 +134,22 @@ function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
 
   return (
     <td
-      className="border border-gray-300 bg-white relative py-1.5 pl-3 pr-1.5 align-top"
-      style={{ minHeight: 148, height: 148, width: "14.28%" }}
+      className="border border-gray-300 bg-white relative pt-1 pb-2.5 pl-2 pr-1.5 align-top"
+      style={{ minHeight: CELL_HEIGHT, height: CELL_HEIGHT, width: "14.28%" }}
     >
       {/* Day badge */}
       <div
-        className="absolute top-0 right-0 min-w-[24px] h-6 flex items-center justify-center rounded-bl text-[11px] font-bold px-1"
+        className="absolute top-0 right-0 min-w-[22px] h-5 flex items-center justify-center rounded-bl text-[10px] font-bold px-1"
         style={{ backgroundColor: "rgb(51 147 29)", color: "#ffffff" }}
       >
         {day}
       </div>
 
       {/* Grid: label col + 3 slot cols */}
-      <div className="mt-7 pr-0.5">
+      <div className="mt-5 pr-0.5">
 
         {/* Header row: slot names */}
-        <div className="grid items-center mb-1.5" style={{ gridTemplateColumns: "14px 1fr 1fr 1fr" }}>
+        <div className="grid items-center mb-0.5" style={{ gridTemplateColumns: "14px 1fr 1fr 1fr" }}>
           <span />
           {SLOTS.map((slot) => (
             <span key={slot} className="text-center font-bold tracking-wide" style={{ fontSize: 9, color: "#9CA3AF" }}>
@@ -157,7 +159,7 @@ function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
         </div>
 
         {/* B row: Bookings (read-only) */}
-        <div className="grid items-center mb-1" style={{ gridTemplateColumns: "14px 1fr 1fr 1fr" }}>
+        <div className="grid items-center mb-0.5" style={{ gridTemplateColumns: "14px 1fr 1fr 1fr" }}>
           <span className="font-bold" style={{ fontSize: 9, color: "#9CA3AF" }}>B</span>
           {SLOTS.map((slot) => (
             <span key={slot} className="text-center text-xs" style={{ color: "#6B7280" }}>
@@ -167,7 +169,7 @@ function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
         </div>
 
         {/* C row: Capacity (editable) */}
-        <div className="grid items-center gap-x-0.5 mb-1" style={{ gridTemplateColumns: "14px 1fr 1fr 1fr" }}>
+        <div className="grid items-center gap-x-0.5 mb-0.5" style={{ gridTemplateColumns: "14px 1fr 1fr 1fr" }}>
           <span className="font-bold" style={{ fontSize: 9, color: "#9CA3AF" }}>C</span>
           {SLOTS.map((slot) =>
             isPast ? (
@@ -182,7 +184,7 @@ function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
                 value={data?.slots[slot]?.capacity ?? ""}
                 onChange={(e) => onCapacityChange(day, slot, e.target.value.replace(/\D/g, ""))}
                 className="w-full text-center font-bold border border-gray-300 rounded focus:outline-none focus:border-yellow-400"
-                style={{ fontSize: 10, color: "#0D2B45", backgroundColor: "#FFFDE7", minWidth: 0, padding: "1px 0" }}
+                style={{ fontSize: 10, color: "#0D2B45", backgroundColor: "#FFFDE7", minWidth: 0, padding: 0, lineHeight: "16px" }}
                 aria-label={`Capacidad ${slot} día ${day}`}
               />
             )
@@ -268,7 +270,7 @@ export function TransportCalendar({ hotelId }: TransportCalendarProps) {
     const capacity = isNaN(parsed) ? 0 : Math.max(0, Math.min(99, parsed))
     setDayData((prev) => {
       const dayEntry = prev[day] ?? emptyDayData(day)
-      const slotEntry = dayEntry.slots[slot]
+      const slotEntry = dayEntry.slots[slot] ?? emptySlot()
       return {
         ...prev,
         [day]: {
@@ -292,7 +294,7 @@ export function TransportCalendar({ hotelId }: TransportCalendarProps) {
       for (let d = 1; d <= totalDays; d++) {
         if (isCurrentMonth && d < todayDate) continue
         const dayEntry = updated[d] ?? emptyDayData(d)
-        const bookings = dayEntry.slots[bulkSlot].bookings
+        const bookings = dayEntry.slots[bulkSlot]?.bookings ?? 0
         updated[d] = {
           ...dayEntry,
           slots: {
@@ -408,17 +410,31 @@ export function TransportCalendar({ hotelId }: TransportCalendarProps) {
         </div>
 
         {/* Legend */}
-        <div className="flex items-center gap-5 mb-4 px-1">
-          {[
-            { label: "B", desc: "Reservas" },
-            { label: "C", desc: "Capacidad (editable)" },
-            { label: "D", desc: "Disponible" },
-          ].map(({ label, desc }) => (
-            <span key={label} className="flex items-center gap-1.5 text-xs" style={{ color: "#6B7280" }}>
-              <span className="font-bold text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: "#F3F4F6", color: "#0D2B45" }}>{label}</span>
-              {desc}
-            </span>
-          ))}
+        <div className="flex items-center justify-between flex-wrap gap-x-5 gap-y-2 mb-4 px-1">
+          <div className="flex items-center gap-5">
+            {[
+              { label: "B", desc: "Reservas" },
+              { label: "C", desc: "Capacidad (editable)" },
+              { label: "D", desc: "Disponible" },
+            ].map(({ label, desc }) => (
+              <span key={label} className="flex items-center gap-1.5 text-xs" style={{ color: "#6B7280" }}>
+                <span className="font-bold text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: "#F3F4F6", color: "#0D2B45" }}>{label}</span>
+                {desc}
+              </span>
+            ))}
+          </div>
+          <div className="flex items-center gap-5">
+            {[
+              { label: "AM", desc: "(9am a 12m)" },
+              { label: "MD", desc: "(12m a 3pm)" },
+              { label: "PM", desc: "(3pm a 6pm)" },
+            ].map(({ label, desc }) => (
+              <span key={label} className="flex items-center gap-1.5 text-xs whitespace-nowrap" style={{ color: "#6B7280" }}>
+                <span className="font-bold text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: "#F3F4F6", color: "#0D2B45" }}>{label}</span>
+                {desc}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Calendar table */}
@@ -457,8 +473,55 @@ export function TransportCalendar({ hotelId }: TransportCalendarProps) {
           </table>
         </div>
 
-        {/* Save button */}
-        <div className="flex justify-center mt-6">
+        {/* Barra de acciones: capacidad masiva (izq.) + guardar mes (der.) */}
+        <div className="mt-6 pt-4 border-t border-gray-200 flex flex-wrap items-end justify-between gap-4">
+
+          {/* Bulk update */}
+          <div>
+            <p className="text-sm mb-2" style={{ color: "#4B5563" }}>
+              Capacidad para días futuros:
+            </p>
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Radio buttons */}
+              <div className="flex items-center gap-4">
+                {SLOTS.map((slot) => (
+                  <label key={slot} className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="bulk-slot-desktop"
+                      value={slot}
+                      checked={bulkSlot === slot}
+                      onChange={() => setBulkSlot(slot)}
+                      className="w-4 h-4 cursor-pointer accent-[#1a3a5c]"
+                    />
+                    <span className="text-sm font-bold" style={{ color: "#0D2B45" }}>{slot}</span>
+                  </label>
+                ))}
+              </div>
+
+              <span style={{ color: "#D1D5DB" }}>|</span>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm" style={{ color: "#4B5563" }}>Capacidad:</span>
+                <input
+                  type="text" inputMode="numeric" pattern="[0-9]*"
+                  value={bulkCapacity}
+                  onChange={(e) => setBulkCapacity(e.target.value.replace(/\D/g, ""))}
+                  className="w-16 text-center text-sm font-bold border-2 border-gray-400 rounded focus:outline-none py-1"
+                  style={{ color: "#0D2B45" }}
+                  aria-label="Capacidad masiva"
+                />
+              </div>
+
+              <button onClick={handleBulkUpdate}
+                className="px-5 py-1.5 rounded text-sm font-bold transition-opacity hover:opacity-90"
+                style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}>
+                Aplicar
+              </button>
+            </div>
+          </div>
+
+          {/* Save button */}
           <button
             className="px-10 py-3 rounded-lg text-base font-bold tracking-wide transition-opacity hover:opacity-90 shadow-sm"
             style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}
@@ -467,53 +530,6 @@ export function TransportCalendar({ hotelId }: TransportCalendarProps) {
             Guardar cambios de este mes
           </button>
         </div>
-
-        {/* Bulk update */}
-        <div className="mt-6 pt-4 border-t border-gray-200">
-          <p className="text-sm mb-3 text-right" style={{ color: "#4B5563" }}>
-            Establecer capacidad para todos los días futuros:
-          </p>
-          <div className="flex flex-wrap items-center gap-4 justify-end">
-            {/* Radio buttons */}
-            <div className="flex items-center gap-4">
-              {SLOTS.map((slot) => (
-                <label key={slot} className="flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="radio"
-                    name="bulk-slot-desktop"
-                    value={slot}
-                    checked={bulkSlot === slot}
-                    onChange={() => setBulkSlot(slot)}
-                    className="w-4 h-4 cursor-pointer accent-[#1a3a5c]"
-                  />
-                  <span className="text-sm font-bold" style={{ color: "#0D2B45" }}>{slot}</span>
-                </label>
-              ))}
-            </div>
-
-            <span style={{ color: "#D1D5DB" }}>|</span>
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm" style={{ color: "#4B5563" }}>Capacidad:</span>
-              <input
-                type="text" inputMode="numeric" pattern="[0-9]*"
-                value={bulkCapacity}
-                onChange={(e) => setBulkCapacity(e.target.value.replace(/\D/g, ""))}
-                className="w-16 text-center text-sm font-bold border-2 border-gray-400 rounded focus:outline-none py-1"
-                style={{ color: "#0D2B45" }}
-                aria-label="Capacidad masiva"
-              />
-            </div>
-
-            <button onClick={handleBulkUpdate}
-              className="px-5 py-1.5 rounded text-sm font-bold transition-opacity hover:opacity-90"
-              style={{ backgroundColor: "#FFC43D", color: "#0D2B45" }}>
-              Aplicar
-            </button>
-          </div>
-        </div>
-
-        <p className="text-xs text-right mt-2" style={{ color: "#9CA3AF" }}>Hotel ID: {hotelId}</p>
       </div>
 
       {/* Mobile */}
@@ -535,7 +551,6 @@ export function TransportCalendar({ hotelId }: TransportCalendarProps) {
           bulkSlot={bulkSlot}
           onBulkSlotChange={setBulkSlot}
           onBulkUpdate={handleBulkUpdate}
-          hotelId={hotelId}
           onSaveClick={handleSaveClick}
         />
       </div>

@@ -20,7 +20,6 @@ interface TransportCalendarMobileProps {
   bulkSlot: Slot
   onBulkSlotChange: (slot: Slot) => void
   onBulkUpdate: () => void
-  hotelId: string
   onSaveClick: () => void
 }
 
@@ -122,7 +121,6 @@ export function TransportCalendarMobile({
   bulkSlot,
   onBulkSlotChange,
   onBulkUpdate,
-  hotelId,
   onSaveClick,
 }: TransportCalendarMobileProps) {
   const days = Array.from({ length: totalDays }, (_, i) => i + 1)
@@ -225,8 +223,6 @@ export function TransportCalendarMobile({
           </button>
         </div>
       </div>
-
-      <p className="text-xs text-right mt-4" style={{ color: "#9CA3AF" }}>Hotel ID: {hotelId}</p>
     </div>
   )
 }

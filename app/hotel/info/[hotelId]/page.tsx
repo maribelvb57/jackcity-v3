@@ -107,7 +107,7 @@ function HotelInfoContent({ hotelId }: { hotelId: string }) {
             label="Ofrece transporte"
             value={data.hotel.offersTransport ? "Sí" : "No"}
           />
-          <InfoRow label="Dirección" value={data.hotel.addressStreet} />
+          <InfoRow label="Dirección" value={data.hotel.address} />
           <InfoRow
             label="Comuna"
             value={
@@ -172,7 +172,7 @@ function HotelInfoContent({ hotelId }: { hotelId: string }) {
             <p className="text-xs font-semibold mb-1" style={{ color: "#9CA3AF" }}>
               Check-in
             </p>
-            <p className="text-base font-bold" style={{ color: "#0A1830" }}>
+            <p className="text-sm whitespace-pre-line" style={{ color: "#0A1830" }}>
               {data.hotel.checkinTime}
             </p>
           </div>
@@ -183,7 +183,7 @@ function HotelInfoContent({ hotelId }: { hotelId: string }) {
             <p className="text-xs font-semibold mb-1" style={{ color: "#9CA3AF" }}>
               Check-out
             </p>
-            <p className="text-base font-bold" style={{ color: "#0A1830" }}>
+            <p className="text-sm whitespace-pre-line" style={{ color: "#0A1830" }}>
               {data.hotel.checkoutTime}
             </p>
           </div>

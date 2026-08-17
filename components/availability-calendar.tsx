@@ -93,7 +93,7 @@ function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
     return (
       <td
         className="border border-gray-300 bg-gray-100 relative"
-        style={{ minHeight: 96, height: 96 }}
+        style={{ minHeight: 89, height: 89 }}
         aria-hidden="true"
       >
         {/* diagonal hatch pattern */}
@@ -111,7 +111,7 @@ function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
   return (
     <td
       className="border border-gray-300 bg-white relative p-1 align-top"
-      style={{ minHeight: 96, height: 96, width: "14.28%" }}
+      style={{ minHeight: 89, height: 89, width: "14.28%" }}
     >
       {/* Date label – top right */}
       <div
@@ -124,13 +124,13 @@ function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
       {/* Booked / Capacity row */}
       <div className="flex items-center justify-center gap-0.5 mt-5">
         {/* booked – read only */}
-        <span className="text-lg font-bold" style={{ color: "#0D2B45" }}>
+        <span className="text-base font-bold" style={{ color: "#0D2B45" }}>
           {data?.booked ?? "-"}
         </span>
-        <span className="text-lg font-bold" style={{ color: "#0D2B45" }}>/</span>
+        <span className="text-base font-bold" style={{ color: "#0D2B45" }}>/</span>
         {/* capacity – editable for future days, read-only label for past days */}
         {isPast ? (
-          <span className="text-lg font-bold" style={{ color: "#0D2B45" }}>
+          <span className="text-base font-bold" style={{ color: "#0D2B45" }}>
             {data?.booked ?? "-"}
           </span>
         ) : (
@@ -140,7 +140,7 @@ function DayCell({ day, data, onCapacityChange, isPast }: DayCellProps) {
             pattern="[0-9]*"
             value={data?.capacity ?? ""}
             onChange={(e) => onCapacityChange(day, e.target.value.replace(/\D/g, ""))}
-            className="w-9 text-center text-sm font-bold border border-gray-400 rounded focus:outline-none focus:ring-1"
+            className="w-9 text-center text-xs font-bold border border-gray-400 rounded focus:outline-none focus:ring-1"
             style={{
               color: "#0D2B45",
               backgroundColor: "#FFFDE7",
@@ -351,7 +351,10 @@ export function AvailabilityCalendar({ hotelId }: AvailabilityCalendarProps) {
 
   const weeks: (number | null)[][] = []
   for (let w = 0; w < 6; w++) {
-    weeks.push(slots.slice(w * 7, w * 7 + 7))
+    const week = slots.slice(w * 7, w * 7 + 7)
+    // Meses cortos dejan la última fila entera fuera del mes: no se muestra.
+    if (week.every((day) => day === null)) continue
+    weeks.push(week)
   }
 
   return (

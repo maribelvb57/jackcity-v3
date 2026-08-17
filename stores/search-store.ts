@@ -1,6 +1,5 @@
 import { createStore } from "zustand/vanilla"
 import type { DateRange } from "react-day-picker"
-import { DEFAULT_TRANSPORT_COMMUNE } from "@/config/transport-communes"
 
 export type Mascota = {
   raza: string
@@ -34,8 +33,10 @@ export const defaultSearchState: SearchState = {
   city: "SANTIAGO",
   dateRange: undefined,
   needsTransport: false,
-  transportCommuneCode: DEFAULT_TRANSPORT_COMMUNE.communeCode,
-  transportCommune: DEFAULT_TRANSPORT_COMMUNE.commune,
+  // Sin comuna preseleccionada: el usuario debe elegirla explícitamente cuando
+  // pide transporte (se valida al buscar).
+  transportCommuneCode: "",
+  transportCommune: "",
   mascotas: [defaultMascota()],
 }
 

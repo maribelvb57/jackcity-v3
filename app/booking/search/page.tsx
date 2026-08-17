@@ -18,6 +18,7 @@ import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL, type SearchResu
 import { parsePetBreedsParam, parsePetIdsParam } from "@/lib/search-pets"
 import { ZONE_COMMUNES } from "@/config/zones"
 import { getTransportCommuneByCode } from "@/config/transport-communes"
+import { getCommuneNameByCode } from "@/config/communes"
 
 const ORDENAR_OPTIONS = [
   "Recomendados de Jack",
@@ -78,7 +79,9 @@ function hotelToCardData(
     score: hotel.avgRating ?? CARD_DEFAULTS.score,
     scoreLabel: hotel.avgRating != null ? getScoreLabel(hotel.avgRating) : CARD_DEFAULTS.scoreLabel,
     reviewCount: hotel.reviewsCount ?? CARD_DEFAULTS.reviewCount,
-    address: hotel.commune || CARD_DEFAULTS.address,
+    // El API entrega la comuna como código (LAS_CONDES); el helper lo traduce al
+    // nombre para mostrar. `hotel.commune` queda como respaldo si no viene el código.
+    address: getCommuneNameByCode(hotel.communeCode) || hotel.commune || CARD_DEFAULTS.address,
     features: (hotel.mainBenefits ?? []).map((b) => b.name),
     petCount,
     nights,

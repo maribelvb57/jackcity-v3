@@ -1,3 +1,13 @@
+# Bugs — diagnóstico antes de código
+
+Ante un bug reportado, entregar **primero** el diagnóstico y una explicación simple, y **no modificar código** hasta tener el visto bueno de Maribel.
+
+El diagnóstico debe incluir:
+- síntoma observado
+- causa raíz (con la evidencia: consola, red, respuesta real del API, código)
+- archivos involucrados
+- arreglo propuesto
+
 # API — reglas
 
 El backend de JackCity vive en `/Users/maribelvb/projects-andes/jackcity-api`.

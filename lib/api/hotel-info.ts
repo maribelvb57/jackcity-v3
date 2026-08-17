@@ -20,6 +20,7 @@ export type HotelInfoResponse = {
     name: string
     status: string
     offersTransport: boolean
+    address: string
     addressStreet: string
     commune: string
     communeCode: string

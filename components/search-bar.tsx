@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { MapPin, CalendarDays, Dog, Search, ChevronDown, Plus, X, Check } from "lucide-react"
 import { useUser } from "@clerk/nextjs"
-import { DayPicker, DateRange } from "react-day-picker"
+import { DayPicker, DateRange, Chevron } from "react-day-picker"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { useSearchStore } from "@/providers/search-store-provider"
@@ -140,7 +140,10 @@ export function SearchBar() {
     (m) => !!m.petId || (m.raza !== "Sin especificar" && (m.raza !== OTHER_BREED_CODE || !!m.tamano))
   )
   const checkinTooSoon = !!dateRange?.from && startOfLocalDay(dateRange.from) < minCheckinDate
-  const isSearchEnabled = !!(dateRange?.from && dateRange?.to) && !checkinTooSoon && allPetsValid
+  // La comuna solo es obligatoria si el usuario marcó que necesita transporte.
+  const missingTransportCommune = needsTransport && !transportCommuneCode
+  const isSearchEnabled =
+    !!(dateRange?.from && dateRange?.to) && !checkinTooSoon && allPetsValid && !missingTransportCommune
 
   // Solo mostramos el motivo del botón deshabilitado después de que el usuario
   // intentó buscar; nunca al entrar por primera vez sin haber hecho nada.
@@ -163,6 +166,7 @@ export function SearchBar() {
         ? "Indica la raza de tu mascota."
         : "Indica el tamaño de tu mascota mestiza."
     }
+    if (missingTransportCommune) return "Selecciona la comuna de retiro para el transporte."
     return null
   })()
 
@@ -366,7 +370,10 @@ export function SearchBar() {
                   </button>
 
                   {calendarOpen && (
-                    <div className="absolute top-full mt-1 left-0 z-50 rounded-2xl shadow-2xl border p-3" style={{ backgroundColor: inputColor, borderColor: inputBorder, minWidth: 320 }}>
+                    <div
+                      className="absolute top-full mt-1 left-0 z-50 rounded-2xl shadow-2xl border p-2"
+                      style={{ backgroundColor: inputColor, borderColor: inputBorder }}
+                    >
                       <DayPicker
                         mode="range"
                         selected={dateRange}
@@ -383,13 +390,34 @@ export function SearchBar() {
                           return false
                         }}
                         styles={{
-                          root: { fontFamily: '"Proxima Nova", "Avenir Next", Avenir, "Segoe UI", sans-serif', fontSize: "0.875rem", color: "#0A1830" },
-                          month_caption: { color: "#0A1830" },
+                          // Las medidas van aquí y no en el div padre: react-day-picker declara
+                          // sus variables sobre `.rdp-root`, y esa declaración propia gana sobre
+                          // cualquier valor heredado del contenedor. `styles.root` se aplica
+                          // inline sobre ese mismo elemento, así que sí las pisa.
+                          root: {
+                            fontFamily: '"Proxima Nova", "Avenir Next", Avenir, "Segoe UI", sans-serif',
+                            fontSize: "0.875rem",
+                            color: "#0A1830",
+                            "--rdp-day-width": "34px",
+                            "--rdp-day-height": "34px",
+                            "--rdp-day_button-width": "32px",
+                            "--rdp-day_button-height": "32px",
+                            "--rdp-nav-height": "2rem",
+                            "--rdp-nav_button-width": "1.75rem",
+                            "--rdp-nav_button-height": "1.75rem",
+                            "--rdp-weekday-padding": "0.1875rem 0",
+                          } as React.CSSProperties,
+                          // `font-size: large` viene fijo en el CSS de react-day-picker (no es
+                          // una variable): sin bajarlo, el mes queda apretado en la nav de 2rem.
+                          month_caption: { color: "#0A1830", fontSize: "0.9375rem" },
                           caption_label: { color: "#0A1830", fontWeight: 700 },
                           nav_button: { color: "#0A1830", backgroundColor: "#FFFFFF", border: "1px solid #D9C7AE" },
                           day: { color: "#0A1830" },
                           weekday: { color: "#0A1830", fontWeight: 700 },
                         }}
+                        // El chevron sale a 24px por defecto y solo recibe `className`, nunca
+                        // `style`: el tamaño únicamente se puede bajar sustituyendo el componente.
+                        components={{ Chevron: (chevronProps) => <Chevron {...chevronProps} size={14} /> }}
                         modifiersStyles={{
                           selected: { backgroundColor: accentColor, color: "#fff", borderRadius: "8px" },
                           range_start: { backgroundColor: accentColor, color: "#fff", borderRadius: "8px 0 0 8px" },
@@ -399,11 +427,11 @@ export function SearchBar() {
                         }}
                       />
                       {dateRange?.from && dateRange?.to && (
-                        <div className="mt-2 pt-2 border-t flex justify-end" style={{ borderColor: "#E5DFC8" }}>
+                        <div className="mt-1.5 pt-1.5 border-t flex justify-end" style={{ borderColor: "#E5DFC8" }}>
                           <button
                             type="button"
                             onClick={() => setCalendarOpen(false)}
-                            className="px-4 py-1.5 rounded-lg text-sm font-semibold text-white"
+                            className="px-4 py-1 rounded-lg text-sm font-semibold text-white"
                             style={{ backgroundColor: accentColor }}
                           >
                             Confirmar
@@ -699,13 +727,21 @@ export function SearchBar() {
                   <div className="relative">
                     <select
                       value={transportCommuneCode}
+                      aria-invalid={attemptedSearch && missingTransportCommune}
                       onChange={(e) => {
                         const selectedCommune = getTransportCommuneByCode(e.target.value)
                         if (selectedCommune) setTransportCommune(selectedCommune)
                       }}
                       className="w-full appearance-none px-3 py-2 pr-9 rounded-xl border text-sm outline-none md:py-1.5"
-                      style={{ backgroundColor: inputColor, borderColor: inputBorder, color: "#0A1830" }}
+                      style={{
+                        backgroundColor: inputColor,
+                        borderColor: attemptedSearch && missingTransportCommune ? "#8A1C1C" : inputBorder,
+                        color: transportCommuneCode ? "#0A1830" : "#33415C",
+                      }}
                     >
+                      <option value="" disabled>
+                        Seleccionar comuna
+                      </option>
                       {TRANSPORT_COMMUNES.map((item) => (
                         <option key={item.communeCode} value={item.communeCode}>
                           {item.commune}

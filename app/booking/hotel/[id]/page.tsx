@@ -403,20 +403,20 @@ function HotelDetailContent() {
                       {!transportParam && (hotel.checkinTime || hotel.checkoutTime) && (
                         <div className="flex gap-4 pt-4 border-t" style={{ borderColor: "#E5E7EB" }}>
                           {hotel.checkinTime && (
-                            <div className="flex items-center gap-2">
-                              <Clock size={16} style={{ color: "#0A1830" }} />
+                            <div className="flex items-start gap-2">
+                              <Clock size={16} style={{ color: "#0A1830", flexShrink: 0, marginTop: 2 }} />
                               <div>
                                 <p className="text-xs font-semibold" style={{ color: "#0A1830" }}>Check-in</p>
-                                <p className="text-sm" style={{ color: "#555" }}>{hotel.checkinTime}</p>
+                                <p className="text-sm whitespace-pre-line" style={{ color: "#555" }}>{hotel.checkinTime}</p>
                               </div>
                             </div>
                           )}
                           {hotel.checkoutTime && (
-                            <div className="flex items-center gap-2">
-                              <Clock size={16} style={{ color: "#0A1830" }} />
+                            <div className="flex items-start gap-2">
+                              <Clock size={16} style={{ color: "#0A1830", flexShrink: 0, marginTop: 2 }} />
                               <div>
                                 <p className="text-xs font-semibold" style={{ color: "#0A1830" }}>Check-out</p>
-                                <p className="text-sm" style={{ color: "#555" }}>{hotel.checkoutTime}</p>
+                                <p className="text-sm whitespace-pre-line" style={{ color: "#555" }}>{hotel.checkoutTime}</p>
                               </div>
                             </div>
                           )}

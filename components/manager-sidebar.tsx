@@ -8,6 +8,7 @@ import {
   Building2,
   Tag,
   CalendarDays,
+  CalendarX2,
   PauseCircle,
   Car,
   Coins,
@@ -104,6 +105,12 @@ export function ManagerSidebar({ hotelId }: ManagerSidebarProps) {
           },
         ]
       : []),
+    {
+      id: "dias-cerrados",
+      label: "Días Cerrados",
+      href: `/hotel/closed-days/${hotelId}`,
+      icon: CalendarX2,
+    },
   ]
 
   function isActive(href: string): boolean {

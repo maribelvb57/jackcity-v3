@@ -55,7 +55,7 @@ function TransportPricesContent({ hotelId }: { hotelId: string }) {
           Precios de transporte
         </h1>
         <p className="text-sm mt-1" style={{ color: "#6B7280" }}>
-          Valores por comuna de {data.hotel.name}
+          Valores de transporte <strong>por tramo</strong> y por comuna
         </p>
       </div>
 
