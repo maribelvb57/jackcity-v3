@@ -9,12 +9,24 @@
 // estado queda fijo en "Todas las zonas", valor que no filtra ninguna comuna.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTRO_PUNTUACION_DESACTIVADO — el filtro "Puntuación mínima" está apagado
+// temporalmente.
+//
+// Para reactivarlo: busca "FILTRO_PUNTUACION_DESACTIVADO" en este archivo
+// (4 marcas) y descomenta lo que hay bajo cada una. No hay que tocar nada en
+// app/booking/search/page.tsx: sigue pasando `puntuacionMin`/`onPuntuacionChange`
+// y, al no existir el control, `puntuacionTouched` nunca se activa y el filtro
+// de nota no descarta ningún hotel.
+// ─────────────────────────────────────────────────────────────────────────────
+
 // FILTRO_ZONA_DESACTIVADO (1/4): descomentar `useState` y `MapPin`.
+// FILTRO_PUNTUACION_DESACTIVADO (1/4): volver a importar `Star`.
 // import { useState } from "react"
 // import { MapPin, DollarSign, Home, Star, ArrowUpDown, ChevronDown } from "lucide-react"
-import { DollarSign, Home, Star, ArrowUpDown } from "lucide-react"
+import { DollarSign, Home, ArrowUpDown } from "lucide-react"
 import { formatClp } from "@/lib/format"
-import { BENEFITS } from "@/config/benefits"
+import { ACCOMMODATION_FILTERS } from "@/config/benefits"
 
 const NAVY = "#0A1830"
 const AMBER = "#FFC43D"
@@ -56,7 +68,9 @@ interface SearchFiltersProps {
 
 // FILTRO_ZONA_DESACTIVADO (3/4): volver a destructurar `zona, onZonaChange` en la
 // firma y descomentar el estado `zonaOpen`.
-export function SearchFilters({ priceMin, priceMax, presupuesto, onPresupuestoChange, selectedBenefits, onBenefitsChange, puntuacionMin, onPuntuacionChange, ordenarPor, onOrdenarChange }: SearchFiltersProps) {
+// FILTRO_PUNTUACION_DESACTIVADO (2/4): volver a destructurar `puntuacionMin,
+// onPuntuacionChange` en la firma.
+export function SearchFilters({ priceMin, priceMax, presupuesto, onPresupuestoChange, selectedBenefits, onBenefitsChange, ordenarPor, onOrdenarChange }: SearchFiltersProps) {
   // const [zonaOpen, setZonaOpen] = useState(false)
 
   const toggleBenefit = (code: string) => {
@@ -69,7 +83,8 @@ export function SearchFilters({ priceMin, priceMax, presupuesto, onPresupuestoCh
 
   const range = priceMax - priceMin || 1
   const sliderPct = priceMax > priceMin ? ((presupuesto - priceMin) / range) * 100 : 100
-  const puntuacionPct = ((puntuacionMin - 6) / (9 - 6)) * 100
+  // FILTRO_PUNTUACION_DESACTIVADO (3/4): descomentar `puntuacionPct`.
+  // const puntuacionPct = ((puntuacionMin - 6) / (9 - 6)) * 100
 
   return (
     <div className="flex flex-col gap-5 w-full overflow-x-hidden">
@@ -177,14 +192,14 @@ export function SearchFilters({ priceMin, priceMax, presupuesto, onPresupuestoCh
 
       <div className="border-t" style={{ borderColor: SEPARATOR }} />
 
-      {/* Beneficios */}
+      {/* Tipo Alojamiento */}
       <div className="w-full">
         <div className="flex items-center gap-2 mb-2.5">
           <Home size={15} style={{ color: AMBER }} />
           <h3 className="text-sm font-bold" style={{ color: NAVY }}>Tipo Alojamiento</h3>
         </div>
         <div className="flex flex-col gap-2">
-          {BENEFITS.map(({ code, label }) => {
+          {ACCOMMODATION_FILTERS.map(({ code, label }) => {
             const checked = selectedBenefits.includes(code)
             return (
               <label key={code} className="flex items-start gap-2.5 cursor-pointer select-none" onClick={() => toggleBenefit(code)}>
@@ -210,7 +225,10 @@ export function SearchFilters({ priceMin, priceMax, presupuesto, onPresupuestoCh
 
       <div className="border-t" style={{ borderColor: SEPARATOR }} />
 
-      {/* Puntuación */}
+      {/* FILTRO_PUNTUACION_DESACTIVADO (4/4): descomentar el bloque "Puntuación mínima"
+          completo, incluido el separador que lo sigue. (Ojo: los comentarios JSX no se
+          anidan, por eso el bloque de abajo no lleva ningún comentario interno.)
+
       <div className="w-full">
         <div className="flex items-center gap-2 mb-2.5">
           <Star size={15} style={{ color: AMBER }} />
@@ -228,7 +246,6 @@ export function SearchFilters({ priceMin, priceMax, presupuesto, onPresupuestoCh
               </span>
             ))}
           </div>
-          {/* Custom puntuacion slider */}
           <div className="relative h-6">
             <div
               className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 rounded-full"
@@ -260,6 +277,8 @@ export function SearchFilters({ priceMin, priceMax, presupuesto, onPresupuestoCh
       </div>
 
       <div className="border-t" style={{ borderColor: SEPARATOR }} />
+
+      */}
 
       {/* Ordenar Por */}
       <div className="w-full pb-4">

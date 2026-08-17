@@ -71,9 +71,15 @@ function formatDate(date: Date): string {
   return date.toISOString().split("T")[0]
 }
 
+// Mapa de filtros del sidebar: cada código trae los hotel.id que tienen esa
+// propiedad activada dentro de esta búsqueda. Se tipa abierto porque el API
+// puede mandar códigos que el front todavía no muestra (ver ACCOMMODATION_FILTERS).
+export type SearchFilterMap = Record<string, string[]>
+
 export type SearchResult = {
   searchId: string
   hotels: Hotel[]
+  filters: SearchFilterMap
 }
 
 // Mascota para la búsqueda (shape del contrato /api/hotels/search):

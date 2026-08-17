@@ -169,7 +169,7 @@ function SearchPageContent() {
   } = useQuery({
     queryKey: ["search-results", cityParam, fromParam, toParam, petsParam, breedsParam, petIdsParam, transportParam, communeCodeParam],
     queryFn: async (): Promise<SearchResult> => {
-      if (!startDate || !endDate) return { searchId: "", hotels: [] }
+      if (!startDate || !endDate) return { searchId: "", hotels: [], filters: {} }
       return searchHotels({
         city: cityParam,
         pets: petSizes.map((size, i) => ({
@@ -188,6 +188,8 @@ function SearchPageContent() {
 
   const hotels = searchResult?.hotels ?? []
   const searchId = searchResult?.searchId ?? ""
+  // Mapa { CODE: [hotelId, ...] } que viene en el mismo response de /api/hotels/search.
+  const hotelFilters = searchResult?.filters ?? {}
 
   const prices = useMemo(
     () => hotels.map((h) => h.pricing?.totalPrice ?? 0).filter((p) => p > 0),
@@ -210,7 +212,9 @@ function SearchPageContent() {
     .map((h, originalIndex) => ({ hotel: h, originalIndex }))
     .filter(({ hotel: h }) => !allowedCommunes || allowedCommunes.includes(h.communeCode ?? ""))
     .filter(({ hotel: h }) => presupuesto === 0 || (h.pricing?.totalPrice ?? 0) <= presupuesto)
-    .filter(({ hotel: h }) => selectedBenefits.length === 0 || selectedBenefits.every((code) => (h.benefits ?? []).some((b) => b.code === code)))
+    // Tipo Alojamiento: el hotel tiene que estar en la lista de TODOS los códigos
+    // marcados (AND). Un código sin hoteles deja la lista vacía a propósito.
+    .filter(({ hotel: h }) => selectedBenefits.every((code) => (hotelFilters[code] ?? []).includes(h.id)))
     // El filtro de nota solo aplica una vez que el usuario movió el control (puntuacionTouched).
     // En la primera carga se muestran todos los hoteles sin importar la puntuación.
     .filter(({ hotel: h }) => !puntuacionTouched || (h.avgRating ?? 0) >= puntuacionMin)
