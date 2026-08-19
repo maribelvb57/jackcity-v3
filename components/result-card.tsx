@@ -38,7 +38,7 @@ export function ResultCard({ data }: ResultCardProps) {
       style={{ borderColor: "#E2E8F0" }}
     >
       {/* Photo */}
-      <div className="relative flex-shrink-0 w-full sm:w-[260px] md:w-[300px]" style={{ minHeight: 220 }}>
+      <div className="relative flex-shrink-0 w-full sm:w-[260px] md:w-[300px] min-h-[330px] sm:min-h-[220px]">
         <Image
           src={data.imageUrl}
           alt={data.name}
