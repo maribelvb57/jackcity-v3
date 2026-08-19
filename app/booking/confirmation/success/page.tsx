@@ -12,6 +12,7 @@ import { formatClp } from "@/lib/format"
 import { getBooking } from "@/lib/api/bookings"
 import { CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
 import { getWebpayVoucherByBuyOrder, getWebpayVoucherPdfUrl } from "@/lib/api/payments"
+import { pushPurchaseEvent } from "@/lib/analytics"
 
 const MERCHANT_NAME = "AndesBits SpA (JackCity)"
 const DEBIT_PAYMENT_TYPE_CODES = new Set(["VD", "VP"])
@@ -71,6 +72,18 @@ function BookingConfirmationSuccessContent() {
     queryFn: () => getBooking(voucher!.bookingId, voucherToken ?? undefined),
     enabled: !!voucher?.authorized && !!voucher?.bookingId && tokenReady,
   })
+
+  // Conversión de GA4: se dispara sólo con el pago autorizado por Transbank y la
+  // reserva ya cargada (de ahí salen hotel y comisión).
+  useEffect(() => {
+    if (!voucher?.authorized || !booking) return
+    pushPurchaseEvent({
+      transactionId: voucher.buyOrder,
+      value: booking.pricing.feeAmount,
+      hotelId: booking.hotel.id,
+      hotelName: booking.hotel.name,
+    })
+  }, [voucher, booking])
 
   if (!buyOrder || isVoucherError) {
     return <FallbackScreen message="No pudimos cargar los datos de tu pago." />

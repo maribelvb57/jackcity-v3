@@ -45,6 +45,7 @@ export type ConfirmBookingResult = {
 export type BookingDetail = {
   bookingId: string
   hotel: {
+    id: string
     name: string
     commune: string
     mainPhotoUrl: string | null
@@ -60,6 +61,8 @@ export type BookingDetail = {
   }
   pricing: {
     totalPrice: number
+    // Comisión de JackCity sobre la reserva: es el `value` del evento purchase de GA4.
+    feeAmount: number
   }
   freeCancellationDeadline: string
   cancellationPolicy: CancellationPolicy | null
