@@ -1102,9 +1102,9 @@ function ConfirmationContent() {
   // Hay alguna subida o borrado en curso: bloquea el avance hasta que termine.
   const anyDocumentBusy = Object.values(reqUploads).some((u) => u.status === "uploading" || u.status === "deleting")
 
-  // Flags de error mostrado al validar (se conectarán a la validación por sección)
-  const [emailErrorShown] = useState(false)
-  const [rutErrorShown] = useState(false)
+  // Se activa al intentar continuar del paso 1: recién ahí se muestran los errores
+  // de campos obligatorios (no queremos marcar en rojo un form que el usuario no tocó).
+  const [showStep1Errors, setShowStep1Errors] = useState(false)
 
   // Pre-fill personal data when user logs in
   useEffect(() => {
@@ -1252,40 +1252,53 @@ function ConfirmationContent() {
   const payCheckIn = cart ? new Date(`${cart.checkIn}T12:00:00`) : checkinDate
   const payCheckOut = cart ? new Date(`${cart.checkOut}T12:00:00`) : checkoutDate
 
-  // Validación campo email / rut
+  // Validación paso 1. Obligatorios: nombre, apellidos, email y teléfono.
+  // El RUT es opcional: si viene vacío no bloquea; si viene mal escrito solo avisa.
+  const firstNameHasValue = firstName.trim().length > 0
+  const lastNameHasValue = lastName.trim().length > 0
+  const phoneHasValue = phone.trim().length > 0
+
   const rutHasValue = cleanRut(rut).length > 0
   const rutIsValid = rutHasValue && isValidChileRut(rut)
-  const showRutError = rutErrorShown && !rutIsValid
-  const showRutWarning = !showRutError && rutHasValue && !rutIsValid
-  const rutErrorMessage = !rutHasValue
-    ? "Debes ingresar tu RUT para continuar."
-    : "Ingresa un RUT chileno válido."
+  const showRutWarning = rutHasValue && !rutIsValid
+
   const emailHasValue = email.trim().length > 0
   const emailIsValid = emailHasValue && isValidEmail(email)
   const emailFieldValid = emailIsValid && !emailAccountExists
-  const showEmailError = emailErrorShown && !emailFieldValid
   const emailErrorMessage = !emailHasValue
     ? "Debes ingresar tu email para continuar."
     : !emailIsValid
       ? "Ingresa un email válido."
       : "Este correo ya tiene cuenta. Inicia sesión o usa otro."
 
+  const showFirstNameError = showStep1Errors && !firstNameHasValue
+  const showLastNameError = showStep1Errors && !lastNameHasValue
+  const showPhoneError = showStep1Errors && !phoneHasValue
+  const showEmailError = showStep1Errors && !emailFieldValid
+
+  const step1Valid = firstNameHasValue && lastNameHasValue && phoneHasValue && emailFieldValid
+
   // Paso 1 → 2. Guarda los datos del tutor vía POST /api/bookings/confirm/saveuser.
-  // TODO: agregar validación de campos (email/RUT/etc.) antes de enviar.
   // Nota: address se omite por ahora (la sección 1 no captura dirección).
   const handleContinueStep1 = async () => {
     if (!quote) return
+    // Validación en cliente: si falta un obligatorio no llamamos al backend.
+    if (!step1Valid) {
+      setShowStep1Errors(true)
+      setStep1Error(false)
+      return
+    }
     setIsSavingStep1(true)
     setStep1Error(false)
     try {
       const { userId, bookingId } = await saveBookingUser({
         quoteId: quote.quoteId,
         user: {
-          firstName,
-          lastName,
-          email,
-          phone: `${countryCode}${phone}`,
-          rut,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim(),
+          phone: `${countryCode}${phone.trim()}`,
+          rut: rut.trim(),
           saveUserData: saveData,
         },
       }, apiFetch)
@@ -1556,14 +1569,20 @@ function ConfirmationContent() {
                           <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
                           <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)}
                             className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                            style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Nombre" />
+                            style={{ borderColor: showFirstNameError ? "#DC2626" : "#E5E7EB", color: "#0A1830" }} placeholder="Nombre" />
                         </div>
+                        {showFirstNameError && (
+                          <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>Debes ingresar tu nombre para continuar.</p>
+                        )}
                       </div>
                       <div className="flex-1">
                         <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Apellidos</label>
                         <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)}
                           className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                          style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Apellidos" />
+                          style={{ borderColor: showLastNameError ? "#DC2626" : "#E5E7EB", color: "#0A1830" }} placeholder="Apellidos" />
+                        {showLastNameError && (
+                          <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>Debes ingresar tus apellidos para continuar.</p>
+                        )}
                       </div>
                     </div>
 
@@ -1614,22 +1633,23 @@ function ConfirmationContent() {
                           </div>
                           <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)}
                             className="flex-1 px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                            style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="940302010" />
+                            style={{ borderColor: showPhoneError ? "#DC2626" : "#E5E7EB", color: "#0A1830" }} placeholder="940302010" />
                         </div>
+                        {showPhoneError && (
+                          <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>Debes ingresar tu teléfono para continuar.</p>
+                        )}
                       </div>
                       <div className="flex-1">
-                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>RUT</label>
+                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>RUT <span className="font-normal" style={{ color: "#6B7280" }}>(opcional)</span></label>
                         <input type="text" value={rut}
                           onChange={(e) => setRut(e.target.value)}
                           onBlur={() => { if (rutHasValue) setRut(formatChileRut(rut)) }}
                           className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                          style={{ borderColor: showRutError ? "#DC2626" : showRutWarning ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                          style={{ borderColor: showRutWarning ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
                           placeholder="12.345.678-9" inputMode="text" />
-                        {showRutError ? (
-                          <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>{rutErrorMessage}</p>
-                        ) : showRutWarning ? (
+                        {showRutWarning && (
                           <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>Ingresa un RUT chileno válido.</p>
-                        ) : null}
+                        )}
                       </div>
                     </div>
 
@@ -1651,6 +1671,11 @@ function ConfirmationContent() {
                     )}
 
                     <div className="flex flex-col items-end gap-2">
+                      {showStep1Errors && !step1Valid && (
+                        <p className="text-sm" style={{ color: "#DC2626" }}>
+                          Completa los campos obligatorios para continuar.
+                        </p>
+                      )}
                       {step1Error && (
                         <p className="text-sm" style={{ color: "#DC2626" }}>
                           No pudimos guardar tus datos. Intenta nuevamente.
