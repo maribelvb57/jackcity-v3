@@ -12,6 +12,7 @@ import { ChevronLeft, ChevronRight, SlidersHorizontal, ArrowUpDown, ChevronDown,
 import { ResultCard, type ResultCardData } from "@/components/result-card"
 import { SearchFilters } from "@/components/search-filters"
 import { SearchBenefitsBanner } from "@/components/search-benefits-banner"
+import { LoadingPaws } from "@/components/loading-paws"
 import { useApiClient } from "@/hooks/use-api-client"
 import { useSearchStore } from "@/providers/search-store-provider"
 import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL, type SearchResult, CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
@@ -401,8 +402,12 @@ function SearchPageContent() {
           <section className="flex-1 px-4 pt-4 pb-96 md:px-6 md:pt-6 overflow-auto">
 
             {isLoading && (
-              <div className="rounded-2xl border px-5 py-6 text-sm font-medium" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9E0EA", color: "#0A1830" }}>
-                Estamos encontrando los mejores hoteles para tu mascota...
+              <div
+                className="flex items-center gap-3 rounded-2xl border px-5 py-6 text-sm font-medium"
+                style={{ backgroundColor: "#FFFFFF", borderColor: "#D9E0EA", color: "#0A1830" }}
+              >
+                <span>Estamos encontrando los mejores hoteles para tu mascota...</span>
+                <LoadingPaws />
               </div>
             )}
 

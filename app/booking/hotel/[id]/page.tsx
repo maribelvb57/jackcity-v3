@@ -24,6 +24,7 @@ import {
   Clock,
   Star,
 } from "lucide-react"
+import { LoadingPaws } from "@/components/loading-paws"
 import type { HotelDetail } from "@/lib/api/hotel-detail"
 import { slotTime } from "@/lib/transport-slots"
 
@@ -267,8 +268,12 @@ function HotelDetailContent() {
 
           {/* Loading */}
           {isLoading && (
-            <div className="rounded-2xl border px-5 py-6 text-sm font-medium" style={{ backgroundColor: "#FFFFFF", borderColor: "#D9E0EA", color: "#0A1830" }}>
-              Cargando detalle del hotel...
+            <div
+              className="flex items-center gap-3 rounded-2xl border px-5 py-6 text-sm font-medium"
+              style={{ backgroundColor: "#FFFFFF", borderColor: "#D9E0EA", color: "#0A1830" }}
+            >
+              <span>Cargando detalle del hotel...</span>
+              <LoadingPaws />
             </div>
           )}
 
