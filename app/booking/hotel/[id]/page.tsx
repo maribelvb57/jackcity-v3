@@ -232,7 +232,7 @@ function HotelDetailContent() {
         needsTransport: transportParam,
         transportBy: transportByParam,
         transportCommune: transportParam ? communeCodeParam : undefined,
-        searchId: searchIdParam,
+        searchHotelId: hotel?.searchHotelId ?? null,
         listIndex: listIndexParam,
         apiFetch,
       })

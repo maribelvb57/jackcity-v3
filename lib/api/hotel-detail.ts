@@ -24,6 +24,9 @@ export type HotelDetailPhoto = {
 }
 
 export type HotelDetail = {
+  // id del registro de búsqueda de esta vista de detalle. Se devuelve tal cual al
+  // crear la cotización (POST /api/quotes). Null si el backend no lo pudo guardar.
+  searchHotelId: number | null
   name: string
   addressStreet: string | null
   commune: string | null
@@ -82,7 +85,12 @@ export async function getHotelBookingDetail(params: {
   }
 
   // apiFetch agrega Authorization (bearer si hay sesión) + X-Visitor-Id / X-Session-Id.
-  const data = await params.apiFetch<{ hotel: HotelDetail; transport?: HotelDetailTransport | null; pricing?: HotelDetail["pricing"] }>(
+  const data = await params.apiFetch<{
+    searchHotelId: number | null
+    hotel: Omit<HotelDetail, "searchHotelId">
+    transport?: HotelDetailTransport | null
+    pricing?: HotelDetail["pricing"]
+  }>(
     "/api/hotels/booking-detail",
     { method: "POST", body: JSON.stringify(body) }
   )
@@ -93,6 +101,7 @@ export async function getHotelBookingDetail(params: {
 
   return {
     ...data.hotel,
+    searchHotelId: data.searchHotelId ?? null,
     photos,
     transport: data.transport ?? null,
     pricing: data.pricing ?? null,

@@ -46,7 +46,9 @@ export async function createQuote(params: {
   needsTransport: boolean
   transportBy?: string
   transportCommune?: string
-  searchId: string
+  // Viene de la respuesta de /api/hotels/booking-detail (página anterior).
+  // Puede ser null si el backend no pudo guardar el registro de búsqueda.
+  searchHotelId: number | null
   listIndex: number
   apiFetch: ApiFetch
 }): Promise<Quote> {
@@ -58,7 +60,7 @@ export async function createQuote(params: {
     needsTransport: params.needsTransport,
     ...(params.transportBy && { transportBy: params.transportBy }),
     ...(params.needsTransport && params.transportCommune && { transportCommune: params.transportCommune }),
-    searchId: params.searchId,
+    searchHotelId: params.searchHotelId,
     listIndex: params.listIndex,
     pets: params.pets,
   }
