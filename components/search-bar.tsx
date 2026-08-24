@@ -10,7 +10,7 @@ import { es } from "date-fns/locale"
 import { useSearchStore } from "@/providers/search-store-provider"
 import { defaultMascota, type Mascota } from "@/stores/search-store"
 import { PET_SIZE_LABEL, PET_SIZE_MAP, type PetSize } from "@/lib/api/hotels"
-import { DOG_BREEDS, breedDisplayLabel, getBreedByCode, getBreedSizeByCode, resolveBreedCode, OTHER_BREED_CODE } from "@/lib/dog-breeds"
+import { DOG_BREEDS, breedDisplayLabel, getBreedByCode, getBreedSizeByCode, breedRequiresManualSize, resolveBreedCode } from "@/lib/dog-breeds"
 import { encodePetBreeds, parsePetBreedsParam, encodePetIds, parsePetIdsParam } from "@/lib/search-pets"
 import { getMinCheckinDate, startOfLocalDay, CHECKIN_CUTOFF_HOUR } from "@/lib/booking-dates"
 import { getMyProfile } from "@/lib/api/customers"
@@ -137,7 +137,7 @@ export function SearchBar() {
   // Las mascotas registradas (con petId) ya vienen validadas desde la BD; solo
   // exigimos raza/tamaño a las mascotas anónimas que el usuario configura a mano.
   const allPetsValid = effectiveMascotas.length > 0 && effectiveMascotas.every(
-    (m) => !!m.petId || (m.raza !== "Sin especificar" && (m.raza !== OTHER_BREED_CODE || !!m.tamano))
+    (m) => !!m.petId || (m.raza !== "Sin especificar" && (!breedRequiresManualSize(m.raza) || !!m.tamano))
   )
   const checkinTooSoon = !!dateRange?.from && startOfLocalDay(dateRange.from) < minCheckinDate
   // La comuna solo es obligatoria si el usuario marcó que necesita transporte.
@@ -159,12 +159,12 @@ export function SearchBar() {
     }
     if (effectiveMascotas.length === 0) return "Agrega al menos una mascota."
     const invalid = effectiveMascotas.find(
-      (m) => !m.petId && (m.raza === "Sin especificar" || (m.raza === OTHER_BREED_CODE && !m.tamano))
+      (m) => !m.petId && (m.raza === "Sin especificar" || (breedRequiresManualSize(m.raza) && !m.tamano))
     )
     if (invalid) {
       return invalid.raza === "Sin especificar"
         ? "Indica la raza de tu mascota."
-        : "Indica el tamaño de tu mascota mestiza."
+        : "Indica el tamaño de tu mascota."
     }
     if (missingTransportCommune) return "Selecciona la comuna de retiro para el transporte."
     return null
@@ -519,8 +519,7 @@ export function SearchBar() {
                                 </div>
                               </div>
                               {(() => {
-                                const isOtraRaza = mascota.raza === OTHER_BREED_CODE
-                                const isDisabled = !isOtraRaza
+                                const isDisabled = !breedRequiresManualSize(mascota.raza)
                                 return (
                                   <div className="flex items-center gap-3">
                                     <span className="text-sm w-16 flex-shrink-0" style={{ color: helperColor }}>Tamaño</span>
@@ -578,8 +577,7 @@ export function SearchBar() {
                               </div>
                             </div>
                             {(() => {
-                              const isOtraRaza = mascota.raza === OTHER_BREED_CODE
-                              const isDisabled = !isOtraRaza
+                              const isDisabled = !breedRequiresManualSize(mascota.raza)
                               return (
                                 <div className="flex items-center gap-3">
                                   <span className="text-sm w-16 flex-shrink-0" style={{ color: helperColor }}>Tamaño</span>

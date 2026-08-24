@@ -3,7 +3,8 @@ import type { PetSize } from "@/lib/api/hotels"
 // Catálogo único de razas de perro. Fuente de verdad para el front.
 // - label: texto que mostramos al usuario en formularios y combobox.
 // - code: valor que enviamos y recibimos SIEMPRE del backend.
-// - size: tamaño inferido de la raza (null en "OTRA", donde el usuario lo elige).
+// - size: tamaño inferido de la raza. null = no se puede inferir y lo elige el usuario
+//   (ver breedRequiresManualSize).
 //
 // El backend habla en códigos de tamaño: SMALL | MEDIUM | LARGE | EXTRA_LARGE.
 // Al usuario le mostramos: Pequeño | Mediano | Grande | Extra Grande (ver PET_SIZE_LABEL).
@@ -52,7 +53,7 @@ export const DOG_BREEDS: DogBreed[] = [
   { label: "Jack Russell Terrier", code: "JACK_RUSSELL_TERRIER", size: "SMALL", emoji: "❤️" },
   { label: "Labrador Retriever", code: "LABRADOR", size: "LARGE" },
   { label: "Maltés", code: "MALTES", size: "SMALL" },
-  { label: "Mestizo (Quiltro)", code: "MESTIZO", size: "MEDIUM" },
+  { label: "Mestizo (Quiltro)", code: "MESTIZO", size: null },
   { label: "Pastor Alemán", code: "PASTOR_ALEMAN", size: "LARGE" },
   { label: "Pastor Australiano", code: "PASTOR_AUSTRALIANO", size: "LARGE" },
   { label: "Pastor Belga", code: "PASTOR_BELGA", size: "LARGE" },
@@ -97,6 +98,15 @@ export function getBreedSizeByLabel(label: string): PetSize | null {
 // Tamaño (código backend) inferido desde el code de la raza.
 export function getBreedSizeByCode(code: string): PetSize | null {
   return BREED_BY_CODE.get(code)?.size ?? null
+}
+
+// true en las razas del catálogo sin tamaño inferible ("OTRA" porque no sabemos cuál es,
+// "MESTIZO" porque un quiltro puede ser de cualquier tamaño). En esos casos el select de
+// tamaño va habilitado y el tamaño es obligatorio. Una raza fuera del catálogo devuelve
+// false: no la conocemos, así que no le pedimos nada al usuario.
+export function breedRequiresManualSize(code: string | null | undefined): boolean {
+  const breed = code ? BREED_BY_CODE.get(code) : undefined
+  return !!breed && breed.size === null
 }
 
 // Normaliza un valor de raza al code canónico. Acepta un code (en cualquier caja,

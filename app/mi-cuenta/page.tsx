@@ -11,7 +11,7 @@ import { getMyProfile, updateMe, type CustomerProfile } from "@/lib/api/customer
 import { createAddress, deleteAddress, type AddressResult } from "@/lib/api/addresses"
 import { updatePet, deletePet } from "@/lib/api/pets"
 import { PET_SIZE_LABEL, PET_SIZE_MAP, type PetSize } from "@/lib/api/hotels"
-import { DOG_BREEDS, breedDisplayLabel, getBreedByCode, getBreedSizeByCode, OTHER_BREED_CODE } from "@/lib/dog-breeds"
+import { DOG_BREEDS, breedDisplayLabel, getBreedByCode, getBreedSizeByCode, breedRequiresManualSize, resolveBreedCode } from "@/lib/dog-breeds"
 import {
   User,
   Mail,
@@ -176,7 +176,10 @@ function EditPetModalWrapper(props: EditPetModalProps) {
 
 function EditPetModal({ pet, apiFetch, onSave, onClose }: EditPetModalProps) {
   const [name, setName] = useState(pet.name)
-  const [breed, setBreed] = useState(pet.breed ?? "")
+  // El <select> de raza usa codes; la mascota guardada puede traer el label o
+  // distinta caja, así que normalizamos para que el valor matchee una opción.
+  const initialBreed = resolveBreedCode(pet.breed)
+  const [breed, setBreed] = useState(initialBreed)
   // size stored as display label ("Pequeño", etc.) internally, converted to code on save
   const [sizeLabel, setSizeLabel] = useState(PET_SIZE_LABEL[pet.size as PetSize] ?? "")
   const [gender, setGender] = useState(
@@ -188,7 +191,7 @@ function EditPetModal({ pet, apiFetch, onSave, onClose }: EditPetModalProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
 
-  const isOtraRaza = breed === OTHER_BREED_CODE
+  const needsManualSize = breedRequiresManualSize(breed)
   const GENDER_MAP: Record<string, string> = { Macho: "MALE", Hembra: "FEMALE" }
 
   const handleBreedChange = (newBreed: string) => {
@@ -237,7 +240,7 @@ function EditPetModal({ pet, apiFetch, onSave, onClose }: EditPetModalProps) {
   const initialSizeLabel = PET_SIZE_LABEL[pet.size as PetSize] ?? ""
   const hasChanges =
     name !== pet.name ||
-    breed !== (pet.breed ?? "") ||
+    breed !== initialBreed ||
     sizeLabel !== initialSizeLabel ||
     gender !== initialGender ||
     weight !== (pet.weight?.toString() ?? "") ||
@@ -289,7 +292,8 @@ function EditPetModal({ pet, apiFetch, onSave, onClose }: EditPetModalProps) {
               <div className="relative">
                 <select value={breed} onChange={(e) => handleBreedChange(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2 appearance-none cursor-pointer"
-                  style={{ borderColor: "#E5E7EB", color: "#0A1830" }}>
+                  style={{ borderColor: "#E5E7EB", color: breed ? "#0A1830" : "#9CA3AF" }}>
+                  <option value="">Seleccionar raza</option>
                   {RAZA_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: "#9CA3AF" }} />
@@ -298,17 +302,17 @@ function EditPetModal({ pet, apiFetch, onSave, onClose }: EditPetModalProps) {
             <div className="flex-1">
               <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
                 Tamaño
-                {!isOtraRaza && <span className="font-normal ml-1" style={{ color: "#9CA3AF" }}>(según raza)</span>}
+                {breed && !needsManualSize && <span className="font-normal ml-1" style={{ color: "#9CA3AF" }}>(según raza)</span>}
               </label>
               <div className="relative">
                 <select value={sizeLabel} onChange={(e) => setSizeLabel(e.target.value)}
-                  disabled={!isOtraRaza}
+                  disabled={!needsManualSize}
                   className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none appearance-none"
                   style={{
                     borderColor: "#E5E7EB",
                     color: sizeLabel ? "#0A1830" : "#9CA3AF",
-                    backgroundColor: !isOtraRaza ? "#F9FAFB" : "#fff",
-                    cursor: !isOtraRaza ? "default" : "pointer",
+                    backgroundColor: !needsManualSize ? "#F9FAFB" : "#fff",
+                    cursor: !needsManualSize ? "default" : "pointer",
                   }}>
                   <option value="">Seleccionar</option>
                   {TAMANOS.map(t => <option key={t} value={t}>{t}</option>)}

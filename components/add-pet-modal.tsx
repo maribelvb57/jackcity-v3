@@ -6,7 +6,7 @@ import type { ApiFetch } from "@/lib/api/types"
 import type { CustomerProfile } from "@/lib/api/customers"
 import { createPet } from "@/lib/api/pets"
 import { PET_SIZE_MAP, PET_SIZE_LABEL, type PetSize } from "@/lib/api/hotels"
-import { DOG_BREEDS, breedDisplayLabel, getBreedByCode, getBreedSizeByCode, OTHER_BREED_CODE } from "@/lib/dog-breeds"
+import { DOG_BREEDS, breedDisplayLabel, getBreedByCode, getBreedSizeByCode, breedRequiresManualSize } from "@/lib/dog-breeds"
 
 const TAMANOS = ["Pequeño", "Mediano", "Grande", "Extra Grande"]
 const PET_COLORS = ["Negro", "Blanco", "Marrón", "Dorado", "Gris", "Manchado", "Otro"]
@@ -41,10 +41,9 @@ export function AddPetModal({ apiFetch, onSave, onClose, allowedBreeds }: AddPet
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState("")
 
-  const isOtraRaza = breed === OTHER_BREED_CODE
   const GENDER_MAP: Record<string, string> = { Macho: "MALE", Hembra: "FEMALE" }
   // En modo restringido el tamaño siempre está bloqueado (lo fija la reserva).
-  const sizeDisabled = restricted ? true : !isOtraRaza
+  const sizeDisabled = restricted ? true : !breedRequiresManualSize(breed)
 
   const handleBreedChange = (newBreed: string) => {
     setBreed(newBreed)
@@ -149,7 +148,7 @@ export function AddPetModal({ apiFetch, onSave, onClose, allowedBreeds }: AddPet
                 Tamaño
                 {restricted ? (
                   <span className="font-normal ml-1" style={{ color: "#9CA3AF" }}>(según reserva)</span>
-                ) : !isOtraRaza && breed ? (
+                ) : breed && !breedRequiresManualSize(breed) ? (
                   <span className="font-normal ml-1" style={{ color: "#9CA3AF" }}>(según raza)</span>
                 ) : null}
               </label>
