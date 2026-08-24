@@ -249,7 +249,7 @@ export function TransportCalendar({ hotelId }: TransportCalendarProps) {
 
   const MIN_YEAR = 2026
   const MIN_MONTH = 2
-  const maxDate = new Date(today.getFullYear(), today.getMonth() + 3, 1)
+  const maxDate = new Date(today.getFullYear(), today.getMonth() + 7, 1)
   const MAX_YEAR = maxDate.getFullYear()
   const MAX_MONTH = maxDate.getMonth()
 
