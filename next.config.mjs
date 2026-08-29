@@ -6,7 +6,15 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    // Optimización de imágenes de Next (Vercel la resuelve de forma nativa):
+    // convierte a WebP/AVIF y sirve el tamaño que pide cada pantalla.
+    // Todo host externo que pase por next/image debe declararse acá.
+    remotePatterns: [
+      // Fotos de los hoteles.
+      { protocol: "https", hostname: "res.cloudinary.com" },
+      // Datos de ejemplo del panel de hotelero.
+      { protocol: "https", hostname: "images.unsplash.com" },
+    ],
   },
   async headers() {
     return [

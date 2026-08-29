@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import { useState } from "react"
 import { X, Instagram, Facebook } from "lucide-react"
 import { PoliticaReservasContent } from "@/components/legal/politica-reservas-content"
@@ -10,6 +11,7 @@ import { PrivacidadDatosContent } from "@/components/legal/privacidad-datos-cont
 import { QuienesSomosContent } from "@/components/legal/quienes-somos-content"
 import { ContactModal } from "@/components/contact-modal"
 import { HotelContactModal } from "@/components/hotel-contact-modal"
+import { COMUNA_PAGES } from "@/lib/comuna-pages"
 
 type ModalId = "nosotros" | "reservas" | "cancelacion" | "terminos" | "privacidad" | null
 
@@ -208,6 +210,29 @@ export function SiteFooter() {
                 </ul>
               </div>
             ))}
+
+            {/* Landings por comuna: son el enlace interno hacia esas páginas, que
+                de otro modo sólo existirían en el sitemap. */}
+            <div className="md:shrink-0">
+              <h4 className="text-sm font-bold mb-4 text-white">
+                Hoteles por comuna
+              </h4>
+              <ul className="flex flex-col gap-2.5">
+                {COMUNA_PAGES.map((comuna) => (
+                  <li key={comuna.slug}>
+                    <Link
+                      href={`/hoteles-para-perros/${comuna.slug}`}
+                      className="text-sm transition-colors hover:text-white"
+                      style={{ color: "#A6AFBD" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#D4AA20")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "#A6AFBD")}
+                    >
+                      Hoteles para perros en {comuna.name}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
             {/* AndesBits */}
             <div className="md:shrink-0 md:w-[180px] md:text-right">
