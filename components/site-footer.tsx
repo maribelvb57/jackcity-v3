@@ -222,12 +222,13 @@ export function SiteFooter() {
                   <li key={comuna.slug}>
                     <Link
                       href={`/hoteles-para-perros/${comuna.slug}`}
+                      aria-label={`Hoteles para perros en ${comuna.name}`}
                       className="text-sm transition-colors hover:text-white"
                       style={{ color: "#A6AFBD" }}
                       onMouseEnter={(e) => (e.currentTarget.style.color = "#D4AA20")}
                       onMouseLeave={(e) => (e.currentTarget.style.color = "#A6AFBD")}
                     >
-                      Hoteles para perros en {comuna.name}
+                      {comuna.name}
                     </Link>
                   </li>
                 ))}
@@ -269,7 +270,7 @@ export function SiteFooter() {
               &copy; <span suppressHydrationWarning>{currentYear}</span> JackCity. Todos los derechos reservados.
             </p>
             <p className="text-xs" style={{ color: "#7F8897" }}>
-              v 7.25
+              v 7.27
             </p>
             <p className="text-xs" style={{ color: "#7F8897" }}>
               Hecho con amor para los perritos de Chile
