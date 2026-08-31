@@ -57,10 +57,10 @@ const footerLinks = [
   {
     title: "Legal",
     links: [
-      { label: "Política de reservas", href: "#", modal: "reservas" as ModalId },
-      { label: "Política de cancelación", href: "#", modal: "cancelacion" as ModalId },
-      { label: "Términos y condiciones", href: "#", modal: "terminos" as ModalId },
-      { label: "Privacidad y datos", href: "#", modal: "privacidad" as ModalId },
+      { label: "Política de reservas", href: "/legal/politica-de-reservas", modal: "reservas" as ModalId },
+      { label: "Política de cancelación", href: "/legal/politica-de-cancelacion", modal: "cancelacion" as ModalId },
+      { label: "Términos y condiciones", href: "/legal/terminos-y-condiciones", modal: "terminos" as ModalId },
+      { label: "Privacidad y datos", href: "/legal/privacidad-y-datos", modal: "privacidad" as ModalId },
     ],
   },
 ]
@@ -111,7 +111,7 @@ export function SiteFooter() {
             <div className="md:max-w-[260px]">
               <div className="flex items-center gap-2 mb-4">
                 <Image
-                  src="/logo-02.png"
+                  src="/images/dog-banner.png"
                   alt="JackCity"
                   width={40}
                   height={40}
@@ -183,7 +183,27 @@ export function SiteFooter() {
                         >
                           {link.label}
                         </button>
+                      ) : "modal" in link && link.modal && link.href !== "#" ? (
+                        /* Tiene página propia: se renderiza como enlace real
+                           para que el crawler lo siga y el usuario pueda
+                           abrirlo en otra pestaña. El clic normal sigue
+                           mostrando el modal, como antes. */
+                        <Link
+                          href={link.href}
+                          onClick={(e) => {
+                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+                            e.preventDefault()
+                            setOpenModal(link.modal as string)
+                          }}
+                          className="text-sm transition-colors hover:text-white text-left"
+                          style={{ color: "#A6AFBD" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#D4AA20")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "#A6AFBD")}
+                        >
+                          {link.label}
+                        </Link>
                       ) : "modal" in link && link.modal ? (
+                        /* Sin página propia (¿Quiénes somos?): sólo modal. */
                         <button
                           type="button"
                           onClick={() => setOpenModal(link.modal as string)}
@@ -270,7 +290,7 @@ export function SiteFooter() {
               &copy; <span suppressHydrationWarning>{currentYear}</span> JackCity. Todos los derechos reservados.
             </p>
             <p className="text-xs" style={{ color: "#7F8897" }}>
-              v 7.27
+              v 7.31
             </p>
             <p className="text-xs" style={{ color: "#7F8897" }}>
               Hecho con amor para los perritos de Chile

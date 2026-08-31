@@ -1,8 +1,10 @@
+import type { Metadata } from "next"
 import { PoliticaCancelacionContent } from "@/components/legal/politica-cancelacion-content"
 
-export const metadata = {
-  title: "Política de cancelación | JackCity",
+export const metadata: Metadata = {
+  title: "Política de cancelación",
   description: "Conoce la política de cancelación de JackCity para reservas de alojamiento y transporte.",
+  alternates: { canonical: "/legal/politica-de-cancelacion" },
 }
 
 export default function PoliticaDeCancelacionPage() {

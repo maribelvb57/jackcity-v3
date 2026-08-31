@@ -18,7 +18,6 @@ export default function robots(): MetadataRoute.Robots {
         "/mi-cuenta",
         "/mis-reservas",
         "/pets/",
-        "/sentry-test",
         "/api/",
       ],
     },

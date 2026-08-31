@@ -1,8 +1,10 @@
+import type { Metadata } from "next"
 import { PrivacidadDatosContent } from "@/components/legal/privacidad-datos-content"
 
-export const metadata = {
-  title: "Privacidad y datos | JackCity",
+export const metadata: Metadata = {
+  title: "Privacidad y datos",
   description: "Política de privacidad y tratamiento de datos personales de JackCity, operado por AndesBits SpA.",
+  alternates: { canonical: "/legal/privacidad-y-datos" },
 }
 
 export default function PrivacidadYDatosPage() {

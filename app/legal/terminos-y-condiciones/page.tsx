@@ -1,8 +1,10 @@
+import type { Metadata } from "next"
 import { TerminosCondicionesContent } from "@/components/legal/terminos-condiciones-content"
 
-export const metadata = {
-  title: "Términos y condiciones | JackCity",
+export const metadata: Metadata = {
+  title: "Términos y condiciones",
   description: "Términos y condiciones de uso de JackCity, plataforma operada por AndesBits SpA.",
+  alternates: { canonical: "/legal/terminos-y-condiciones" },
 }
 
 export default function TerminosYCondicionesPage() {

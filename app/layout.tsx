@@ -24,11 +24,14 @@ export const metadata: Metadata = {
     siteName: 'JackCity',
     title: 'JackCity – Hoteles y estadías para perros',
     description: 'Encuentra hoteles y estadías confiables para tu perro con JackCity. Compara opciones, revisa servicios y reserva el lugar ideal para tu peque.',
+    // 1200x630 es el formato que esperan Facebook, WhatsApp y LinkedIn. Las
+    // medidas deben coincidir con el archivo real: si no, algunos scrapers
+    // reservan el espacio con el ratio equivocado y deforman la tarjeta.
     images: [
       {
-        url: '/images/hero-bg.jpg',
-        width: 1695,
-        height: 794,
+        url: '/images/og-image.jpg',
+        width: 1200,
+        height: 630,
         alt: 'JackCity - hoteles y estadías para perros',
       },
     ],
@@ -37,14 +40,17 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'JackCity – Hoteles y estadías para perros',
     description: 'Encuentra hoteles y estadías confiables para tu perro con JackCity. Compara opciones, revisa servicios y reserva el lugar ideal para tu peque.',
-    images: ['/images/hero-bg.jpg'],
+    images: ['/images/og-image.jpg'],
   },
+  // Todos los iconos viven en public/images/icons/. Las rutas son absolutas
+  // desde la raíz del sitio, que es lo que public/ expone.
   icons: {
     icon: [
       { url: '/images/icons/icon.svg', type: 'image/svg+xml' },
-      { url: '/icon-light-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/images/icons/icon-light-32x32.png', sizes: '32x32', type: 'image/png' },
     ],
-    apple: '/apple-icon.png',
+    shortcut: '/favicon.ico',
+    apple: '/images/icons/apple-icon.png',
   },
 }
 
@@ -70,6 +76,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             }}
           />
           {/* End Google Tag Manager */}
+          {/* Meta Pixel Code */}
+          <Script
+            id="meta-pixel"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,
+document,'script','https://connect.facebook.net/en_US/fbevents.js');
+fbq('init', '1580954520164893');
+fbq('track', 'PageView');`,
+            }}
+          />
+          {/* End Meta Pixel Code */}
         </head>
         <body className="font-sans antialiased">
           {/* Google Tag Manager (noscript) */}
@@ -82,6 +103,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             />
           </noscript>
           {/* End Google Tag Manager (noscript) */}
+          {/* Meta Pixel Code (noscript) */}
+          <noscript>
+            <img
+              height="1"
+              width="1"
+              style={{ display: 'none' }}
+              src="https://www.facebook.com/tr?id=1580954520164893&ev=PageView&noscript=1"
+              alt=""
+            />
+          </noscript>
+          {/* End Meta Pixel Code (noscript) */}
           <AppQueryClientProvider>
             <SearchStoreProvider>
               {children}

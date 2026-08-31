@@ -1,8 +1,10 @@
+import type { Metadata } from "next"
 import { PoliticaReservasContent } from "@/components/legal/politica-reservas-content"
 
-export const metadata = {
-  title: "Política de reservas | JackCity",
+export const metadata: Metadata = {
+  title: "Política de reservas",
   description: "Conoce la política de reservas de JackCity para el alojamiento de tu mascota.",
+  alternates: { canonical: "/legal/politica-de-reservas" },
 }
 
 export default function PoliticaDeReservasPage() {
