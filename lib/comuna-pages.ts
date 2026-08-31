@@ -107,7 +107,7 @@ export const COMUNA_PAGES: ComunaPage[] = [
       {
         name: "La Guardería de Bruno",
         imageUrl:
-          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/beta/hotels/bruno/bruno-card",
+          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/prod/hotels/bruno/bruno-card",
         address: "La Florida",
         features: [
           "Libre tránsito y sin caniles",
@@ -169,7 +169,7 @@ export const COMUNA_PAGES: ComunaPage[] = [
       {
         name: "Perry Lodge",
         imageUrl:
-          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/beta/hotels/perry/perry-001",
+          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/prod/hotels/perry/perry-001",
         address: "Pirque",
         features: [
           "+10 años de experiencia y +3.000 huéspedes felices",
@@ -232,7 +232,7 @@ export const COMUNA_PAGES: ComunaPage[] = [
       {
         name: "Peluditos",
         imageUrl:
-          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/beta/hotels/peluditos/image-001",
+          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/prod/hotels/peluditos/image-001",
         address: "Santiago",
         features: [
           "Atención personalizada las 24 horas del día, siempre acompañados por sus cuidadores de día y de noche",
@@ -296,7 +296,7 @@ export const COMUNA_PAGES: ComunaPage[] = [
       {
         name: "El Patio guardería",
         imageUrl:
-          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/beta/hotels/patio/patio-001",
+          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/prod/hotels/patio/patio-001",
         address: "Colina",
         features: [
           "Modalidad libre durante el día — perros sueltos y sociabilizando, agrupados por tamaño, carácter y necesidades",
@@ -359,7 +359,7 @@ export const COMUNA_PAGES: ComunaPage[] = [
       {
         name: "Hotel Mantra",
         imageUrl:
-          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/beta/hotels/mantra/mantra-001",
+          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/prod/hotels/mantra/mantra-001",
         address: "Colina",
         features: [
           "Libres durante el día — perritos socializando en manada, supervisados y separados por tamaño y perfil",
@@ -415,7 +415,7 @@ export const COMUNA_PAGES: ComunaPage[] = [
       {
         name: "Hotel Campestre para Perros",
         imageUrl:
-          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/beta/hotels/campestre/campestre-001",
+          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/prod/hotels/campestre/campestre-001",
         address: "Peñaflor",
         features: [
           "Caniles individuales de gran tamaño y grupales, según el carácter de cada perro",
