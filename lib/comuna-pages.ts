@@ -232,7 +232,7 @@ export const COMUNA_PAGES: ComunaPage[] = [
       {
         name: "Peluditos",
         imageUrl:
-          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/prod/hotels/peluditos/image-001",
+          "https://res.cloudinary.com/jack-city-images/image/upload/f_auto,q_auto,w_1200/prod/hotels/peluditos/image-000",
         address: "Santiago",
         features: [
           "Atención personalizada las 24 horas del día, siempre acompañados por sus cuidadores de día y de noche",
