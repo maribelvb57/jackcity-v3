@@ -156,14 +156,11 @@ export function SiteNavbar() {
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Escríbenos por WhatsApp"
-            className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-white/10"
+            className="flex items-center gap-1.5 px-3 h-7 rounded-full text-xs font-bold transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#1EB553", color: "#ffffff" }}
           >
-            <span
-              className="flex items-center justify-center w-[26px] h-[26px] rounded-full"
-              style={{ backgroundColor: "#25D366", color: "#ffffff" }}
-            >
-              <WhatsAppIcon size={16} />
-            </span>
+            <WhatsAppIcon size={15} />
+            WhatsApp
           </a>
 
           <button
