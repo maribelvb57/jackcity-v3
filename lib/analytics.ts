@@ -1,3 +1,5 @@
+import { TRACKING_ENABLED } from "@/lib/env"
+
 declare global {
   interface Window {
     dataLayer?: Record<string, unknown>[]
@@ -21,8 +23,14 @@ type PurchaseParams = {
  * El dedupe por transactionId en sessionStorage evita contar la conversión dos
  * veces si el usuario recarga la página de éxito (la URL lleva el orderId y es
  * recargable) o si el efecto se re-ejecuta en el mismo ciclo de vida.
+ *
+ * Fuera de producción no se pushea nada: sin GTM el push quedaría inerte, pero
+ * el guard evita que una compra de prueba en beta llegue a GA4 o a Google Ads
+ * si alguien carga el contenedor a mano (Tag Assistant, una extensión).
  */
 export function pushPurchaseEvent({ transactionId, value, hotelId, hotelName }: PurchaseParams) {
+  if (!TRACKING_ENABLED) return
+
   const storageKey = `${PURCHASE_PUSHED_KEY_PREFIX}${transactionId}`
   if (sessionStorage.getItem(storageKey)) return
 
