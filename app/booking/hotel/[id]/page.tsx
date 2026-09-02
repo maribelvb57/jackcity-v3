@@ -307,7 +307,7 @@ function HotelDetailContent() {
                 <div className="flex flex-col gap-4 lg:w-3/4">
 
                   {/* 1. Photo Gallery */}
-                  <div className="order-1 bg-white rounded-2xl overflow-hidden border" style={{ borderColor: "#E5E7EB" }}>
+                  <div className="order-1 -mx-4 md:mx-0 bg-white overflow-hidden border-y md:border md:rounded-2xl" style={{ borderColor: "#E5E7EB" }}>
                     <div
                       className="relative aspect-[3/2] w-full select-none overflow-hidden"
                       style={{ backgroundColor: "#F3F4F6" }}
