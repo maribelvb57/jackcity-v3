@@ -4,9 +4,11 @@ import { useCallback } from "react"
 import { useAuth } from "@clerk/nextjs"
 import { API_BASE } from "@/lib/api/config"
 import { getTrackingHeaders } from "@/lib/tracking"
+import { ApiError } from "@/lib/api/types"
 import type { ApiFetch } from "@/lib/api/types"
 
 export type { ApiFetch }
+export { ApiError }
 
 export function useApiClient() {
   const { getToken } = useAuth()
@@ -33,7 +35,17 @@ export function useApiClient() {
       }
     }
 
-    if (!res.ok) throw new Error(`${options.method ?? "GET"} ${path} failed: ${res.status}`)
+    if (!res.ok) {
+      // El body de error trae el mensaje del backend sólo en dev/beta (en prod
+      // `include-message: never`). Si no viene, queda en null y decide la pantalla.
+      const body = await res.json().catch(() => null)
+      const detail = typeof body?.message === "string" && body.message ? body.message : null
+      throw new ApiError(
+        `${options.method ?? "GET"} ${path} failed: ${res.status}`,
+        res.status,
+        detail
+      )
+    }
     if (res.status === 204) return undefined as T
     return res.json()
   }, [getToken])
