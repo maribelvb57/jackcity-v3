@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import { SiteNavbar } from "@/components/site-navbar"
 import { HeroHeader } from "@/components/hero-header"
 import { SearchBar } from "@/components/search-bar"
+import { HotelsDirectAccess } from "@/components/hotels-direct-access"
 import { QuienesSomosSection } from "@/components/quienes-somos-section"
 import { HowItWorks } from "@/components/how-it-works"
 import { Testimonials } from "@/components/testimonials"
@@ -75,19 +76,22 @@ export default function Home() {
           </Suspense>
         </div>
 
-        {/* Section 3: Quiénes somos */}
+        {/* Section 3: Acceso directo a las fichas de hotel */}
+        <HotelsDirectAccess />
+
+        {/* Section 4: Quiénes somos */}
         <QuienesSomosSection />
 
-        {/* Section 4: How it works */}
+        {/* Section 5: How it works */}
         <HowItWorks />
 
-        {/* Section 5: Testimonials — "Familias que confían en JackCity" (oculta: ver SHOW_TESTIMONIALS) */}
+        {/* Section 6: Testimonials — "Familias que confían en JackCity" (oculta: ver SHOW_TESTIMONIALS) */}
         {SHOW_TESTIMONIALS && <Testimonials />}
 
-        {/* Section 6: Jack's Story Carousel */}
+        {/* Section 7: Jack's Story Carousel */}
         <JackStoryCarousel />
 
-        {/* Section 7: Footer */}
+        {/* Section 8: Footer */}
         <SiteFooter />
       </div>
     </main>
