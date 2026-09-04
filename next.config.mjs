@@ -9,6 +9,11 @@ const nextConfig = {
     // Optimización de imágenes de Next (Vercel la resuelve de forma nativa):
     // convierte a WebP/AVIF y sirve el tamaño que pide cada pantalla.
     // Todo host externo que pase por next/image debe declararse acá.
+    //
+    // El default de Next es solo WebP. Al declarar AVIF primero, los browsers
+    // que lo soportan reciben ~11% menos peso; el resto cae a WebP y luego a
+    // JPEG por content negotiation, sin markup extra.
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       // Fotos de los hoteles.
       { protocol: "https", hostname: "res.cloudinary.com" },
