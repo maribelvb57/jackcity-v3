@@ -85,9 +85,14 @@ interface PetFormProps {
   updatePet: (index: number, field: keyof PetData, value: string | number) => void
   incrementAge: (index: number) => void
   decrementAge: (index: number) => void
+  // Se enciende recién al intentar continuar, igual que en el paso 1: no marcamos
+  // en rojo un formulario que el usuario todavía no terminó de llenar.
+  showErrors?: boolean
 }
 
-function PetForm({ pet, index, pets, updatePet, incrementAge, decrementAge }: PetFormProps) {
+function PetForm({ pet, index, pets, updatePet, incrementAge, decrementAge, showErrors = false }: PetFormProps) {
+  const showNameError = showErrors && pet.name.trim().length === 0
+  const showGenderError = showErrors && pet.gender.length === 0
   return (
     <div className="flex flex-col gap-3">
       {pets.filter(p => !p.petId).length > 1 && (
@@ -98,7 +103,10 @@ function PetForm({ pet, index, pets, updatePet, incrementAge, decrementAge }: Pe
           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Nombre</label>
           <input type="text" value={pet.name} onChange={(e) => updatePet(index, "name", e.target.value)}
             className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-            style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Nombre mascota" />
+            style={{ borderColor: showNameError ? "#DC2626" : "#E5E7EB", color: "#0A1830" }} placeholder="Nombre mascota" />
+          {showNameError && (
+            <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>Debes ingresar el nombre de tu mascota para continuar.</p>
+          )}
         </div>
         <div className="flex-1">
           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Raza</label>
@@ -116,7 +124,7 @@ function PetForm({ pet, index, pets, updatePet, incrementAge, decrementAge }: Pe
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Género</label>
-          <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: "#E5E7EB" }}>
+          <div className="px-4 py-2.5 rounded-xl border flex items-center gap-4" style={{ borderColor: showGenderError ? "#DC2626" : "#E5E7EB" }}>
             {["Macho", "Hembra"].map((g) => (
               <label key={g} className="flex items-center gap-2 cursor-pointer">
                 <input type="radio" name={`gender-${index}`} value={g}
@@ -126,6 +134,9 @@ function PetForm({ pet, index, pets, updatePet, incrementAge, decrementAge }: Pe
               </label>
             ))}
           </div>
+          {showGenderError && (
+            <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>Debes seleccionar el género de tu mascota para continuar.</p>
+          )}
         </div>
         <div className="flex-1">
           <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>
@@ -795,6 +806,7 @@ function ConfirmationContent() {
 
   const [isSavingStep2, setIsSavingStep2] = useState(false)
   const [step2Error, setStep2Error] = useState(false)
+  const [showStep2Errors, setShowStep2Errors] = useState(false)
   // ids de las mascotas creadas por savepets; se usarán en los pasos siguientes (requisitos, etc.)
   const [savedPetIds, setSavedPetIds] = useState<string[]>([])
 
@@ -1312,10 +1324,23 @@ function ConfirmationContent() {
     }
   }
 
+  // Validación paso 2. Obligatorios: nombre y género de cada mascota nueva —
+  // el backend los exige y sin ellos /savepets responde error. Las mascotas ya
+  // guardadas (con petId) traen sus datos del perfil, así que no se revisan.
+  const step2Valid = pets.every(
+    (pet) => pet.petId !== null || (pet.name.trim().length > 0 && pet.gender.length > 0),
+  )
+
   // Paso 2 → 3. Guarda las mascotas vía POST /api/bookings/confirm/savepets.
   // pet.id va en null (usuario no logueado); más adelante, con flujo logueado, se enviará el id real.
   const handleContinueStep2 = async () => {
     if (!quote || !savedBookingId) return
+    // Validación en cliente: si falta un obligatorio no llamamos al backend.
+    if (!step2Valid) {
+      setShowStep2Errors(true)
+      setStep2Error(false)
+      return
+    }
     setIsSavingStep2(true)
     setStep2Error(false)
     try {
@@ -1331,7 +1356,7 @@ function ConfirmationContent() {
           id: pet.petId ?? null,
           breed: quote.pets[i]?.breed ?? pet.breed,
           size: quote.pets[i]?.size ?? pet.size,
-          name: pet.name,
+          name: pet.name.trim(),
           gender: GENDER_MAP[pet.gender] ?? pet.gender,
           ...(weightParsed(pet.weight) !== undefined && { weight: weightParsed(pet.weight) }),
           ...(pet.color && { color: pet.color }),
@@ -1742,7 +1767,7 @@ function ConfirmationContent() {
                         {pets.some(p => !p.petId) && (
                           <div className="flex flex-col gap-6 mt-4">
                             {pets.map((pet, index) => !pet.petId ? (
-                              <PetForm key={index} pet={pet} index={index} pets={pets} updatePet={updatePet} incrementAge={incrementAge} decrementAge={decrementAge} />
+                              <PetForm key={index} pet={pet} index={index} pets={pets} updatePet={updatePet} incrementAge={incrementAge} decrementAge={decrementAge} showErrors={showStep2Errors} />
                             ) : null)}
                           </div>
                         )}
@@ -1853,7 +1878,7 @@ function ConfirmationContent() {
                       <div className="flex flex-col gap-6">
                         {pets.map((pet, index) => (
                           <div key={index}>
-                            <PetForm pet={pet} index={index} pets={pets} updatePet={updatePet} incrementAge={incrementAge} decrementAge={decrementAge} />
+                            <PetForm pet={pet} index={index} pets={pets} updatePet={updatePet} incrementAge={incrementAge} decrementAge={decrementAge} showErrors={showStep2Errors} />
                             {index < pets.length - 1 && <hr className="mt-3" style={{ borderColor: "#E5E7EB" }} />}
                           </div>
                         ))}

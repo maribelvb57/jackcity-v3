@@ -1,6 +1,6 @@
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, PawPrint } from "lucide-react"
 import { formatClp } from "@/lib/format"
 import { HOTEL_STATIC_PAGES } from "@/lib/hotel-static-pages"
 
@@ -82,16 +82,32 @@ function hotelHref(keyName: string) {
 export function HotelsDirectAccess() {
   return (
     <section className="flex items-center justify-center">
-      <div
-        className="w-full max-w-[1200px] px-4 py-12 sm:px-6 md:py-16 lg:px-10"
-        style={{ backgroundColor: "#FFFDF6" }}
-      >
-        <h2
-          className="mb-8 text-xl font-bold leading-tight sm:text-2xl"
-          style={{ color: "#061B3A" }}
-        >
-          Conoce algunos de nuestros hoteles partner..
-        </h2>
+      <div className="w-full max-w-[1200px] bg-white px-4 pb-12 pt-6 sm:px-6 md:pb-16 md:pt-8 lg:px-10">
+        <div className="mb-8">
+          <p
+            className="mb-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-[0.12em]"
+            style={{ backgroundColor: "#FEF9E7", color: "#061B3A" }}
+          >
+            <PawPrint size={13} style={{ color: "#F5B000" }} aria-hidden="true" />
+            Hoteles destacados
+          </p>
+
+          <h2
+            className="text-2xl font-bold leading-tight sm:text-3xl lg:text-4xl"
+            style={{ color: "#061B3A" }}
+          >
+            Sus próximas <span style={{ color: "#F5B000" }}>vacaciones</span>{" "}
+            empiezan aquí
+          </h2>
+
+          <p
+            className="mt-3 max-w-[680px] text-sm font-medium leading-6 sm:text-base"
+            style={{ color: "#28384F" }}
+          >
+            Conoce algunos de los hoteles caninos más populares de Santiago y
+            encuentra el lugar perfecto para tu mejor amigo.
+          </p>
+        </div>
 
         <ul className="grid list-none grid-cols-1 gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
           {HOTEL_CARDS.map((hotel) => (
