@@ -8,6 +8,7 @@ import { APP_URL as appUrl } from "@/lib/site-url"
 // las páginas internas de prueba.
 const STATIC_PATHS = [
   "/",
+  "/blog",
   "/legal/terminos-y-condiciones",
   "/legal/privacidad-y-datos",
   "/legal/politica-de-reservas",

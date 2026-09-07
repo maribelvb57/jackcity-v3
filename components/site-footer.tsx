@@ -50,6 +50,7 @@ const footerLinks = [
     title: "Enlaces",
     links: [
       { label: "¿Quiénes somos?", href: "#", modal: "nosotros" as ModalId },
+      { label: "Blog", href: "/blog" },
       { label: "Quiero a mi hotel en JackCity", href: "#", hotelContact: true },
       { label: "Contáctanos", href: "#", contact: true },
     ],
