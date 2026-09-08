@@ -3,6 +3,7 @@ import Script from 'next/script'
 import { ClerkProvider } from '@clerk/nextjs'
 import { AppQueryClientProvider } from '@/providers/query-client-provider'
 import { SearchStoreProvider } from '@/providers/search-store-provider'
+import { GoogleAdsConversion } from '@/components/google-ads-conversion'
 import { TRACKING_ENABLED } from '@/lib/env'
 import './globals.css'
 
@@ -139,6 +140,9 @@ fbq('track', 'PageView');`,
               />
             </noscript>
             {/* End Meta Pixel Code (noscript) */}
+            {/* Google Ads – evento de conversión en cada vista de página. Se
+                apoya en la etiqueta base gtag del <head>. */}
+            <GoogleAdsConversion />
             </>
           )}
           <AppQueryClientProvider>

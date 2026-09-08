@@ -19,11 +19,26 @@ export function buildHotelMetaDescription(hotel: HotelPage): string {
   return `${(lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`
 }
 
+// Fotos de portada fijas, por keyName: las imágenes de cards-3-2 del repo se
+// usan como preview al compartir el link, en vez de la primera foto de galería
+// que entrega el API. Cubre los seis hoteles de HOTEL_STATIC_PAGES; cualquier
+// keyName fuera de esta lista sigue usando la portada del API.
+const COVER_OVERRIDES: Record<string, string> = {
+  peluditos: "/images/hotels/cards-3-2/peluditos.jpg",
+  "la-guarderia-de-bruno": "/images/hotels/cards-3-2/bruno.jpg",
+  "hotel-canino-mantra": "/images/hotels/cards-3-2/mantra.jpg",
+  "hotel-campestre": "/images/hotels/cards-3-2/campestre.jpg",
+  "perry-lodge": "/images/hotels/cards-3-2/perry.jpg",
+  "el-patio-guarderia": "/images/hotels/cards-3-2/patio.jpg",
+}
+
 /** Metadata de una ficha pública de hotel. canonicalPath va relativo a metadataBase. */
 export function buildHotelMetadata(hotel: HotelPage, canonicalPath: string): Metadata {
   const description = buildHotelMetaDescription(hotel)
+  // El keyName es el último segmento del canonical: /hoteles-para-perros/{comuna}/{keyName}.
+  const keyName = canonicalPath.split("/").pop() ?? ""
   // La galería ya viene ordenada por sortOrder: la primera foto es la portada.
-  const cover = hotel.photos[0]?.url
+  const cover = COVER_OVERRIDES[keyName] ?? hotel.photos[0]?.url
 
   return {
     title: hotel.name,
