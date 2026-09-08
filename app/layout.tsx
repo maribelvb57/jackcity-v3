@@ -80,6 +80,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
               }}
             />
             {/* End Google Tag Manager */}
+            {/* Google Ads – etiqueta base (gtag.js). Convive con el GTM de
+                arriba: comparten window.dataLayer, que es el setup soportado
+                por Google. Sin fragmentos de conversión todavía. */}
+            <Script
+              async
+              src="https://www.googletagmanager.com/gtag/js?id=AW-18437004301"
+              strategy="afterInteractive"
+            />
+            <Script id="google-ads-gtag" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'AW-18437004301');
+              `}
+            </Script>
+            {/* End Google Ads */}
             {/* Meta Pixel Code */}
             <Script
               id="meta-pixel"
