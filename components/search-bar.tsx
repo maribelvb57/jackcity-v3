@@ -69,6 +69,7 @@ export function SearchBar() {
   const setCity = useSearchStore((state) => state.setCity)
   const dateRange = useSearchStore((state) => state.dateRange)
   const setDateRange = useSearchStore((state) => state.setDateRange)
+  const datesArePreset = useSearchStore((state) => state.datesArePreset)
   const needsTransport = useSearchStore((state) => state.needsTransport)
   const setNeedsTransport = useSearchStore((state) => state.setNeedsTransport)
   const transportCommuneCode = useSearchStore((state) => state.transportCommuneCode)
@@ -115,10 +116,18 @@ export function SearchBar() {
 
   const showSavedPetsUI = isSignedIn && savedPets.length > 0
 
-  // When saved pets UI activates, drop any default anonymous placeholder
+  // Al aparecer las mascotas guardadas, la mascota precargada del buscador deja de
+  // tener sentido: la descartamos y, si eso deja la búsqueda sin mascotas, marcamos
+  // la primera del perfil para que el usuario no tenga que elegirla a mano.
   useEffect(() => {
     if (!showSavedPetsUI) return
-    setMascotas(prev => prev.filter(m => m.petId || m.raza !== "Sin especificar"))
+    setMascotas(prev => {
+      const kept = prev.filter(m => m.petId || (!m.isDefault && m.raza !== "Sin especificar"))
+      if (kept.length > 0) return kept
+      const [firstPet] = savedPets
+      if (!firstPet) return kept
+      return [{ raza: firstPet.breed, tamano: petSizeToLabel(firstPet.size), petId: firstPet.id }]
+    })
   }, [showSavedPetsUI])
 
   const effectiveMascotas = showSavedPetsUI
@@ -142,17 +151,21 @@ export function SearchBar() {
   const checkinTooSoon = !!dateRange?.from && startOfLocalDay(dateRange.from) < minCheckinDate
   // La comuna solo es obligatoria si el usuario marcó que necesita transporte.
   const missingTransportCommune = needsTransport && !transportCommuneCode
-  const isSearchEnabled =
+  // El botón "Buscar hotel" está siempre habilitado: esto solo decide si el click
+  // navega o se detiene con un mensaje. Con los valores por defecto del buscador
+  // ya viene válido; solo se cae si el usuario deja algo a medias (transporte sin
+  // comuna, o sin ninguna mascota marcada).
+  const isSearchValid =
     !!(dateRange?.from && dateRange?.to) && !checkinTooSoon && allPetsValid && !missingTransportCommune
 
-  // Solo mostramos el motivo del botón deshabilitado después de que el usuario
-  // intentó buscar; nunca al entrar por primera vez sin haber hecho nada.
+  // Solo mostramos el motivo después de que el usuario intentó buscar; nunca al
+  // entrar por primera vez sin haber hecho nada.
   const [attemptedSearch, setAttemptedSearch] = useState(false)
 
-  // Motivo concreto por el que "Buscar hotel" está deshabilitado, para no dejar
-  // al usuario con el botón gris sin saber qué campo falta.
-  const searchDisabledReason = (() => {
-    if (isSearchEnabled) return null
+  // Motivo concreto por el que la búsqueda no avanza, para no dejar al usuario
+  // apretando el botón sin saber qué campo falta.
+  const searchBlockedReason = (() => {
+    if (isSearchValid) return null
     if (!dateRange?.from || !dateRange?.to) return "Selecciona las fechas de tu estadía."
     if (checkinTooSoon) {
       return `Después de las ${CHECKIN_CUTOFF_HOUR}:00 hrs no se aceptan reservas para el día siguiente. Elige una fecha de inicio desde el ${format(minCheckinDate, "EEEE d 'de' MMMM", { locale: es })}.`
@@ -169,6 +182,12 @@ export function SearchBar() {
     if (missingTransportCommune) return "Selecciona la comuna de retiro para el transporte."
     return null
   })()
+
+  // Lo que ve el calendario. Mientras las fechas sean las que precargamos, va vacío:
+  // el campo igual muestra el rango (dateLabel) y la búsqueda igual lo usa, pero el
+  // primer click dentro del calendario empieza un rango nuevo en vez de estirar uno
+  // ya marcado.
+  const calendarSelection = datesArePreset ? undefined : dateRange
 
   const cityRef = useRef<HTMLDivElement>(null)
   const calendarRef = useRef<HTMLDivElement>(null)
@@ -246,9 +265,9 @@ export function SearchBar() {
           const autoTamano = inferredSize ? PET_SIZE_LABEL[inferredSize] : ""
           // Cambiar la raza a mano significa que ya no es la mascota guardada:
           // limpiamos petId para no enviar un id que no corresponde a esta raza.
-          return { ...m, raza: value, tamano: autoTamano, petId: null }
+          return { ...m, raza: value, tamano: autoTamano, petId: null, isDefault: false }
         }
-        return { ...m, [field]: value }
+        return { ...m, [field]: value, isDefault: false }
       })
     )
   }
@@ -376,15 +395,15 @@ export function SearchBar() {
                     >
                       <DayPicker
                         mode="range"
-                        selected={dateRange}
+                        selected={calendarSelection}
                         onSelect={(range) => { setClearedByCutoff(false); setDateRange(range) }}
                         locale={es}
                         numberOfMonths={1}
                         disabled={(date) => {
                           const d = startOfLocalDay(date)
                           if (d < minCheckinDate) return true
-                          if (dateRange?.from && !dateRange?.to) {
-                            const from = new Date(dateRange.from.getFullYear(), dateRange.from.getMonth(), dateRange.from.getDate())
+                          if (calendarSelection?.from && !calendarSelection?.to) {
+                            const from = new Date(calendarSelection.from.getFullYear(), calendarSelection.from.getMonth(), calendarSelection.from.getDate())
                             if (d.getTime() === from.getTime()) return true
                           }
                           return false
@@ -426,7 +445,7 @@ export function SearchBar() {
                           today: { fontWeight: 700, color: "#D97230" },
                         }}
                       />
-                      {dateRange?.from && dateRange?.to && (
+                      {calendarSelection?.from && calendarSelection?.to && (
                         <div className="mt-1.5 pt-1.5 border-t flex justify-end" style={{ borderColor: "#E5DFC8" }}>
                           <button
                             type="button"
@@ -631,9 +650,8 @@ export function SearchBar() {
                 </label>
                 <button
                   type="button"
-                  aria-disabled={!isSearchEnabled}
                   onClick={() => {
-                    if (!isSearchEnabled || !dateRange?.from || !dateRange?.to) {
+                    if (!isSearchValid || !dateRange?.from || !dateRange?.to) {
                       setAttemptedSearch(true)
                       return
                     }
@@ -662,14 +680,14 @@ export function SearchBar() {
                     })
                     router.push(`/booking/search?${params.toString()}`)
                   }}
-                  className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${isSearchEnabled ? "shadow-md hover:shadow-lg active:scale-95" : "cursor-not-allowed"}`}
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg active:scale-95"
                   style={{
-                    backgroundColor: isSearchEnabled ? accentColor : "#9CA3AF",
-                    color: isSearchEnabled ? "#fff" : "#F3F4F6",
-                    boxShadow: isSearchEnabled ? "0 10px 24px rgba(217, 114, 48, 0.35)" : "none",
+                    backgroundColor: accentColor,
+                    color: "#fff",
+                    boxShadow: "0 10px 24px rgba(217, 114, 48, 0.35)",
                   }}
-                  onMouseEnter={(e) => { if (isSearchEnabled) (e.currentTarget.style.backgroundColor = accentHover) }}
-                  onMouseLeave={(e) => { if (isSearchEnabled) (e.currentTarget.style.backgroundColor = accentColor) }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = accentHover }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = accentColor }}
                 >
                   <Search size={16} />
                   Buscar hotel !!
@@ -685,9 +703,9 @@ export function SearchBar() {
               </p>
             )}
 
-            {attemptedSearch && searchDisabledReason && !clearedByCutoff && (
+            {attemptedSearch && searchBlockedReason && !clearedByCutoff && (
               <p className="mt-2 text-sm font-medium md:text-right" style={{ color: "#8A1C1C" }}>
-                {searchDisabledReason}
+                {searchBlockedReason}
               </p>
             )}
 

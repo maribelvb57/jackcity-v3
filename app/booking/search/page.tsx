@@ -245,15 +245,15 @@ function SearchPageContent() {
         {/* Top navigation */}
         <SiteNavbar />
 
-        {/* Search summary bar */}
-        <SearchSummaryBar
-          data={summaryData}
-          onChangeClick={() => router.push(landingUrl)}
-        />
-
         {/* Benefits banner - Full width */}
+        <SearchBenefitsBanner />
+
+        {/* Search summary bar */}
         <div className="mt-1">
-          <SearchBenefitsBanner />
+          <SearchSummaryBar
+            data={summaryData}
+            onChangeClick={() => router.push(landingUrl)}
+          />
         </div>
 
         {/* Main content area */}
