@@ -35,6 +35,10 @@ export type HotelDetail = {
   reviewsCount: number | null
   reviewText: string | null
   reviewUserName: string | null
+  // Reseñas de Google del hotel. El backend las manda como texto ("4.6", "312");
+  // se parsean en components/google-reviews.tsx.
+  googleReviewsAvg: string | null
+  googleReviewsCount: string | null
   description: string | null
   checkinTime: string | null
   checkoutTime: string | null

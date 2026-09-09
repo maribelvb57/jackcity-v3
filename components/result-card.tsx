@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { MapPin, Check, Heart, Star, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 import { formatClp } from "@/lib/format"
+import { parseGoogleReviews, GoogleReviewsInline } from "@/components/google-reviews"
 
 export type ResultCardData = {
   name: string
@@ -20,6 +21,9 @@ export type ResultCardData = {
   price: number
   imageUrl: string
   detailUrl: string
+  // Reseñas de Google, como las manda el API: texto o null si el hotel no tiene.
+  googleReviewsAvg?: string | null
+  googleReviewsCount?: string | null
   includesTransport?: boolean
   transportProvider?: string
   recommended?: boolean
@@ -32,6 +36,7 @@ type ResultCardProps = {
 export function ResultCard({ data }: ResultCardProps) {
   const router = useRouter()
   const [wished, setWished] = useState(false)
+  const googleReviews = parseGoogleReviews(data.googleReviewsAvg, data.googleReviewsCount)
 
   return (
     <div
@@ -95,18 +100,15 @@ export function ResultCard({ data }: ResultCardProps) {
         </h2>
 
         {/* Score + reviews */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {data.score === 0 ? (
-            <>
-              <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-                style={{ backgroundColor: "#F1F3F5", color: "#526071" }}
-              >
-                <Star size={13} style={{ color: "#526071" }} />
-                Nuevo en JackCity
-              </span>
-              <span className="text-xs" style={{ color: "#8A94A6" }}>· Sin reseñas.</span>
-            </>
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0"
+              style={{ backgroundColor: "#F1F3F5", color: "#526071" }}
+            >
+              <Star size={13} style={{ color: "#526071" }} />
+              Nuevo en JackCity
+            </span>
           ) : (
             <>
               <div
@@ -122,6 +124,7 @@ export function ResultCard({ data }: ResultCardProps) {
               </span>
             </>
           )}
+          {googleReviews && <GoogleReviewsInline reviews={googleReviews} pill />}
         </div>
 
         {/* Location */}

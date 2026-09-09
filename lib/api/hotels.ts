@@ -45,6 +45,10 @@ export type Hotel = {
   avgRating: number | null
   recommendedByJack: boolean
   reviewsCount: number | null
+  // Reseñas de Google del hotel, como texto ("4.6", "312"), igual que en
+  // /api/hotels/booking-detail. Se parsean en components/google-reviews.tsx.
+  googleReviewsAvg: string | null
+  googleReviewsCount: string | null
   petSizes: string[]
   mainBenefits: HotelMainBenefit[]
   benefits: HotelBenefit[]

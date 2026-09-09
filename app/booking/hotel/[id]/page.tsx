@@ -9,6 +9,7 @@ import { es } from "date-fns/locale"
 import { formatClp } from "@/lib/format"
 import { SiteNavbar } from "@/components/site-navbar"
 import { SearchSummaryBar } from "@/components/search-summary-bar"
+import { parseGoogleReviews, GoogleReviewsInline, GoogleReviewsBlock } from "@/components/google-reviews"
 import { CancellationPolicySection } from "@/components/cancellation-policy"
 import { getHotelBookingDetail } from "@/lib/api/hotel-detail"
 import { createQuote } from "@/lib/api/quotes"
@@ -65,6 +66,7 @@ function ScoreCard({
   className?: string
 }) {
   const hasScore = score != null && score > 0
+  const googleReviews = parseGoogleReviews(hotel.googleReviewsAvg, hotel.googleReviewsCount)
 
   return (
     <div className={`bg-white rounded-2xl p-4 border ${className}`} style={{ borderColor: "#E5E7EB" }}>
@@ -88,6 +90,11 @@ function ScoreCard({
             </p>
           )}
         </div>
+        {googleReviews && (
+          <div className="ml-auto lg:hidden">
+            <GoogleReviewsInline reviews={googleReviews} />
+          </div>
+        )}
       </div>
       {hotel.reviewText && (
         <div className="mt-3 pt-3 border-t" style={{ borderColor: "#E5E7EB" }}>
@@ -99,6 +106,11 @@ function ScoreCard({
               - {hotel.reviewUserName}
             </p>
           )}
+        </div>
+      )}
+      {googleReviews && (
+        <div className="mt-3 hidden border-t pt-3 lg:block" style={{ borderColor: "#E5E7EB" }}>
+          <GoogleReviewsBlock reviews={googleReviews} />
         </div>
       )}
     </div>
@@ -217,7 +229,6 @@ function HotelDetailContent() {
     ...(transportParam && communeParam && { commune: communeParam }),
   })
   const backUrl = `/booking/search?${backParams.toString()}`
-  const landingUrl = `/?${backParams.toString()}`
 
   const handleReservar = async () => {
     setIsCreatingQuote(true)
@@ -250,7 +261,7 @@ function HotelDetailContent() {
 
         <SearchSummaryBar
           data={summaryData}
-          onChangeClick={() => router.push(landingUrl)}
+          onChangeClick={() => router.push(backUrl)}
         />
 
         <div className="w-full px-4 pt-4 pb-[300px] md:px-6 md:pt-6 md:pb-[300px]">

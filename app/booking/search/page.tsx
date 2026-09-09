@@ -81,6 +81,8 @@ function hotelToCardData(
     score: hotel.avgRating ?? CARD_DEFAULTS.score,
     scoreLabel: hotel.avgRating != null ? getScoreLabel(hotel.avgRating) : CARD_DEFAULTS.scoreLabel,
     reviewCount: hotel.reviewsCount ?? CARD_DEFAULTS.reviewCount,
+    googleReviewsAvg: hotel.googleReviewsAvg,
+    googleReviewsCount: hotel.googleReviewsCount,
     // El API entrega la comuna como código (LAS_CONDES); el helper lo traduce al
     // nombre para mostrar. `hotel.commune` queda como respaldo si no viene el código.
     address: getCommuneNameByCode(hotel.communeCode) || hotel.commune || CARD_DEFAULTS.address,
