@@ -1,10 +1,12 @@
 "use client"
 
 import Image from "next/image"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { MapPin, Check, Heart, Star, ShieldCheck } from "lucide-react"
 import { useState } from "react"
 import { formatClp } from "@/lib/format"
+import { parseGoogleReviews, GoogleReviewsInline } from "@/components/google-reviews"
 
 export type ResultCardData = {
   name: string
@@ -19,6 +21,9 @@ export type ResultCardData = {
   price: number
   imageUrl: string
   detailUrl: string
+  // Reseñas de Google, como las manda el API: texto o null si el hotel no tiene.
+  googleReviewsAvg?: string | null
+  googleReviewsCount?: string | null
   includesTransport?: boolean
   transportProvider?: string
   recommended?: boolean
@@ -31,6 +36,7 @@ type ResultCardProps = {
 export function ResultCard({ data }: ResultCardProps) {
   const router = useRouter()
   const [wished, setWished] = useState(false)
+  const googleReviews = parseGoogleReviews(data.googleReviewsAvg, data.googleReviewsCount)
 
   return (
     <div
@@ -47,6 +53,17 @@ export function ResultCard({ data }: ResultCardProps) {
           sizes="(max-width: 640px) 100vw, 300px"
         />
 
+        {/* Toda la foto lleva al mismo detalle que "Ver detalles". Es un overlay y no
+            un wrapper porque el corazón de favoritos es un botón y no puede quedar
+            anidado dentro de un link. Oculto para lectores y teclado: el botón de
+            abajo ya ofrece ese destino con nombre propio. */}
+        <Link
+          href={data.detailUrl}
+          aria-hidden="true"
+          tabIndex={-1}
+          className="absolute inset-0"
+        />
+
         {/* Jack recommended badge */}
         {data.recommended && (
           <Image
@@ -54,7 +71,7 @@ export function ResultCard({ data }: ResultCardProps) {
             alt="Recomendado por Jack"
             width={578}
             height={222}
-            className="absolute bottom-2 left-1 z-10 h-auto w-[82%] max-w-[262px] drop-shadow-[0_10px_14px_rgba(10,24,48,0.28)]"
+            className="pointer-events-none absolute bottom-2 left-1 z-10 h-auto w-[82%] max-w-[262px] drop-shadow-[0_10px_14px_rgba(10,24,48,0.28)]"
             sizes="(max-width: 640px) 82vw, 262px"
           />
         )}
@@ -63,7 +80,7 @@ export function ResultCard({ data }: ResultCardProps) {
         <button
           onClick={() => setWished(!wished)}
           aria-label="Guardar en favoritos"
-          className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-colors"
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-colors"
           style={{ backgroundColor: "#fff" }}
         >
           <Heart
@@ -83,18 +100,15 @@ export function ResultCard({ data }: ResultCardProps) {
         </h2>
 
         {/* Score + reviews */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {data.score === 0 ? (
-            <>
-              <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0"
-                style={{ backgroundColor: "#F1F3F5", color: "#526071" }}
-              >
-                <Star size={13} style={{ color: "#526071" }} />
-                Nuevo en JackCity
-              </span>
-              <span className="text-xs" style={{ color: "#8A94A6" }}>· Sin reseñas.</span>
-            </>
+            <span
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold flex-shrink-0"
+              style={{ backgroundColor: "#F1F3F5", color: "#526071" }}
+            >
+              <Star size={13} style={{ color: "#526071" }} />
+              Nuevo en JackCity
+            </span>
           ) : (
             <>
               <div
@@ -110,6 +124,7 @@ export function ResultCard({ data }: ResultCardProps) {
               </span>
             </>
           )}
+          {googleReviews && <GoogleReviewsInline reviews={googleReviews} pill />}
         </div>
 
         {/* Location */}

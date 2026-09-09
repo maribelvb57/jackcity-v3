@@ -27,6 +27,10 @@ export type HotelPage = {
   reviewsCount: number | null
   reviewText: string | null
   reviewUserName: string | null
+  // Reseñas de Google del hotel, como texto ("4.6", "312"), con los mismos nombres
+  // que en /api/hotels/search y /api/hotels/booking-detail.
+  googleReviewsAvg: string | null
+  googleReviewsCount: string | null
   description: string | null
   checkinTime: string | null
   checkoutTime: string | null

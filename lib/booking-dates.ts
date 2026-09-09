@@ -51,3 +51,29 @@ export function getMinCheckinDate(now: Date = new Date()): Date {
 export function startOfLocalDay(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
+
+// Días a contar desde hoy para proponer el check-in por defecto del buscador.
+const DEFAULT_CHECKIN_OFFSET_DAYS = 3
+
+/**
+ * Check-in propuesto al abrir el buscador: hoy + 3 días, corrido al lunes
+ * siguiente si cayó entre jueves y domingo (no proponemos iniciar estadías de
+ * fin de semana). El día base se toma de la hora de Chile para que servidor y
+ * navegador propongan la misma fecha.
+ */
+export function getDefaultCheckinDate(now: Date = new Date()): Date {
+  const { year, month, day } = nowInChile(now)
+  const candidate = new Date(year, month - 1, day + DEFAULT_CHECKIN_OFFSET_DAYS)
+  const weekday = candidate.getDay() // 0 domingo … 6 sábado
+  // Jueves (4), viernes (5), sábado (6) y domingo (0) se corren al lunes siguiente.
+  const daysToMonday = weekday === 0 ? 1 : weekday >= 4 ? 8 - weekday : 0
+  candidate.setDate(candidate.getDate() + daysToMonday)
+  return candidate
+}
+
+/** Rango propuesto al abrir el buscador: una noche desde getDefaultCheckinDate. */
+export function getDefaultDateRange(now: Date = new Date()): { from: Date; to: Date } {
+  const from = getDefaultCheckinDate(now)
+  const to = new Date(from.getFullYear(), from.getMonth(), from.getDate() + 1)
+  return { from, to }
+}

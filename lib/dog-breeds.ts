@@ -26,6 +26,9 @@ export function breedDisplayLabel(breed: DogBreed): string {
 export const OTHER_BREED_CODE = "OTRA"
 export const OTHER_BREED_LABEL = "OTRA"
 
+// Raza precargada en el buscador (ver initialMascota en stores/search-store.ts).
+export const MESTIZO_BREED_CODE = "MESTIZO"
+
 export const DOG_BREEDS: DogBreed[] = [
   { label: "Akita Americano", code: "AKITA", size: "EXTRA_LARGE" },
   { label: "Basset Hound", code: "BASSET_HOUND", size: "MEDIUM" },
@@ -53,7 +56,7 @@ export const DOG_BREEDS: DogBreed[] = [
   { label: "Jack Russell Terrier", code: "JACK_RUSSELL_TERRIER", size: "SMALL", emoji: "❤️" },
   { label: "Labrador Retriever", code: "LABRADOR", size: "LARGE" },
   { label: "Maltés", code: "MALTES", size: "SMALL" },
-  { label: "Mestizo (Quiltro)", code: "MESTIZO", size: null },
+  { label: "Mestizo", code: "MESTIZO", size: null , emoji: "🐾" },
   { label: "Pastor Alemán", code: "PASTOR_ALEMAN", size: "LARGE" },
   { label: "Pastor Australiano", code: "PASTOR_AUSTRALIANO", size: "LARGE" },
   { label: "Pastor Belga", code: "PASTOR_BELGA", size: "LARGE" },

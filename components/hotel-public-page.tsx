@@ -5,6 +5,7 @@ import { CancellationPolicySection } from "@/components/cancellation-policy"
 import { HotelPhotoGallery } from "@/components/hotel-photo-gallery"
 import { HotelBookingSection } from "@/components/hotel-booking-section"
 import type { HotelPage } from "@/lib/api/hotel-page"
+import { parseGoogleReviews, GoogleReviewsInline, GoogleReviewsBlock } from "@/components/google-reviews"
 import { MapPin, Check, AlertCircle, Clock, Star, ChevronLeft } from "lucide-react"
 
 function getScoreLabel(score: number): string {
@@ -24,6 +25,7 @@ function getScoreLabel(score: number): string {
 function ScoreCard({ hotel, className = "" }: { hotel: HotelPage; className?: string }) {
   const score = hotel.avgRating
   const hasScore = score != null && score > 0
+  const googleReviews = parseGoogleReviews(hotel.googleReviewsAvg, hotel.googleReviewsCount)
 
   return (
     <div className={`bg-white rounded-2xl p-4 border ${className}`} style={{ borderColor: "#E5E7EB" }}>
@@ -47,6 +49,11 @@ function ScoreCard({ hotel, className = "" }: { hotel: HotelPage; className?: st
             </p>
           )}
         </div>
+        {googleReviews && (
+          <div className="ml-auto lg:hidden">
+            <GoogleReviewsInline reviews={googleReviews} />
+          </div>
+        )}
       </div>
       {hotel.reviewText && (
         <div className="mt-3 pt-3 border-t" style={{ borderColor: "#E5E7EB" }}>
@@ -58,6 +65,11 @@ function ScoreCard({ hotel, className = "" }: { hotel: HotelPage; className?: st
               - {hotel.reviewUserName}
             </p>
           )}
+        </div>
+      )}
+      {googleReviews && (
+        <div className="mt-3 hidden border-t pt-3 lg:block" style={{ borderColor: "#E5E7EB" }}>
+          <GoogleReviewsBlock reviews={googleReviews} />
         </div>
       )}
     </div>

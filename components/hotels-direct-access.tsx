@@ -110,13 +110,18 @@ export function HotelsDirectAccess() {
         </div>
 
         <ul className="grid list-none grid-cols-1 gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">
-          {HOTEL_CARDS.map((hotel) => (
+          {HOTEL_CARDS.map((hotel) => {
+            const href = hotelHref(hotel.keyName)
+            return (
             <li key={hotel.keyName}>
               <article
                 className="flex h-full flex-col overflow-hidden rounded-2xl border bg-white shadow-sm"
                 style={{ borderColor: "#E2E8F0" }}
               >
-                <div className="relative aspect-[3/2] w-full">
+                {/* La foto lleva al mismo lugar que "Ver hotel". Fuera del orden de
+                    tabulación para no repetir la parada de teclado: el botón de abajo
+                    ya cubre ese destino. */}
+                <Link href={href} tabIndex={-1} className="relative block aspect-[3/2] w-full">
                   <Image
                     src={hotel.image}
                     alt={`${hotel.name}, hotel para perros en ${hotel.comunaLabel}`}
@@ -124,7 +129,7 @@ export function HotelsDirectAccess() {
                     sizes="(min-width: 1024px) 373px, (min-width: 640px) 50vw, 100vw"
                     className="object-cover"
                   />
-                </div>
+                </Link>
 
                 <div className="flex flex-1 flex-col p-4">
                   {/* Nombre y comuna a la izquierda, precio a la derecha, con un
@@ -162,7 +167,7 @@ export function HotelsDirectAccess() {
                   </div>
 
                   <Link
-                    href={hotelHref(hotel.keyName)}
+                    href={href}
                     className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 text-sm font-bold transition-opacity hover:opacity-90"
                     style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
                   >
@@ -172,7 +177,8 @@ export function HotelsDirectAccess() {
                 </div>
               </article>
             </li>
-          ))}
+            )
+          })}
         </ul>
       </div>
     </section>
