@@ -15,8 +15,9 @@ import { SearchBenefitsBanner } from "@/components/search-benefits-banner"
 import { LoadingPaws } from "@/components/loading-paws"
 import { useApiClient } from "@/hooks/use-api-client"
 import { useSearchStore } from "@/providers/search-store-provider"
-import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL, type SearchResult, CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
-import { parsePetBreedsParam, parsePetIdsParam } from "@/lib/search-pets"
+import { searchHotels, type Hotel, type PetSize, PET_SIZE_LABEL, PET_SIZE_MAP, type SearchResult, CANCELLATION_POLICY_FLEXIBLE } from "@/lib/api/hotels"
+import { parsePetBreedsParam, parsePetIdsParam, encodePetBreeds, encodePetIds } from "@/lib/search-pets"
+import type { Mascota } from "@/stores/search-store"
 import { ZONE_COMMUNES } from "@/config/zones"
 import { getTransportCommuneByCode } from "@/config/transport-communes"
 import { getCommuneNameByCode } from "@/config/communes"
@@ -163,6 +164,36 @@ function SearchPageContent() {
   }
   const landingUrl = searchParams.toString() ? `/?${searchParams.toString()}` : "/"
 
+  // La URL manda: al editar un chip reescribimos los params y useQuery relanza la
+  // búsqueda sola. `replace` para no llenar el historial con cada ajuste.
+  const pushSearch = (mutate: (params: URLSearchParams) => void) => {
+    const params = new URLSearchParams(searchParams.toString())
+    mutate(params)
+    router.replace(`/booking/search?${params.toString()}`)
+  }
+
+  const handleDatesChange = ({ from, to }: { from: Date; to: Date }) => {
+    pushSearch((params) => {
+      params.set("checkin", format(from, "yyyy-MM-dd"))
+      params.set("checkout", format(to, "yyyy-MM-dd"))
+    })
+  }
+
+  const handlePetsChange = (mascotas: Mascota[]) => {
+    pushSearch((params) => {
+      params.set("pets", mascotas.map((m) => PET_SIZE_MAP[m.tamano] ?? "SMALL").join(","))
+      params.set("breeds", encodePetBreeds(mascotas.map((m) => m.raza)))
+      params.set("petIds", encodePetIds(mascotas.map((m) => m.petId ?? null)))
+    })
+  }
+
+  // Mascotas vigentes según la URL, para precargar el popover del summary bar.
+  const summaryMascotas: Mascota[] = petSizes.map((size, index) => ({
+    raza: petBreeds[index] ?? "Sin especificar",
+    tamano: PET_SIZE_LABEL[size] ?? "",
+    petId: petIds[index] ?? null,
+  }))
+
   const {
     data: searchResult,
     isLoading,
@@ -249,12 +280,13 @@ function SearchPageContent() {
         <SearchBenefitsBanner />
 
         {/* Search summary bar */}
-        <div className="mt-1">
-          <SearchSummaryBar
-            data={summaryData}
-            onChangeClick={() => router.push(landingUrl)}
-          />
-        </div>
+        <SearchSummaryBar
+          data={summaryData}
+          dateRange={startDate && endDate ? { from: startDate, to: endDate } : undefined}
+          mascotas={summaryMascotas}
+          onDatesChange={handleDatesChange}
+          onPetsChange={handlePetsChange}
+        />
 
         {/* Main content area */}
         <div className="relative w-full flex flex-col md:flex-row flex-1" style={{ backgroundColor: "#F3F4F6" }}>

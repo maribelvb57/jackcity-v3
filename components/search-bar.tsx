@@ -395,19 +395,16 @@ export function SearchBar() {
                     >
                       <DayPicker
                         mode="range"
+                        // Una estadía dura al menos una noche. Sin `min`, react-day-picker
+                        // cierra el rango en el primer click ({from: X, to: X}) y se puede
+                        // buscar una estadía de cero noches; con min=2 el rango queda
+                        // abierto hasta el segundo click.
+                        min={2}
                         selected={calendarSelection}
                         onSelect={(range) => { setClearedByCutoff(false); setDateRange(range) }}
                         locale={es}
                         numberOfMonths={1}
-                        disabled={(date) => {
-                          const d = startOfLocalDay(date)
-                          if (d < minCheckinDate) return true
-                          if (calendarSelection?.from && !calendarSelection?.to) {
-                            const from = new Date(calendarSelection.from.getFullYear(), calendarSelection.from.getMonth(), calendarSelection.from.getDate())
-                            if (d.getTime() === from.getTime()) return true
-                          }
-                          return false
-                        }}
+                        disabled={(date) => startOfLocalDay(date) < minCheckinDate}
                         styles={{
                           // Las medidas van aquí y no en el div padre: react-day-picker declara
                           // sus variables sobre `.rdp-root`, y esa declaración propia gana sobre
