@@ -22,6 +22,13 @@ import { PET_SIZE_LABEL, type PetSize, CANCELLATION_POLICY_FLEXIBLE } from "@/li
 import { getBreedByCode, resolveBreedCode } from "@/lib/dog-breeds"
 import { slotTime, sortSlots } from "@/lib/transport-slots"
 import { getCommuneNameByCode } from "@/config/communes"
+import {
+  loadGoogleMapsScript,
+  parseGoogleAddress,
+  normalizeCommuneName,
+  type GoogleMapsAutocomplete,
+  type GoogleMapsWindow,
+} from "@/lib/google-places"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import {
   User,
@@ -770,10 +777,31 @@ function ConfirmationContent() {
   const [phone, setPhone] = useState("")
   const [saveData, setSaveData] = useState(false)
 
+  // ─── Sección 1: Dirección (solo reservas con transporte) ───────────────
+  // El transporte va a buscar la mascota al domicilio, así que la dirección es
+  // obligatoria y su comuna debe coincidir con la usada para cotizar.
+  const addressInputRef = useRef<HTMLInputElement | null>(null)
+  const [address, setAddress] = useState("")       // valor visible en el input (calle + número)
+  const [streetName, setStreetName] = useState("") // solo la calle, para el payload
+  const [streetNumber, setStreetNumber] = useState("")
+  const [apartment, setApartment] = useState("")
+  const [addressReference, setAddressReference] = useState("")
+  const [addressCommune, setAddressCommune] = useState("")
+  const [addressCity, setAddressCity] = useState("")
+  const [addressCountry, setAddressCountry] = useState("")
+  const [addressSelectedFromGoogle, setAddressSelectedFromGoogle] = useState(false)
+  const [addressAutocompleteError, setAddressAutocompleteError] = useState("")
+  // Direcciones del perfil (usuario logueado); se usan solo para prellenar el formulario.
+  const [savedAddresses, setSavedAddresses] = useState<CustomerProfile["addresses"]>([])
+
   // ─── Navegación por pasos (acordeón) ───────────────────────────────────
   // Si la reserva incluye transporte se intercala un paso extra (selección de
   // horarios) entre "Requisitos" y "Confirmar y pagar" → 5 pasos en vez de 4.
   const includeTransport = quote?.needsTransport ?? false
+  // Nombre legible de la comuna con la que se cotizó el transporte (la quote trae el código).
+  const quotedTransportCommune = quote?.transportCommune
+    ? getCommuneNameByCode(quote.transportCommune) ?? quote.transportCommune
+    : ""
   // Si el transporte lo realiza JackCity, el texto de la sección es más corto (sin la
   // coordinación de horario del hotel). Por defecto (HOTEL / sin dato) va el texto largo.
   const transportByJackCity = quote?.transportBy === "JACKCITY"
@@ -1118,6 +1146,20 @@ function ConfirmationContent() {
   // de campos obligatorios (no queremos marcar en rojo un form que el usuario no tocó).
   const [showStep1Errors, setShowStep1Errors] = useState(false)
 
+  // Vuelca una dirección guardada del perfil en los campos del formulario.
+  function applySavedAddress(addr: CustomerProfile["addresses"][number]) {
+    setAddress([addr.street, addr.number].filter(Boolean).join(" "))
+    setStreetName(addr.street)
+    setStreetNumber(addr.number ?? "")
+    setApartment(addr.apartment ?? "")
+    setAddressReference(addr.reference ?? "")
+    setAddressCommune(addr.commune)
+    setAddressCity(addr.city)
+    setAddressCountry(addr.country)
+    setAddressSelectedFromGoogle(true)
+    setAddressAutocompleteError("")
+  }
+
   // Pre-fill personal data when user logs in
   useEffect(() => {
     if (!isSignedIn || !clerkUser?.id) return
@@ -1141,10 +1183,80 @@ function ConfirmationContent() {
         // Normalizamos el breed a code (algunas mascotas legacy vienen con el nombre)
         setSavedPets(activePets.map(p => ({ ...p, breed: resolveBreedCode(p.breed) })))
       }
+      setSavedAddresses(profile.addresses)
     }).catch(() => {
       // si falla no bloqueamos el flujo, el usuario puede llenar manualmente
     })
   }, [isSignedIn, clerkUser?.id])
+
+  // Prellenado de la dirección (una sola vez): preferimos una dirección guardada en la
+  // comuna cotizada; si no hay, la predeterminada. El usuario puede reemplazarla escribiendo
+  // otra en el buscador, por eso no volvemos a tocarla después del primer llenado.
+  const addressPrefilledRef = useRef(false)
+  useEffect(() => {
+    if (addressPrefilledRef.current || !includeTransport || savedAddresses.length === 0) return
+    const inQuotedCommune = quotedTransportCommune
+      ? savedAddresses.find(a => normalizeCommuneName(a.commune) === normalizeCommuneName(quotedTransportCommune))
+      : undefined
+    const preferred = inQuotedCommune ?? savedAddresses.find(a => a.isDefault) ?? savedAddresses[0]
+    if (!preferred) return
+    addressPrefilledRef.current = true
+    applySavedAddress(preferred)
+  }, [savedAddresses, includeTransport, quotedTransportCommune])
+
+  // Autocompletado de direcciones (Google Places). El input solo existe mientras el paso 1
+  // está abierto y la reserva incluye transporte, por eso re-inicializamos al remontarse.
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    const input = addressInputRef.current
+    if (!apiKey || !input) return
+
+    let autocomplete: GoogleMapsAutocomplete | null = null
+    let listener: { remove: () => void } | null = null
+    let isMounted = true
+
+    loadGoogleMapsScript(apiKey)
+      .then(() => {
+        if (!isMounted) return
+        const googleWindow = window as GoogleMapsWindow
+        const Autocomplete = googleWindow.google?.maps?.places?.Autocomplete
+        if (!Autocomplete) {
+          setAddressAutocompleteError("No se pudo iniciar el autocompletado de direcciones.")
+          return
+        }
+        autocomplete = new Autocomplete(input, {
+          componentRestrictions: { country: "cl" },
+          fields: ["address_components", "geometry", "name"],
+          types: ["address"],
+        })
+        listener = autocomplete.addListener("place_changed", () => {
+          if (!autocomplete) return
+          const place = autocomplete.getPlace()
+          if (!place.geometry) { setAddressSelectedFromGoogle(false); return }
+          const parsed = parseGoogleAddress(place)
+          setAddress(parsed.displayAddress)
+          setStreetName(parsed.street)
+          setStreetNumber(parsed.streetNumber)
+          setAddressCommune(parsed.commune)
+          setAddressCity(parsed.city)
+          setAddressCountry(parsed.country)
+          setAddressSelectedFromGoogle(true)
+          setAddressAutocompleteError("")
+        })
+      })
+      .catch(() => {
+        if (isMounted) setAddressAutocompleteError("No se pudo cargar el autocompletado de direcciones.")
+      })
+
+    return () => {
+      isMounted = false
+      listener?.remove()
+      if (autocomplete) {
+        const googleWindow = window as GoogleMapsWindow
+        googleWindow.google?.maps?.event?.clearInstanceListeners(autocomplete)
+      }
+    }
+  }, [includeTransport, currentStep])
 
   // Login a mitad del proceso (invitado → logueado): reiniciamos al paso 1 y limpiamos
   // el estado encadenado del flujo invitado. Así "Mis datos" se re-llena con los datos
@@ -1288,10 +1400,29 @@ function ConfirmationContent() {
   const showPhoneError = showStep1Errors && !phoneHasValue
   const showEmailError = showStep1Errors && !emailFieldValid
 
-  const step1Valid = firstNameHasValue && lastNameHasValue && phoneHasValue && emailFieldValid
+  // Dirección: obligatoria solo si la reserva incluye transporte. Debe venir del
+  // autocompletado (así llegan comuna/ciudad/país) y estar en la comuna cotizada.
+  const hasCompleteAddress =
+    address.trim().length > 0 &&
+    addressCommune.trim().length > 0 &&
+    addressCity.trim().length > 0 &&
+    addressCountry.trim().length > 0
+  const addressCommuneMatchesQuote =
+    !includeTransport ||
+    !addressSelectedFromGoogle ||
+    !quotedTransportCommune ||
+    normalizeCommuneName(addressCommune) === normalizeCommuneName(quotedTransportCommune)
+  const addressValid = !includeTransport || (hasCompleteAddress && addressCommuneMatchesQuote)
+  const showAddressError = showStep1Errors && !addressValid
+  const addressErrorMessage = !hasCompleteAddress
+    ? "Selecciona tu dirección desde el buscador para continuar."
+    : `La dirección debe estar en ${quotedTransportCommune}, que es la comuna usada para cotizar el transporte.`
+
+  const step1Valid = firstNameHasValue && lastNameHasValue && phoneHasValue && emailFieldValid && addressValid
 
   // Paso 1 → 2. Guarda los datos del tutor vía POST /api/bookings/confirm/saveuser.
-  // Nota: address se omite por ahora (la sección 1 no captura dirección).
+  // address solo se envía cuando la reserva incluye transporte (el resto de las
+  // reservas no requieren domicilio y el campo es opcional en el endpoint).
   const handleContinueStep1 = async () => {
     if (!quote) return
     // Validación en cliente: si falta un obligatorio no llamamos al backend.
@@ -1312,6 +1443,17 @@ function ConfirmationContent() {
           phone: `${countryCode}${phone.trim()}`,
           rut: rut.trim(),
           saveUserData: saveData,
+          ...(includeTransport && {
+            address: {
+              street: streetName || address.trim(),
+              ...(streetNumber.trim() && { number: streetNumber.trim() }),
+              ...(apartment.trim() && { apartment: apartment.trim() }),
+              commune: addressCommune,
+              city: addressCity,
+              country: addressCountry,
+              ...(addressReference.trim() && { reference: addressReference.trim() }),
+            },
+          }),
         },
       }, apiFetch)
       setSavedUserId(userId)
@@ -1693,6 +1835,103 @@ function ConfirmationContent() {
                           </span>
                         </span>
                       </label>
+                    )}
+
+                    {/* Dirección (solo reservas con transporte) */}
+                    {includeTransport && (
+                      <div className="rounded-xl border p-4" style={{ borderColor: showAddressError ? "#DC2626" : "#E5E7EB" }}>
+                        <div className="mb-3">
+                          <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: "#0A1830" }}>
+                            <MapPin size={16} style={{ color: "#0A1830" }} />
+                            Mi dirección
+                          </h3>
+                          <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>
+                            Tu reserva incluye transporte: necesitamos el domicilio donde retiramos y devolvemos a tu mascota.
+                          </p>
+                        </div>
+
+                        <div className="flex flex-col gap-4">
+                          <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Dirección</label>
+                              <div className="relative">
+                                <MapPin size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "#9CA3AF" }} />
+                                <input ref={addressInputRef} type="text" value={address}
+                                  onChange={(e) => {
+                                    setAddress(e.target.value)
+                                    setStreetName("")
+                                    setStreetNumber("")
+                                    setAddressSelectedFromGoogle(false)
+                                    setAddressCommune("")
+                                    setAddressCity("")
+                                    setAddressCountry("")
+                                  }}
+                                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                                  style={{ borderColor: address && !addressSelectedFromGoogle ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                                  placeholder="Calle y número" autoComplete="street-address" />
+                              </div>
+                              {addressAutocompleteError ? (
+                                <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>{addressAutocompleteError}</p>
+                              ) : address && !addressSelectedFromGoogle ? (
+                                <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>Elige tu dirección de la lista de sugerencias.</p>
+                              ) : null}
+                            </div>
+                            <div className="w-full sm:w-36">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Depto</label>
+                              <input type="text" value={apartment} onChange={(e) => setApartment(e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                                style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Opcional" autoComplete="address-line2" />
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row gap-4">
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>País</label>
+                              <input type="text" value={addressCountry} readOnly
+                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                                style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Ciudad</label>
+                              <input type="text" value={addressCity} readOnly
+                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                                style={{ backgroundColor: "#F9FAFB", borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Pendiente" />
+                            </div>
+                            <div className="flex-1">
+                              <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Comuna</label>
+                              <input type="text" value={addressCommune} readOnly
+                                className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none"
+                                style={{
+                                  backgroundColor: "#F9FAFB",
+                                  borderColor: addressCommuneMatchesQuote ? "#E5E7EB" : "#F59E0B",
+                                  color: "#0A1830",
+                                }} placeholder="Pendiente" />
+                            </div>
+                          </div>
+
+                          {!addressCommuneMatchesQuote && (
+                            <div className="rounded-xl border px-4 py-3" style={{ backgroundColor: "#FFFBEB", borderColor: "#F59E0B" }}>
+                              <p className="text-sm font-semibold" style={{ color: "#92400E" }}>
+                                La dirección debe estar en {quotedTransportCommune}, que es la comuna usada para cotizar el transporte.{" "}
+                                <Link href="/" className="underline underline-offset-2 transition-opacity hover:opacity-75">
+                                  Cambiar reserva
+                                </Link>
+                              </p>
+                            </div>
+                          )}
+
+                          <div>
+                            <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>Referencia <span className="font-normal" style={{ color: "#6B7280" }}>(opcional)</span></label>
+                            <input type="text" value={addressReference} onChange={(e) => setAddressReference(e.target.value)}
+                              className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
+                              style={{ borderColor: "#E5E7EB", color: "#0A1830" }} placeholder="Ej: Portón negro, casa al fondo" />
+                          </div>
+                        </div>
+
+                        {showAddressError && (
+                          <p className="mt-3 text-xs" style={{ color: "#DC2626" }}>{addressErrorMessage}</p>
+                        )}
+                      </div>
                     )}
 
                     <div className="flex flex-col items-end gap-2">
