@@ -1362,7 +1362,7 @@ function ConfirmationContent() {
     ? "Selecciona tu dirección desde el buscador para continuar."
     : `La dirección debe estar en ${quotedTransportCommune}, que es la comuna usada para cotizar el transporte.`
 
-  const step1Valid = firstNameHasValue && lastNameHasValue && phoneHasValue && emailFieldValid && addressValid
+  const step1Valid = firstNameHasValue && lastNameHasValue && phoneHasValue && emailFieldValid && addressValid && rutIsValid
 
   // Paso 1 → 2. Guarda los datos del tutor vía POST /api/bookings/confirm/saveuser.
   // address solo se envía cuando la reserva incluye transporte (el resto de las
