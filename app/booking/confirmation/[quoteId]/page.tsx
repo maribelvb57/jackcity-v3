@@ -11,7 +11,7 @@ import { SiteNavbar } from "@/components/site-navbar"
 import { SearchSummaryBar } from "@/components/search-summary-bar"
 import { AddPetModal } from "@/components/add-pet-modal"
 import { MarkdownText } from "@/components/markdown-text"
-import { getQuote, type Quote } from "@/lib/api/quotes"
+import { getQuote } from "@/lib/api/quotes"
 import { validateEmail, getMyProfile, type CustomerProfile } from "@/lib/api/customers"
 import { saveBookingUser, saveBookingPets, gotoPay, getBookingRequests, addBookingService, removeBookingService, getBookingCart, type BookingRequest, type BookingRequestPet, type BookingCart } from "@/lib/api/bookings"
 import { initiateBookingDocument, uploadFileToR2, confirmBookingDocument, deleteBookingDocument } from "@/lib/api/booking-documents"
@@ -59,7 +59,7 @@ import {
   HeartPulse,
   X,
 } from "lucide-react"
-import { formatClp } from "@/lib/format"
+import { cleanRut, formatChileRut, formatClp } from "@/lib/format"
 import { useClerk, useUser } from "@clerk/nextjs"
 
 const COUNTRY_CODES = [
@@ -199,10 +199,6 @@ function PetForm({ pet, index, pets, updatePet, incrementAge, decrementAge, show
   )
 }
 
-function cleanRut(value: string) {
-  return value.replace(/[^0-9kK]/g, "").toUpperCase()
-}
-
 function isValidChileRut(value: string) {
   const cleanedRut = cleanRut(value)
   if (cleanedRut.length < 2) return false
@@ -218,14 +214,6 @@ function isValidChileRut(value: string) {
   const remainder = 11 - (sum % 11)
   const expectedVerifier = remainder === 11 ? "0" : remainder === 10 ? "K" : String(remainder)
   return verifier === expectedVerifier
-}
-
-function formatChileRut(value: string) {
-  const cleanedRut = cleanRut(value)
-  if (cleanedRut.length < 2) return value
-  const body = cleanedRut.slice(0, -1)
-  const verifier = cleanedRut.slice(-1)
-  return `${body.replace(/\B(?=(\d{3})+(?!\d))/g, ".")}-${verifier}`
 }
 
 function isValidEmail(value: string) {
@@ -630,8 +618,7 @@ function petSizesText(sizes: string[]) {
   return labels.length <= 1 ? labels.join("") : `${labels.slice(0, -1).join(", ")} y ${labels[labels.length - 1]}`
 }
 
-// Maqueta compartida del sidebar "Resumen Reserva" (versión carrito). La usan tanto
-// el resumen basado en la quote (antes del bookingId) como el del cart (después).
+// Maqueta compartida del sidebar "Resumen Reserva" (versión carrito).
 function SummaryCard({ headerLines, lines, total, payNow, hasTransport }: {
   headerLines: string[]
   lines: { label: string; price: number }[]
@@ -683,41 +670,8 @@ function SummaryCard({ headerLines, lines, total, payNow, hasTransport }: {
   )
 }
 
-// Resumen basado en la quote (antes de que exista bookingId). Mismo look que el cart.
-function QuoteSummary({ quote }: { quote: Quote }) {
-  const checkIn = new Date(`${quote.checkinDate}T12:00:00`)
-  const checkOut = new Date(`${quote.checkoutDate}T12:00:00`)
-  const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / 86400000) || 1
-  const petCount = quote.pets.length
-  const petCountLabel = `${petCount} ${petCount === 1 ? "mascota" : "mascotas"}`
-  const sizesText = petSizesText(quote.pets.map((p) => p.size))
-
-  const lines: { label: string; price: number }[] = [
-    { label: `${nights} ${nights === 1 ? "noche" : "noches"} alojamiento`, price: quote.pricing.bookingPrice },
-    ...(quote.needsTransport
-      ? [{
-          label: `Transporte Ida y regreso a ${getCommuneNameByCode(quote.transportCommune) ?? quote.transportCommune ?? ""}`,
-          price: quote.pricing.transportPrice,
-        }]
-      : []),
-  ]
-
-  return (
-    <SummaryCard
-      headerLines={[
-        `${petCountLabel}${sizesText ? `, ${sizesText}` : ""}`,
-        `Fechas: ${format(checkIn, "d MMM", { locale: es })} - ${format(checkOut, "d MMM", { locale: es })}`,
-      ]}
-      lines={lines}
-      total={quote.pricing.totalPrice}
-      payNow={quote.pricing.payNowAmount}
-      hasTransport={quote.needsTransport && quote.pricing.transportPrice !== 0}
-    />
-  )
-}
-
-// Sidebar "Resumen Reserva" en versión carrito (una vez que existe bookingId).
-// Los montos finales vienen del backend (totalBookingAmount / payNowAmount).
+// Sidebar "Resumen Reserva". Los datos y los montos finales vienen del backend
+// (GET /api/booking/cart/{quoteId}: totalBookingAmount / payNowAmount).
 function CartSummary({ cart }: { cart: BookingCart }) {
   const petCountLabel = `${cart.petCount} ${cart.petCount === 1 ? "mascota" : "mascotas"}`
   const sizesText = petSizesText(cart.petSizes)
@@ -823,13 +777,14 @@ function ConfirmationContent() {
   const [savedBookingId, setSavedBookingId] = useState<string | null>(null)
 
   // ─── Carrito (sidebar "Resumen Reserva") ───────────────────────────────
-  // Se carga aparte, en paralelo, solo una vez que existe bookingId (post /saveuser).
-  // Mientras no haya bookingId, el sidebar muestra el resumen basado en la quote.
+  // Se carga aparte, en paralelo, desde el inicio: se pide con el quoteId, que existe
+  // desde que se abre la página. El sidebar siempre muestra estos datos (el frontend
+  // ya no arma un resumen calculado a partir de la quote).
   const queryClient = useQueryClient()
   const { data: cart } = useQuery({
-    queryKey: ["booking-cart", savedBookingId],
-    queryFn: () => getBookingCart(savedBookingId!, apiFetch),
-    enabled: !!savedBookingId,
+    queryKey: ["booking-cart", quoteId],
+    queryFn: () => getBookingCart(quoteId, apiFetch),
+    enabled: !!quoteId,
   })
 
   const [isSavingStep2, setIsSavingStep2] = useState(false)
@@ -1016,7 +971,7 @@ function ConfirmationContent() {
       setReqChecks((prev) => ({ ...prev, [openService.key]: true }))
       setOpenService(null)
       // El servicio recién agregado cambia el carrito → refrescar el resumen.
-      queryClient.invalidateQueries({ queryKey: ["booking-cart", savedBookingId] })
+      queryClient.invalidateQueries({ queryKey: ["booking-cart", quoteId] })
     } catch {
       setAddServiceError(true)
     } finally {
@@ -1041,7 +996,7 @@ function ConfirmationContent() {
       // Al quitar el servicio, el requisito vuelve a exigir su documento.
       setReqChecks((prev) => ({ ...prev, [key]: false }))
       // Quitar el servicio cambia el carrito → refrescar el resumen.
-      queryClient.invalidateQueries({ queryKey: ["booking-cart", savedBookingId] })
+      queryClient.invalidateQueries({ queryKey: ["booking-cart", quoteId] })
     } catch {
       setRemoveServiceErrors((prev) => ({ ...prev, [key]: true }))
     } finally {
@@ -1286,16 +1241,7 @@ function ConfirmationContent() {
   // Derived values from quote (resumen de la izquierda)
   const checkinDate = quote ? new Date(`${quote.checkinDate}T12:00:00`) : null
   const checkoutDate = quote ? new Date(`${quote.checkoutDate}T12:00:00`) : null
-  const nights = checkinDate && checkoutDate
-    ? Math.round((checkoutDate.getTime() - checkinDate.getTime()) / 86400000)
-    : 1
-
   const petCount = quote?.pets.length ?? 1
-  const petCountLabel = `${petCount} ${petCount === 1 ? "mascota" : "mascotas"}`
-  const quotedPetSizesLabel = (quote?.pets ?? [])
-    .map((p) => PET_SIZE_LABEL[p.size as PetSize] ?? p.size)
-    .filter(Boolean)
-    .join(", ")
 
   // ─── Derivados de mascotas (guardadas / selección) ─────────────────────
   const requiredBreeds = quote?.pets.map(p => p.breed) ?? []
@@ -1344,47 +1290,45 @@ function ConfirmationContent() {
     return JSON.stringify(Object.entries(selCount).sort()) === JSON.stringify(Object.entries(reqCount).sort())
   })()
 
-  // Precios (sección 4 — Confirmar y pagar)
-  const accommodationPrice = quote?.pricing.bookingPrice ?? 0
-  const transportPrice = includeTransport ? (quote?.pricing.transportPrice ?? 0) : 0
-  const totalPrice = includeTransport
-    ? (quote?.pricing.totalPrice ?? accommodationPrice + transportPrice)
-    : accommodationPrice
-  const payNowAccommodationPrice = Math.round(accommodationPrice * PAY_NOW_PERCENTAGE)
-  const payNowPrice = payNowAccommodationPrice + transportPrice
-
   // ─── Paso 5 (Confirmar y pagar): datos desde el cart ───────────────────
-  // El cart ya existe en este paso (el booking está creado) e incluye los servicios
-  // agregados. Si por algún motivo aún no llegó, caemos a los valores de la quote.
+  // Todo el desglose sale del carrito (GET /booking/cart/{quoteId}); el frontend ya no
+  // arma montos a partir de la quote. Al llegar a este paso el cart siempre está cargado
+  // (se pide al abrir la página), así que los vacíos de abajo no se ven en pantalla.
   const cartServices = cart?.items.services ?? []
   const hasCartServices = cartServices.length > 0
   const cartServicesSum = cartServices.reduce((acc, s) => acc + s.price, 0)
-  const payHousingPrice = cart?.items.housing.price ?? accommodationPrice
-  const payTransportPrice = cart?.items.transport?.price ?? transportPrice
-  const payHasTransport = cart ? cart.items.transport != null : includeTransport
-  const payNights = cart?.items.housing.nightsCount ?? nights
+  const payHousingPrice = cart?.items.housing.price ?? 0
+  const payTransportPrice = cart?.items.transport?.price ?? 0
+  const payHasTransport = cart?.items.transport != null
+  const payNights = cart?.items.housing.nightsCount ?? 0
   // Total y pago-ahora los da el backend; el saldo del hotel es la diferencia.
-  const payTotalAmount = cart?.totalBookingAmount ?? totalPrice
-  const payNowAmount = cart?.payNowAmount ?? payNowPrice
+  const payTotalAmount = cart?.totalBookingAmount ?? 0
+  const payNowAmount = cart?.payNowAmount ?? 0
   const payAtHotelAmount = payTotalAmount - payNowAmount
   // Línea "30% del alojamiento (y servicios)" del desglose de pago-ahora. El backend no
   // entrega ese desglose por ítem, así que este monto (solo esta línea) se calcula acá.
   const payNowHousingLine = Math.round((payHousingPrice + cartServicesSum) * PAY_NOW_PERCENTAGE)
   // Encabezado del resumen (mascotas, tamaños, fechas) desde el cart.
-  const payPetCountLabel = cart ? `${cart.petCount} ${cart.petCount === 1 ? "mascota" : "mascotas"}` : petCountLabel
-  const payPetSizes = cart ? petSizesText(cart.petSizes) : quotedPetSizesLabel
-  const payCheckIn = cart ? new Date(`${cart.checkIn}T12:00:00`) : checkinDate
-  const payCheckOut = cart ? new Date(`${cart.checkOut}T12:00:00`) : checkoutDate
+  const payPetCountLabel = cart ? `${cart.petCount} ${cart.petCount === 1 ? "mascota" : "mascotas"}` : ""
+  const payPetSizes = cart ? petSizesText(cart.petSizes) : ""
+  const payCheckIn = cart ? new Date(`${cart.checkIn}T12:00:00`) : null
+  const payCheckOut = cart ? new Date(`${cart.checkOut}T12:00:00`) : null
 
-  // Validación paso 1. Obligatorios: nombre, apellidos, email y teléfono.
-  // El RUT es opcional: si viene vacío no bloquea; si viene mal escrito solo avisa.
+  // Validación paso 1. Obligatorios: nombre, apellidos, email, teléfono y RUT.
   const firstNameHasValue = firstName.trim().length > 0
   const lastNameHasValue = lastName.trim().length > 0
   const phoneHasValue = phone.trim().length > 0
 
+  // El RUT es obligatorio: debe venir con valor y pasar la validación del dígito
+  // verificador. Mientras se escribe solo se avisa (ámbar); al presionar
+  // "Continuar" el campo queda en error (rojo) si falta o es inválido.
   const rutHasValue = cleanRut(rut).length > 0
   const rutIsValid = rutHasValue && isValidChileRut(rut)
-  const showRutWarning = rutHasValue && !rutIsValid
+  const showRutWarning = !showStep1Errors && rutHasValue && !rutIsValid
+  const showRutError = showStep1Errors && !rutIsValid
+  const rutErrorMessage = !rutHasValue
+    ? "Debes ingresar tu RUT para continuar."
+    : "Ingresa un RUT chileno válido."
 
   const emailHasValue = email.trim().length > 0
   const emailIsValid = emailHasValue && isValidEmail(email)
@@ -1508,7 +1452,7 @@ function ConfirmationContent() {
       setSavedPetIds(petIds)
       setCurrentStep(3)
       // Guardar mascotas puede cambiar el carrito (cantidad/tamaños) → refrescar.
-      queryClient.invalidateQueries({ queryKey: ["booking-cart", savedBookingId] })
+      queryClient.invalidateQueries({ queryKey: ["booking-cart", quoteId] })
     } catch {
       setStep2Error(true)
     } finally {
@@ -1625,9 +1569,8 @@ function ConfirmationContent() {
                   </div>
                 </div>
 
-                {/* Reservation summary — carrito (cart) una vez que hay bookingId;
-                    mientras tanto, resumen basado en la quote (mismo look). */}
-                {cart ? <CartSummary cart={cart} /> : <QuoteSummary quote={quote} />}
+                {/* Reservation summary — siempre desde el carrito (GET /booking/cart/{quoteId}). */}
+                {cart && <CartSummary cart={cart} />}
 
                 {/* Hotel conditions */}
                 {quote.hotel.policies.length > 0 && (
@@ -1807,16 +1750,18 @@ function ConfirmationContent() {
                         )}
                       </div>
                       <div className="flex-1">
-                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>RUT <span className="font-normal" style={{ color: "#6B7280" }}>(opcional)</span></label>
+                        <label className="block text-xs font-semibold mb-1.5" style={{ color: "#0A1830" }}>RUT</label>
                         <input type="text" value={rut}
                           onChange={(e) => setRut(e.target.value)}
                           onBlur={() => { if (rutHasValue) setRut(formatChileRut(rut)) }}
                           className="w-full px-4 py-2.5 rounded-xl border text-sm outline-none focus:ring-2"
-                          style={{ borderColor: showRutWarning ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
+                          style={{ borderColor: showRutError ? "#DC2626" : showRutWarning ? "#F59E0B" : "#E5E7EB", color: "#0A1830" }}
                           placeholder="12.345.678-9" inputMode="text" />
-                        {showRutWarning && (
+                        {showRutError ? (
+                          <p className="mt-1.5 text-xs" style={{ color: "#DC2626" }}>{rutErrorMessage}</p>
+                        ) : showRutWarning ? (
                           <p className="mt-1.5 text-xs" style={{ color: "#B45309" }}>Ingresa un RUT chileno válido.</p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
 
@@ -2644,7 +2589,17 @@ function ConfirmationContent() {
                           </span>
                         </button>
                         <p className="text-center text-xs" style={{ color: "#667085" }}>
-                          Al continuar, aceptas los términos y condiciones de JackCity.
+                          Al continuar, aceptas los{" "}
+                          <Link
+                            href="/legal/terminos-y-condiciones"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline underline-offset-2 hover:opacity-75"
+                            style={{ color: "#125BD8" }}
+                          >
+                            términos y condiciones
+                          </Link>{" "}
+                          de JackCity.
                         </p>
                       </div>
 

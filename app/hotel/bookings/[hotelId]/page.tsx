@@ -33,7 +33,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { ManagerLayout } from "@/components/manager-layout"
 import { useApiClient } from "@/hooks/use-api-client"
 import { useRequireAuth } from "@/hooks/use-require-auth"
-import { formatClp } from "@/lib/format"
+import { formatChileRut, formatClp } from "@/lib/format"
 import { getHotelBookings, confirmHotelBooking, checkInHotelBooking, checkOutHotelBooking, markNoShowHotelBooking, type HotelBooking, type HotelBookingStatus, type TransportSlot, type BookingPet, type BookingReviewType } from "@/lib/api/hotel-bookings"
 import { getBookingDocuments, getPetDocumentDownloadUrl, approveBookingDocument, rejectBookingDocument, setBookingDocumentValidUntil, setBookingDocumentComments, type BookingDocumentsPet, type BookingDocumentStatus } from "@/lib/api/booking-documents"
 import { getBookingStatusLabel } from "@/lib/booking-status"
@@ -113,6 +113,11 @@ const STATUS_ACTIONS: Record<HotelBookingStatus, BookingAction[]> = {
 
 function formatDate(date: string) {
   return format(new Date(`${date}T12:00:00`), "d MMM yyyy", { locale: es })
+}
+
+// Fechas de los tramos de transporte: "martes 23 sept", con día de la semana y sin año.
+function formatDateWithWeekday(date: string) {
+  return format(new Date(`${date}T12:00:00`), "EEEE d MMM", { locale: es })
 }
 
 function nightsBetween(checkinDate: string, checkoutDate: string) {
@@ -938,6 +943,43 @@ function ReviewRatingPopover({ reviews }: { reviews: HotelBooking["reviews"] }) 
   )
 }
 
+// Fila del bloque "Precios": etiqueta a la izquierda, monto alineado a la derecha.
+// `emphasis` la usa el total de la reserva, que va más destacado que el resto.
+// `pending` resalta, como pill, el saldo que el hotel todavía tiene que cobrar.
+function PriceRow({
+  label,
+  value,
+  emphasis = false,
+  pending = false,
+}: {
+  label: string
+  value: number
+  emphasis?: boolean
+  pending?: boolean
+}) {
+  return (
+    // El margen negativo compensa el padding de la pill, para que la columna de
+    // montos siga alineada con las filas de arriba.
+    <div
+      className={`flex items-baseline justify-between gap-2 ${pending ? "-mx-2 rounded-full px-2 py-1" : ""}`}
+      style={pending ? { backgroundColor: "#FFFBEA" } : undefined}
+    >
+      <span
+        className={emphasis ? "text-xs font-bold" : "text-xs font-semibold"}
+        style={{ color: emphasis || pending ? "#0A1830" : "#667085" }}
+      >
+        {label}
+      </span>
+      <span
+        className={`tabular-nums whitespace-nowrap ${emphasis ? "text-sm font-bold" : pending ? "text-xs font-bold" : "text-xs font-semibold"}`}
+        style={{ color: emphasis || pending ? "#0A1830" : "#526071" }}
+      >
+        {formatClp(value)}
+      </span>
+    </div>
+  )
+}
+
 function BookingCard({
   booking,
   onAction,
@@ -1034,6 +1076,11 @@ function BookingCard({
         {booking.customer.phone && (
           <span className="text-xs font-bold" style={{ color: "#526071" }}>{booking.customer.phone}</span>
         )}
+        {booking.customer.identification && (
+          <span className="text-xs font-bold" style={{ color: "#526071" }}>
+            Rut: {formatChileRut(booking.customer.identification)}
+          </span>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-3">
@@ -1085,6 +1132,10 @@ function BookingCard({
     </div>
   )
 
+  // El transporte lo provee el hotel (no JackCity). Decide si el bloque de
+  // precios muestra el desglose alojamiento/transporte.
+  const transportByHotel = booking.transport.included && booking.transport.includedBy === "HOTEL"
+
   // Grilla de información de la reserva (cara frontal).
   const infoGrid = (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
@@ -1106,12 +1157,25 @@ function BookingCard({
           <CreditCard size={13} />
           Precios
         </p>
-        <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
-          {formatClp(booking.pricing.paidPrice)} pagado
-        </p>
-        <p className="mt-1 text-xs font-semibold" style={{ color: "#667085" }}>
-          Total {formatClp(booking.pricing.totalPrice)}
-        </p>
+        {/* Con transporte del hotel el total se desglosa: el hotel necesita ver qué
+            parte es alojamiento y qué parte es su propio transporte. Con transporte
+            de JackCity (o sin transporte) basta el total. */}
+        {transportByHotel && (
+          <div className="mb-2 space-y-1">
+            <PriceRow label="Alojamiento" value={booking.pricing.housingAmount} />
+            <PriceRow label="Transporte" value={booking.pricing.transportAmount} />
+          </div>
+        )}
+        <PriceRow label="Total Reserva" value={booking.pricing.totalPrice} emphasis />
+        <div className="mt-2 space-y-1 border-t pt-2" style={{ borderColor: "#EEF2F7" }}>
+          <PriceRow label="Abonado en Jackcity" value={booking.pricing.paidPrice} />
+          {/* Con saldo 0 no hay nada que cobrar: se muestra como una fila más. */}
+          <PriceRow
+            label="Pendiente de pago"
+            value={booking.pricing.pendingPrice}
+            pending={booking.pricing.pendingPrice > 0}
+          />
+        </div>
       </div>
 
       <div className="rounded-lg border p-4" style={{ borderColor: "#E5E7EB" }}>
@@ -1121,21 +1185,31 @@ function BookingCard({
         </p>
         {booking.transport.included ? (
           <>
-            <p className="text-sm font-bold" style={{ color: "#0A1830" }}>Incluido</p>
+            <p className="text-sm font-bold" style={{ color: "#0A1830" }}>
+              {transportByHotel ? "Realizado por el Hotel" : "Realizado por Jackcity"}
+            </p>
             {booking.transport.pickupCommune && (
               <p className="mt-1 text-xs font-semibold" style={{ color: "#526071" }}>
-                Recogida: {booking.transport.pickupCommune}
+                Comuna: {booking.transport.pickupCommune}
               </p>
             )}
-            {booking.transport.departure && (
-              <p className="mt-0.5 text-xs font-semibold" style={{ color: "#526071" }}>
-                Ida: {formatDate(booking.transport.departure.date)} · {SLOT_LABEL[booking.transport.departure.slot]}
-              </p>
-            )}
-            {booking.transport.return && (
-              <p className="mt-0.5 text-xs font-semibold" style={{ color: "#526071" }}>
-                Vuelta: {formatDate(booking.transport.return.date)} · {SLOT_LABEL[booking.transport.return.slot]}
-              </p>
+            {(booking.transport.departure || booking.transport.return) && (
+              <div className="mt-2.5 space-y-1.5">
+                {/* La etiqueta va en una columna de ancho fijo: así "Vuelta:" queda
+                    holgada y las dos fechas arrancan alineadas entre sí. */}
+                {booking.transport.departure && (
+                  <p className="flex text-xs font-semibold" style={{ color: "#526071" }}>
+                    <span className="w-12 flex-shrink-0">Ida:</span>
+                    <span>{formatDateWithWeekday(booking.transport.departure.date)} · {SLOT_LABEL[booking.transport.departure.slot]}</span>
+                  </p>
+                )}
+                {booking.transport.return && (
+                  <p className="flex text-xs font-semibold" style={{ color: "#526071" }}>
+                    <span className="w-12 flex-shrink-0">Vuelta:</span>
+                    <span>{formatDateWithWeekday(booking.transport.return.date)} · {SLOT_LABEL[booking.transport.return.slot]}</span>
+                  </p>
+                )}
+              </div>
             )}
           </>
         ) : (
@@ -1230,6 +1304,10 @@ function BookingCard({
             <div
               style={{
                 display: "grid",
+                // minmax(0, 1fr) + minWidth:0 en cada cara: sin esto el ancho
+                // mínimo de la tabla de documentos (cara trasera) estira toda la
+                // card y en mobile la recorta el overflow hidden de más arriba.
+                gridTemplateColumns: "minmax(0, 1fr)",
                 alignItems: "start",
                 transformStyle: "preserve-3d",
                 transition: "transform 0.6s ease",
@@ -1240,7 +1318,7 @@ function BookingCard({
               <div
                 ref={frontRef}
                 aria-hidden={flipped}
-                style={{ gridArea: "1 / 1 / 2 / 2", alignSelf: "start", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+                style={{ gridArea: "1 / 1 / 2 / 2", alignSelf: "start", minWidth: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
               >
                 {infoGrid}
                 {renderBottomBar({ showApprove: true })}
@@ -1250,7 +1328,7 @@ function BookingCard({
               <div
                 ref={backRef}
                 aria-hidden={!flipped}
-                style={{ gridArea: "1 / 1 / 2 / 2", alignSelf: "start", backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateX(180deg)" }}
+                style={{ gridArea: "1 / 1 / 2 / 2", alignSelf: "start", minWidth: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateX(180deg)" }}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="flex items-start gap-2">
