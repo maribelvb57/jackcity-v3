@@ -336,8 +336,9 @@ export async function requestBookingCancellation(params: CancellationRequestPara
 }
 
 // Carrito de la reserva (sidebar "Resumen Reserva"). Se carga aparte, en paralelo,
-// una vez que existe bookingId (lo devuelve /saveuser). Los montos finales
-// (totalBookingAmount / payNowAmount) los calcula el backend; el frontend no suma.
+// desde el inicio del flujo: se pide con el quoteId (que existe desde que se abre la
+// página). Los montos finales (totalBookingAmount / payNowAmount) los calcula el
+// backend; el frontend no suma.
 export type BookingCartItems = {
   housing: { nightsCount: number; price: number }
   // Null cuando la reserva no incluye transporte.
@@ -347,11 +348,13 @@ export type BookingCartItems = {
 }
 
 export type BookingCart = {
-  bookingId: string
+  // Opcionales: al pedir el carrito con el quoteId la reserva puede no existir todavía.
+  // El frontend no los usa; quedan declarados solo para reflejar la respuesta.
+  bookingId?: string
+  bookingStatus?: string
   hotelId: string
   checkIn: string
   checkOut: string
-  bookingStatus: string
   petCount: number
   // Códigos de tamaño ("SMALL" | "MEDIUM" | ...); usar PET_SIZE_LABEL para el nombre.
   petSizes: string[]
@@ -360,8 +363,8 @@ export type BookingCart = {
   payNowAmount: number
 }
 
-export async function getBookingCart(bookingId: string, apiFetch: ApiFetch): Promise<BookingCart> {
-  return apiFetch(`/api/booking/cart/${bookingId}`)
+export async function getBookingCart(quoteId: string, apiFetch: ApiFetch): Promise<BookingCart> {
+  return apiFetch(`/api/booking/cart/${quoteId}`)
 }
 
 // Agrega a la reserva un servicio ofrecido (serviceToOffer) al confirmarlo en el modal.

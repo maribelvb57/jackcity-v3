@@ -14,6 +14,8 @@ export type HotelBookingStatus =
 
 export type TransportSlot = "AM" | "MD" | "PM"
 
+export type TransportProvider = "HOTEL" | "JACKCITY"
+
 export interface BookingPet {
   id: string
   name: string
@@ -39,17 +41,24 @@ export interface HotelBooking {
     lastName: string
     email: string
     phone?: string | null
+    // RUT del tutor. Es opcional en el checkout antiguo, así que puede no venir.
+    identification?: string | null
   }
   checkinDate: string
   checkoutDate: string
   pets: BookingPet[]
   pricing: {
     totalPrice: number
+    // Desglose del total: alojamiento y transporte por separado.
+    housingAmount: number
+    transportAmount: number
     paidPrice: number
     pendingPrice: number
   }
   transport: {
     included: boolean
+    // Quién provee el transporte de esta reserva. Sin transporte no viene.
+    includedBy?: TransportProvider | null
     pickupCommune?: string | null
     departure?: { date: string; slot: TransportSlot } | null
     return?: { date: string; slot: TransportSlot } | null
