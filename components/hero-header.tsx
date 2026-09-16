@@ -38,7 +38,9 @@ function capSrcSet(srcSet: string, maxWidth: number) {
 }
 
 export function HeroHeader() {
-  const common = { fill: true, quality: 75, sizes: "" } as const
+  // quality 85 (no el 75 por defecto): el JPEG de origen ya viene recomprimido,
+  // así que la segunda pasada a AVIF/WebP necesita más margen para no suavizar.
+  const common = { fill: true, quality: 85, sizes: "" } as const
 
   const mobile = getImageProps({
     ...common,
