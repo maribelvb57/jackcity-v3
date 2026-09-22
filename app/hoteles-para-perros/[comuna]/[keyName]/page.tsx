@@ -17,6 +17,9 @@ export const revalidate = 300
 // comuna/slug responde 404 sin llegar al backend.
 export const dynamicParams = false
 
+// Landing de ciudad que agrupa a las comunas (la de Santiago).
+const SANTIAGO_PATH = "/hotel-para-perros"
+
 interface PageProps {
   params: Promise<{ comuna: string; keyName: string }>
 }
@@ -52,15 +55,26 @@ function hotelSchema(hotel: HotelPage, url: string) {
   }
 }
 
-/** Migas: Inicio › Hoteles para perros en {comuna} › {hotel}. */
+/**
+ * Migas: Inicio › Hoteles para perros en Santiago › {comuna} › {hotel}.
+ *
+ * El nivel de Santiago asume que las comunas de COMUNA_PAGES están todas en
+ * Santiago, que hoy es el caso (mismo supuesto que en la página de comuna).
+ */
 function breadcrumbSchema(hotelName: string, comuna: { slug: string; name: string } | null, url: string) {
   const items: Record<string, unknown>[] = [
     { "@type": "ListItem", position: 1, name: "Inicio", item: APP_URL },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Hoteles para perros en Santiago",
+      item: `${APP_URL}${SANTIAGO_PATH}`,
+    },
   ]
   if (comuna) {
     items.push({
       "@type": "ListItem",
-      position: 2,
+      position: items.length + 1,
       name: `Hoteles para perros en ${comuna.name}`,
       item: `${APP_URL}/hoteles-para-perros/${comuna.slug}`,
     })

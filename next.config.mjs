@@ -42,6 +42,14 @@ const nextConfig = {
         // igual pero que varias herramientas de auditoría SEO marcan distinto.
         statusCode: 301,
       },
+      // La carpeta padre de las comunas no tiene página propia: en vez de un
+      // 404, lleva a la hub. Sin comodín, así que /hoteles-para-perros/{comuna}
+      // y sus fichas siguen resolviéndose normal.
+      {
+        source: "/hoteles-para-perros",
+        destination: "/hotel-para-perros",
+        statusCode: 301,
+      },
       // Cuando se renombre un artículo en Soro, su ruta anterior se agrega acá
       // con la nueva. Hoy no hay ninguna: los slugs vigentes salen del feed, y
       // un redirect escrito antes de tiempo dejaría el artículo en un 404.
