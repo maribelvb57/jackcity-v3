@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Image from "next/image"
+import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Tag, Lightbulb, HelpCircle, PawPrint } from "lucide-react"
 import { SiteNavbar } from "@/components/site-navbar"
@@ -20,6 +21,9 @@ const SECTION_ICONS: Record<ComunaSectionIcon, typeof Tag> = {
 // Acento de los íconos que acompañan a los títulos: el mismo verde agua con el
 // que los mapas destacan la comuna, para que la página se lea como un conjunto.
 const ICON_COLOR = "#17B4A0"
+
+// Landing de ciudad que agrupa a todas estas comunas.
+const SANTIAGO_PATH = "/hoteles-para-perros-santiago"
 
 interface PageProps {
   params: Promise<{ comuna: string }>
@@ -76,7 +80,13 @@ function faqSchema(page: ComunaPageData) {
   }
 }
 
-/** Migas: Inicio › Hoteles para perros en {comuna}. */
+/**
+ * Migas: Inicio › Hoteles para perros en Santiago › {comuna}.
+ *
+ * El nivel intermedio asume que todas las comunas de COMUNA_PAGES están en
+ * Santiago, que hoy es el caso. Si se suma una comuna de otra región, hay que
+ * dejar de darlo por sentado acá y en el enlace de vuelta del encabezado.
+ */
 function breadcrumbSchema(page: ComunaPageData) {
   return {
     "@context": "https://schema.org",
@@ -86,6 +96,12 @@ function breadcrumbSchema(page: ComunaPageData) {
       {
         "@type": "ListItem",
         position: 2,
+        name: "Hoteles para perros en Santiago",
+        item: `${APP_URL}${SANTIAGO_PATH}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
         name: page.title,
         item: `${APP_URL}/hoteles-para-perros/${page.slug}`,
       },
@@ -109,6 +125,15 @@ export default async function ComunaPage({ params }: PageProps) {
         <div className="w-full px-4 pt-4 pb-16 md:px-6 md:pt-6 md:pb-24">
           <article className="flex flex-col gap-4 lg:w-3/4">
             <header>
+              {/* Vuelta a la landing de ciudad: cierra el enlazado interno con
+                  /hoteles-para-perros-santiago, que baja hacia cada comuna. */}
+              <Link
+                href={SANTIAGO_PATH}
+                className="inline-block mb-2 text-xs font-medium transition-opacity hover:opacity-75"
+                style={{ color: "#1E56A0" }}
+              >
+                ‹ Hoteles para perros en Santiago
+              </Link>
               <h1 className="text-2xl md:text-3xl font-bold mb-3" style={{ color: "#0A1830" }}>
                 {page.title}
               </h1>

@@ -217,13 +217,26 @@ export function SiteFooter() {
               </div>
             ))}
 
-            {/* Landings por comuna: son el enlace interno hacia esas páginas, que
+            {/* Landings de SEO: son el enlace interno hacia esas páginas, que
                 de otro modo sólo existirían en el sitemap. */}
             <div className="md:shrink-0">
               <h4 className="text-sm font-bold mb-4 text-white">
                 Hoteles por comuna
               </h4>
               <ul className="flex flex-col gap-2.5">
+                {/* La landing de ciudad, arriba de las comunas que agrupa. */}
+                <li>
+                  <Link
+                    href="/hoteles-para-perros-santiago"
+                    aria-label="Hoteles para perros en Santiago"
+                    className="text-sm font-semibold transition-colors hover:text-white"
+                    style={{ color: "#A6AFBD" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#D4AA20")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "#A6AFBD")}
+                  >
+                    Todo Santiago
+                  </Link>
+                </li>
                 {COMUNA_PAGES.map((comuna) => (
                   <li key={comuna.slug}>
                     <Link

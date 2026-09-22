@@ -5,6 +5,8 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
+      // Todo lo público queda rastreable, incluidas las landings de SEO
+      // (/hoteles-para-perros-santiago y /hoteles-para-perros/*).
       allow: "/",
       // Áreas privadas o transaccionales: no aportan nada en resultados de
       // búsqueda y consumen presupuesto de rastreo.

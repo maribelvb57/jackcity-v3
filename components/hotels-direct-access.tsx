@@ -107,6 +107,16 @@ export function HotelsDirectAccess() {
             Conoce algunos de los hoteles caninos más populares de Santiago y
             encuentra el lugar perfecto para tu mejor amigo.
           </p>
+
+          {/* Enlace del home hacia la landing de ciudad. */}
+          <Link
+            href="/hoteles-para-perros-santiago"
+            className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold underline underline-offset-2 transition-opacity hover:opacity-75"
+            style={{ color: "#1E56A0" }}
+          >
+            Ver todos los hoteles para perros en Santiago
+            <ArrowRight size={15} aria-hidden="true" />
+          </Link>
         </div>
 
         <ul className="grid list-none grid-cols-1 gap-6 p-0 sm:grid-cols-2 lg:grid-cols-3">

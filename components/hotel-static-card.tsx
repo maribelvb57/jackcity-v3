@@ -11,15 +11,33 @@ import type { ComunaHotelCard } from "@/lib/comuna-pages"
  * A diferencia de la dinámica, no muestra "N mascotas, N noches" (no hay búsqueda
  * detrás) sino el precio por noche, y el CTA es un <Link> real: así funciona sin
  * JavaScript y Google lo sigue como enlace interno hacia la ficha del hotel.
+ *
+ * headingLevel baja el nombre del hotel cuando la tarjeta cuelga de un subtítulo
+ * (las zonas de la landing de Santiago), para no romper la jerarquía de títulos.
  */
-export function HotelStaticCard({ card }: { card: ComunaHotelCard }) {
+export function HotelStaticCard({
+  card,
+  headingLevel = "h2",
+}: {
+  card: ComunaHotelCard
+  headingLevel?: "h2" | "h3" | "h4"
+}) {
+  const Heading = headingLevel
+
   return (
     <div
       className="flex flex-col sm:flex-row rounded-2xl border overflow-hidden bg-white"
       style={{ borderColor: "#E2E8F0" }}
     >
-      {/* Photo */}
-      <div className="relative flex-shrink-0 w-full sm:w-[260px] md:w-[300px] min-h-[330px] sm:min-h-[220px]">
+      {/* Photo: lleva al mismo lugar que "Ver detalles". Fuera del orden de
+          tabulación para no repetir la parada de teclado, como en el home. */}
+      <Link
+        href={card.detailUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        tabIndex={-1}
+        className="relative flex-shrink-0 w-full sm:w-[260px] md:w-[300px] min-h-[330px] sm:min-h-[220px]"
+      >
         <Image
           src={card.imageUrl}
           alt={card.name}
@@ -27,13 +45,13 @@ export function HotelStaticCard({ card }: { card: ComunaHotelCard }) {
           className="object-cover"
           sizes="(max-width: 640px) 100vw, 300px"
         />
-      </div>
+      </Link>
 
       {/* Info */}
       <div className="flex flex-col flex-1 p-4 md:p-5 gap-2">
-        <h2 className="text-lg md:text-2xl font-bold leading-tight" style={{ color: "#0A1830" }}>
+        <Heading className="text-lg md:text-2xl font-bold leading-tight" style={{ color: "#0A1830" }}>
           {card.name}
-        </h2>
+        </Heading>
 
         {/* Score + reviews */}
         <div className="flex items-center gap-2">
@@ -88,6 +106,11 @@ export function HotelStaticCard({ card }: { card: ComunaHotelCard }) {
 
           <Link
             href={card.detailUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            // "Ver detalles" se repite en cada tarjeta: el aria-label dice de qué
+            // hotel es y avisa que abre en otra pestaña.
+            aria-label={`Ver detalles de ${card.name} (se abre en una pestaña nueva)`}
             className="flex items-center gap-1 px-5 py-3 rounded-xl font-bold text-sm flex-shrink-0 transition-opacity hover:opacity-90"
             style={{ backgroundColor: "#FFC43D", color: "#0A1830" }}
           >

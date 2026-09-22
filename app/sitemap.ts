@@ -15,6 +15,10 @@ const STATIC_PATHS = [
   "/legal/politica-de-cancelacion",
 ]
 
+// Landing de ciudad con ruta propia (no sale de COMUNA_PAGES): es la página
+// principal de Santiago y agrupa a las seis landings de comuna.
+const SANTIAGO_PATH = "/hoteles-para-perros-santiago"
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const comunaPages = COMUNA_PAGES.map(({ slug }) => ({
     url: `${appUrl}/hoteles-para-perros/${slug}`,
@@ -34,6 +38,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: path === "/" ? 1 : 0.3,
     })),
+    {
+      url: `${appUrl}${SANTIAGO_PATH}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.9,
+    },
     ...comunaPages,
     ...hotelPages,
   ]
