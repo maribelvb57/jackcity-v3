@@ -5,14 +5,16 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: {
       userAgent: "*",
-      // Todo lo público queda rastreable, incluidas las landings de SEO
-      // (/hoteles-para-perros-santiago y /hoteles-para-perros/*).
+      // Todo lo público queda rastreable, incluidas las landings de SEO:
+      // /hotel-para-perros (la de Santiago) y /hoteles-para-perros/*.
       allow: "/",
       // Áreas privadas o transaccionales: no aportan nada en resultados de
       // búsqueda y consumen presupuesto de rastreo.
       //
-      // /hotel-para-perros/ (ruta por uuid) NO va acá a propósito: se desindexa
-      // con noindex, y para que Google lea esa etiqueta necesita poder entrar.
+      // Las fichas por uuid, /hotel-para-perros/{id}, tampoco van acá a
+      // propósito: se desindexan con noindex, y para que Google lea esa etiqueta
+      // necesita poder entrar. Ojo que cuelgan de la landing de arriba, que sí
+      // se indexa: por eso no se puede bloquear esa raíz.
       disallow: [
         "/hotel/",
         "/booking/",

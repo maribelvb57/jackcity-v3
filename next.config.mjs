@@ -26,7 +26,26 @@ const nextConfig = {
       { protocol: "https", hostname: "res.cloudinary.com" },
       // Datos de ejemplo del panel de hotelero.
       { protocol: "https", hostname: "images.unsplash.com" },
+      // Imágenes destacadas de los artículos del blog: Soro las guarda acá y
+      // las publica en el <enclosure> de su feed.
+      { protocol: "https", hostname: "afocirmbqdxnkyescnev.supabase.co" },
     ],
+  },
+  async redirects() {
+    return [
+      // La landing de Santiago se publicó primero en esta ruta y quedó indexada.
+      // El 301 conserva lo que haya ganado y evita que caiga en un 404.
+      {
+        source: "/hoteles-para-perros-santiago",
+        destination: "/hotel-para-perros",
+        // 301 explícito: "permanent: true" responde 308, que Google entiende
+        // igual pero que varias herramientas de auditoría SEO marcan distinto.
+        statusCode: 301,
+      },
+      // Cuando se renombre un artículo en Soro, su ruta anterior se agrega acá
+      // con la nueva. Hoy no hay ninguna: los slugs vigentes salen del feed, y
+      // un redirect escrito antes de tiempo dejaría el artículo en un 404.
+    ]
   },
   async headers() {
     return [

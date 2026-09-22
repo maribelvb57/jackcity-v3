@@ -10,16 +10,19 @@ import type { ComunaHotelCard } from "@/lib/comuna-pages"
 import { APP_URL } from "@/lib/site-url"
 
 /**
- * Landing de ciudad: /hoteles-para-perros-santiago.
+ * Landing de ciudad: /hotel-para-perros.
  *
  * A diferencia de /hoteles-para-perros/{comuna}, esta página no es dinámica: la
  * ruta está escrita a mano y el contenido vive acá mismo, porque es una sola
  * página y su texto lleva enlaces internos a las landings de comuna (que en un
  * archivo de datos de puros strings no se podrían escribir).
+ *
+ * Convive con /hotel-para-perros/{hotelId} (las fichas por uuid, que van con
+ * noindex): son rutas hermanas, no hay layout compartido y esta sí se indexa.
  */
 
 // La ruta, en un solo lugar: la usan el canonical y los datos estructurados.
-const PATH = "/hoteles-para-perros-santiago"
+const PATH = "/hotel-para-perros"
 const TITLE = "Hoteles para perros en Santiago"
 const DESCRIPTION =
   "Hoteles y guarderías para perros en Santiago: compara opciones por comuna, revisa precios desde CLP 15.000 la noche y reserva en línea con JackCity."
@@ -264,7 +267,7 @@ const itemListSchema = {
   })),
 }
 
-export default function HotelesParaPerrosSantiagoPage() {
+export default function HotelParaPerrosPage() {
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
       <JsonLd data={faqSchema} />

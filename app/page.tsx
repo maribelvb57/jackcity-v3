@@ -12,10 +12,45 @@ import { SiteFooter } from "@/components/site-footer"
 import { JsonLd } from "@/components/json-ld"
 import { APP_URL } from "@/lib/site-url"
 
+// El title va acá y no en el layout: el del layout es el genérico de marca que
+// heredan las páginas internas (mis reservas, booking), y este es el del home,
+// que apunta a la búsqueda por la que queremos aparecer.
+//
+// "absolute" evita que se le agregue el "| JackCity" de la plantilla del layout:
+// el título ya cierra con la marca.
+const HOME_TITLE = "Hoteles para perros en Santiago | Compara y reserva – JackCity"
+const HOME_DESCRIPTION =
+  "Encuentra hoteles y estadías confiables para tu perro con JackCity. Compara opciones, revisa servicios y reserva el lugar ideal para tu peque."
+
 // Los click-ids de campaña (?gclid=, ?fbclid=) y los parámetros de búsqueda
 // generan muchas URLs para esta misma página: el canonical las consolida.
 export const metadata: Metadata = {
+  title: { absolute: HOME_TITLE },
   alternates: { canonical: "/" },
+  // openGraph y twitter se reemplazan enteros cuando una página los declara, así
+  // que se repiten los campos del layout para no perder la imagen al compartir.
+  openGraph: {
+    type: "website",
+    locale: "es_CL",
+    url: "/",
+    siteName: "JackCity",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    images: [
+      {
+        url: "/images/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "JackCity - hoteles y estadías para perros",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    images: ["/images/og-image.jpg"],
+  },
 }
 
 /**

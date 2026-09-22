@@ -1,8 +1,10 @@
 import type { Metadata } from "next"
-import Script from "next/script"
+import Image from "next/image"
+import Link from "next/link"
 import { SiteNavbar } from "@/components/site-navbar"
 import { SiteFooter } from "@/components/site-footer"
 import { JsonLd } from "@/components/json-ld"
+import { getBlogPosts, formatBlogDate } from "@/lib/blog-posts"
 import { APP_URL } from "@/lib/site-url"
 
 export const metadata: Metadata = {
@@ -19,8 +21,10 @@ export const metadata: Metadata = {
   },
 }
 
-// El widget de Soro inyecta los artículos dentro de #soro-blog. Este Blog
-// schema le declara a Google qué es la página aunque el listado llegue por JS.
+/**
+ * Blog schema. El @id lo referencian los artículos desde su BlogPosting, para
+ * declararle a Google que pertenecen a este blog.
+ */
 function blogSchema() {
   return {
     "@context": "https://schema.org",
@@ -33,7 +37,12 @@ function blogSchema() {
   }
 }
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  // El listado se arma en el servidor desde el feed de Soro. Antes lo escribía
+  // su widget JS en el navegador, y por eso Google no veía ni los títulos ni
+  // los enlaces hacia cada artículo.
+  const posts = await getBlogPosts()
+
   return (
     <main className="min-h-screen flex flex-col items-center" style={{ backgroundColor: "#28548f" }}>
       <JsonLd data={blogSchema()} />
@@ -52,28 +61,80 @@ export default function BlogPage() {
             </p>
           </header>
 
-          {/*
-            Punto de montaje del widget de Soro. El contenido lo escribe el
-            script de terceros, no React: suppressHydrationWarning evita que la
-            hidratación reclame por los nodos que aparecen después.
-          */}
-          <div className="mx-auto max-w-3xl mt-10 md:mt-14">
-            <div id="soro-blog" suppressHydrationWarning />
-          </div>
+          {posts.length === 0 ? (
+            // El feed puede fallar o venir vacío: la página sigue en pie.
+            <p className="mx-auto mt-12 max-w-3xl text-center text-sm" style={{ color: "#6B7280" }}>
+              Por ahora no hay artículos publicados. Vuelve pronto.
+            </p>
+          ) : (
+            <ul className="mx-auto mt-10 grid max-w-5xl list-none grid-cols-1 gap-6 p-0 md:mt-14 sm:grid-cols-2 lg:grid-cols-3">
+              {posts.map((post) => (
+                <li key={post.slug}>
+                  <article
+                    className="flex h-full flex-col overflow-hidden rounded-2xl border bg-white"
+                    style={{ borderColor: "#E2E8F0" }}
+                  >
+                    {post.imageUrl && (
+                      // Fuera del orden de tabulación: el título de abajo ya
+                      // lleva al mismo artículo.
+                      <Link
+                        href={`/blog/${post.slug}`}
+                        tabIndex={-1}
+                        className="relative block aspect-[3/2] w-full"
+                      >
+                        <Image
+                          src={post.imageUrl}
+                          alt={post.title}
+                          fill
+                          sizes="(min-width: 1024px) 373px, (min-width: 640px) 50vw, 100vw"
+                          className="object-cover"
+                        />
+                      </Link>
+                    )}
+
+                    <div className="flex flex-1 flex-col p-5">
+                      {post.publishedAt && (
+                        <time
+                          dateTime={post.publishedAt}
+                          className="text-xs"
+                          style={{ color: "#8A94A6" }}
+                        >
+                          {formatBlogDate(post.publishedAt)}
+                        </time>
+                      )}
+
+                      <h2 className="mt-2 text-lg font-bold leading-tight" style={{ color: "#0A1830" }}>
+                        <Link
+                          href={`/blog/${post.slug}`}
+                          className="transition-opacity hover:opacity-75"
+                        >
+                          {post.title}
+                        </Link>
+                      </h2>
+
+                      <p className="mt-2 text-sm leading-relaxed" style={{ color: "#4B5563" }}>
+                        {post.description}
+                      </p>
+
+                      <Link
+                        href={`/blog/${post.slug}`}
+                        tabIndex={-1}
+                        aria-hidden="true"
+                        className="mt-4 inline-block text-sm font-bold transition-opacity hover:opacity-75"
+                        style={{ color: "#1E56A0" }}
+                      >
+                        Leer más ›
+                      </Link>
+                    </div>
+                  </article>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <SiteFooter />
       </div>
-
-      {/*
-        Widget de blog de Soro (app.trysoro.com). Va con afterInteractive para
-        que #soro-blog ya exista en el DOM cuando el script corra.
-      */}
-      <Script
-        id="soro-blog-embed"
-        src="https://app.trysoro.com/api/embed/8613b1dd-22b7-4183-841f-2e2dbe861798"
-        strategy="afterInteractive"
-      />
     </main>
   )
 }

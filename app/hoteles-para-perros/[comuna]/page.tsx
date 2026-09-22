@@ -22,8 +22,8 @@ const SECTION_ICONS: Record<ComunaSectionIcon, typeof Tag> = {
 // que los mapas destacan la comuna, para que la página se lea como un conjunto.
 const ICON_COLOR = "#17B4A0"
 
-// Landing de ciudad que agrupa a todas estas comunas.
-const SANTIAGO_PATH = "/hoteles-para-perros-santiago"
+// Landing de ciudad que agrupa a todas estas comunas (la de Santiago).
+const SANTIAGO_PATH = "/hotel-para-perros"
 
 interface PageProps {
   params: Promise<{ comuna: string }>
@@ -126,7 +126,7 @@ export default async function ComunaPage({ params }: PageProps) {
           <article className="flex flex-col gap-4 lg:w-3/4">
             <header>
               {/* Vuelta a la landing de ciudad: cierra el enlazado interno con
-                  /hoteles-para-perros-santiago, que baja hacia cada comuna. */}
+                  /hotel-para-perros, que baja hacia cada comuna. */}
               <Link
                 href={SANTIAGO_PATH}
                 className="inline-block mb-2 text-xs font-medium transition-opacity hover:opacity-75"

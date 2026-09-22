@@ -110,7 +110,7 @@ export function HotelsDirectAccess() {
 
           {/* Enlace del home hacia la landing de ciudad. */}
           <Link
-            href="/hoteles-para-perros-santiago"
+            href="/hotel-para-perros"
             className="mt-3 inline-flex items-center gap-1.5 text-sm font-bold underline underline-offset-2 transition-opacity hover:opacity-75"
             style={{ color: "#1E56A0" }}
           >

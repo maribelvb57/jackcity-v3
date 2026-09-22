@@ -227,7 +227,7 @@ export function SiteFooter() {
                 {/* La landing de ciudad, arriba de las comunas que agrupa. */}
                 <li>
                   <Link
-                    href="/hoteles-para-perros-santiago"
+                    href="/hotel-para-perros"
                     aria-label="Hoteles para perros en Santiago"
                     className="text-sm font-semibold transition-colors hover:text-white"
                     style={{ color: "#A6AFBD" }}

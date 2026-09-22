@@ -121,3 +121,89 @@
     border-color: var(--filter-border);
   }
 }
+
+/*
+  Cuerpo de los artículos del blog. El HTML lo entrega Soro (h2, h3, p, ul, a,
+  strong) y llega sin clases, así que los estilos van por etiqueta dentro de
+  .blog-content en vez de con utilidades de Tailwind.
+*/
+.blog-content {
+  color: #333;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.blog-content h2 {
+  color: #0A1830;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-top: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.blog-content h3 {
+  color: #0A1830;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-top: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.blog-content p {
+  margin-bottom: 1.25rem;
+}
+
+.blog-content ul,
+.blog-content ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.5rem;
+}
+
+.blog-content ul {
+  list-style: disc;
+}
+
+.blog-content ol {
+  list-style: decimal;
+}
+
+.blog-content li {
+  margin-bottom: 0.5rem;
+}
+
+.blog-content a {
+  color: #1E56A0;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.blog-content a:hover {
+  opacity: 0.75;
+}
+
+.blog-content strong {
+  color: #0A1830;
+  font-weight: 700;
+}
+
+.blog-content blockquote {
+  border-left: 3px solid #17B4A0;
+  color: #4B5563;
+  font-style: italic;
+  margin: 1.5rem 0;
+  padding-left: 1rem;
+}
+
+.blog-content img {
+  border-radius: 0.75rem;
+  height: auto;
+  margin: 1.5rem 0;
+  max-width: 100%;
+}
+
+.blog-content :first-child {
+  margin-top: 0;
+}

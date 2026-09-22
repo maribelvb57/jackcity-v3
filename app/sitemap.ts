@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next"
 import { HOTEL_STATIC_PAGES } from "@/lib/hotel-static-pages"
 import { COMUNA_PAGES } from "@/lib/comuna-pages"
+import { getBlogPosts } from "@/lib/blog-posts"
 import { APP_URL as appUrl } from "@/lib/site-url"
 
 // Páginas públicas sin parámetros. Quedan fuera a propósito: el área de hotelero
@@ -16,10 +17,22 @@ const STATIC_PATHS = [
 ]
 
 // Landing de ciudad con ruta propia (no sale de COMUNA_PAGES): es la página
-// principal de Santiago y agrupa a las seis landings de comuna.
-const SANTIAGO_PATH = "/hoteles-para-perros-santiago"
+// principal de Santiago y agrupa a las seis landings de comuna. La ruta no
+// lleva la palabra "santiago"; las fichas por uuid cuelgan de ella.
+const SANTIAGO_PATH = "/hotel-para-perros"
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Los artículos salen del feed de Soro, que es donde viven. lastModified usa
+  // su fecha de publicación: el feed no expone una fecha de última edición por
+  // artículo, así que es el dato real disponible.
+  const posts = await getBlogPosts()
+  const blogPosts = posts.map((post) => ({
+    url: `${appUrl}/blog/${post.slug}`,
+    ...(post.publishedAt && { lastModified: new Date(post.publishedAt) }),
+    changeFrequency: "monthly" as const,
+    priority: 0.6,
+  }))
+
   const comunaPages = COMUNA_PAGES.map(({ slug }) => ({
     url: `${appUrl}/hoteles-para-perros/${slug}`,
     changeFrequency: "monthly" as const,
@@ -45,5 +58,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     },
     ...comunaPages,
     ...hotelPages,
+    ...blogPosts,
   ]
 }
