@@ -1,4 +1,5 @@
 import { API_BASE } from "./config"
+import { ApiError } from "@/lib/api/types"
 import type { ApiFetch } from "@/lib/api/types"
 import type { CancellationPolicy } from "@/lib/api/hotels"
 
@@ -404,4 +405,39 @@ export async function removeBookingService(bookingServiceId: number, apiFetch: A
   await apiFetch(`/api/bookings/removeService/${bookingServiceId}`, {
     method: "DELETE",
   })
+}
+
+// Lectura pública de una reserva para la página de calificación (/calificar/[bookingId]).
+// No requiere sesión: el bookingId (uuid) de la URL es la única credencial.
+// `canReview` lo resuelve el backend; el frontend no decide si la reserva es calificable.
+export type PublicBookingReviewReason =
+  | "ALREADY_REVIEWED"
+  | "NOT_COMPLETED"
+  | "CANCELLED"
+  | "EXPIRED"
+
+export type PublicBookingForReview = {
+  bookingId: string
+  // Número de reserva legible ("JC-1042"): da contexto en una página sin sesión.
+  number: string
+  canReview: boolean
+  // Sólo viene cuando canReview es false; decide qué mensaje se pinta.
+  reason: PublicBookingReviewReason | null
+  hotel: {
+    name: string
+    mainPhotoUrl: string | null
+  }
+  checkinDate: string
+  checkoutDate: string
+  pets: { name: string }[]
+  // included decide si se pide nota de transporte además de la de alojamiento.
+  transport: {
+    included: boolean
+  }
+}
+
+export async function getPublicBookingForReview(bookingId: string): Promise<PublicBookingForReview> {
+  const res = await fetch(`${API_BASE}/api/bookings/${bookingId}/public`)
+  if (!res.ok) throw new ApiError(`GET /api/bookings/${bookingId}/public failed: ${res.status}`, res.status, null)
+  return res.json()
 }
